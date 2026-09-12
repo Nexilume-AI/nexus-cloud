@@ -1,0 +1,19 @@
+# Compose >= 2.24.4. Set NEXUS_ORIGIN=https://your-public-domain before FIRST start.
+# Use together with compose.yaml; Caddy obtains/renews a public certificate.
+services:
+  postgres:
+    ports: !override
+      - "80:80"
+      - "443:443"
+  gateway:
+    image: caddy:2-alpine
+    entrypoint: [caddy, run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+    environment:
+      NEXUS_ORIGIN: ${NEXUS_ORIGIN:?Set an HTTPS origin before first initialization}
+    volumes: !override
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  caddy-data:
+  caddy-config:

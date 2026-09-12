@@ -1,0 +1,20 @@
+**
+!nexus_server/
+!nexus_server/**
+!nexus_web/
+!nexus_web/**
+**/__pycache__
+**/*.pyc
+**/node_modules
+**/dist
+**/.env*
+**/*.pem
+**/*.key
+**/*.log
+**/.local
+**/.tmp
+**/qa-artifacts
+**/test-results
+**/playwright-report
+**/.git
+# Enterprise directories are deliberately not silently filtered: Dockerfile rejects them.

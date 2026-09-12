@@ -1,0 +1,55 @@
+@media (min-width: 1024px) {
+  .agent-display-workspace {
+    grid-template-columns: min(var(--run-history-width, 280px), max(240px, calc(100vw - 780px))) minmax(0, 1fr) min(var(--run-context-width, 360px), max(280px, calc(100vw - 660px)));
+  }
+}
+.run-history-resizer::after,
+.run-context-resizer::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: #d6d6cf;
+}
+.run-context-resizer:hover::after,
+.run-context-resizer:focus-visible::after,
+.run-history-resizer:hover::after,
+.run-history-resizer:focus-visible::after { background: #52783b; }
+.run-context-resizer:focus-visible { outline: 2px solid #52783b; outline-offset: -2px; }
+.run-history-resizer:focus-visible { outline: none; }
+
+.run-files-container { container-type: inline-size; min-width: 0; }
+.run-files-split { display: grid; min-width: 0; align-items: start; }
+.run-files-divider { display: none; }
+.run-files-preview--empty, .run-files-split--selected .run-files-directory { display: none; }
+.run-files-back { display: inline-flex; align-items: center; }
+@container (min-width: 560px) {
+  .run-files-split {
+    grid-template-columns: minmax(180px, var(--file-directory-width, 30%)) 16px minmax(0, 1fr);
+    min-height: 420px;
+  }
+  .run-files-split--selected .run-files-directory { display: grid; }
+  .run-files-preview--empty { display: block; }
+  .run-files-back { display: none; }
+  .run-files-divider {
+    display: block; align-self: stretch; cursor: col-resize; touch-action: none;
+    position: relative; min-height: 420px;
+  }
+  .run-files-divider::after {
+    content: ""; position: absolute; left: 7px; top: 0; bottom: 0;
+    width: 2px; background: #deded8; border-radius: 2px;
+  }
+  .run-files-divider:hover::after, .run-files-divider:focus-visible::after { background: #52783b; }
+  .run-files-divider:focus-visible { outline: 2px solid #52783b; outline-offset: -3px; }
+}
+.run-files-layout--list, .run-files-layout--preview { grid-template-columns: minmax(0, 1fr); }
+.run-files-layout--list .run-files-directory { display: grid; }
+.run-files-layout--list .run-files-preview,
+.run-files-layout--list .run-files-divider,
+.run-files-layout--preview .run-files-directory,
+.run-files-layout--preview .run-files-divider { display: none; }
+.run-files-layout--preview .run-files-preview { display: block; }
+.run-files-layout--preview .run-files-back { display: inline-flex; }

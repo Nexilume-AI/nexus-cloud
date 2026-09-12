@@ -1,0 +1,38 @@
+.python-supply { background: var(--paper, #f5f5f0); border: 1px solid var(--border, #d6d8cf); margin-block: 24px; }
+.python-supply__intro { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 24px; }
+.python-supply__intro h2 { font-size: 22px; margin: 4px 0 8px; color: var(--ink, #17221b); }
+.python-supply__intro p:not(.agent-control-eyebrow), .python-supply__notice, .python-upload p { font-size: 16px; line-height: 1.6; }
+.python-supply__node { display: grid; place-items: center; height: 48px; border: 1px solid #24362b; clip-path: polygon(12% 0,88% 0,100% 25%,100% 75%,88% 100%,12% 100%,0 75%,0 25%); background: #e3ebdd; color: #244729; }
+.python-supply__support { border-top: 1px solid #d6d8cf; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 24px; }
+.python-supply__support a { display: inline-flex; align-items: center; gap: 8px; color: #285b32; min-height: 44px; }
+.python-supply__support > span { align-self: center; font-size: 13px; }
+.python-supply__notice, .python-supply > p { padding: 12px 24px; }
+.python-supply__cleanup { border-top: 1px solid var(--border, #d6d8cf); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 24px; font-size: 14px; }
+.python-supply__delete-list { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; }
+.python-build { border-top: 1px solid #d6d8cf; background: white; padding: 20px 24px; }
+.python-build__identity, .python-build__actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.python-build__identity strong { overflow-wrap: anywhere; }
+.python-build__state { margin-left: auto; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; font-size: 12px; color: #244729; }
+.python-build__steps { display: flex; list-style: none; flex-wrap: wrap; margin: 18px 0; padding: 0; gap: 16px; }
+.python-build__steps li { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #60685e; }
+.python-build__steps li > span { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #929b8c; border-radius: 50%; }
+.python-build__steps li.is-reached { color: #244729; }
+.python-build__steps li.is-reached > span { background: #e2f3ce; border-color: #41653b; }
+.python-build__steps li[aria-current] { font-weight: 700; }
+.python-build details { border-top: 1px solid #e0e3db; margin-top: 16px; padding-top: 6px; }
+.python-build summary, .python-upload summary { min-height: 44px; padding-block: 10px; cursor: pointer; }
+.python-build dd { margin: 0 0 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; overflow-wrap: anywhere; }
+.python-build dt { font-size: 13px; color: #55624e; }
+.python-build pre { max-height: 200px; overflow: auto; font-size: 12px; }
+.python-build p[role=status] { display: flex; align-items: center; gap: 8px; }
+.python-build p[role=alert], .python-upload p[role=alert] { color: #932c2c; background: #fff5f3; padding: 12px; overflow-wrap: anywhere; }
+.python-upload { display: grid; gap: 20px; }
+.python-upload label { display: grid; gap: 8px; font-size: 16px; font-weight: 600; }
+.python-upload label > span { font-size: 13px; font-weight: 400; color: #54634f; }
+.python-upload input { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid #bfc8b8; background: white; color: #17221b; }
+.python-upload__file { padding: 20px; background: #f2f5ed; border: 1px dashed #6f8266; }
+.python-upload__secret { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; margin: 12px 0; }
+.python-supply .btn, .python-upload .btn { min-height: 44px; }
+@media (max-width: 1024px) { .python-supply__intro { grid-template-columns: 40px minmax(0,1fr); } .python-supply__intro > button { grid-column: 2; justify-self: start; } }
+@media (max-width: 640px) { .python-supply__intro, .python-build { padding: 16px; } .python-supply__support { padding: 12px 16px; } .python-supply__intro > button { grid-column: 1 / -1; width: 100%; } .python-build__state { margin-left: 0; } .python-upload__secret { grid-template-columns: minmax(0,1fr) 44px; } .python-upload__secret input:first-child { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .python-supply *, .python-upload * { animation: none !important; transition: none !important; } }

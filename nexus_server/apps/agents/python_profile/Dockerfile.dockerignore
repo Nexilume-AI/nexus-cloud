@@ -1,0 +1,13 @@
+# Only trusted SDK sources belong in this profile build context.
+**
+!nexus_openwrt/
+!nexus_openwrt/sdk/
+!nexus_openwrt/sdk/nexus-agent-sdk-python/
+!nexus_openwrt/sdk/nexus-agent-sdk-python/pyproject.toml
+!nexus_openwrt/sdk/nexus-agent-sdk-python/README.md
+!nexus_openwrt/sdk/nexus-agent-sdk-python/LICENSE
+!nexus_openwrt/sdk/nexus-agent-sdk-python/src/
+!nexus_openwrt/sdk/nexus-agent-sdk-python/src/**
+**/__pycache__/**
+**/*.pyc
+**/*.egg-info/**

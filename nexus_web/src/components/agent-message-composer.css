@@ -1,0 +1,18 @@
+.agent-message-composer {
+  container: message-composer / inline-size;
+}
+
+/* The complete message surface owns focus, not a second rectangle inside it. */
+.agent-message-composer textarea:focus-visible {
+  outline: none;
+}
+
+.agent-message-composer .composer-context-usage {
+  display: none;
+}
+
+@container message-composer (min-width: 480px) {
+  .agent-message-composer .composer-context-usage {
+    display: inline;
+  }
+}

@@ -1,0 +1,4 @@
+# Real SDK MCP fixture dependency. Not required by the Cloud host itself.
+# Compile with both runtime/build locks as constraints to prevent test extras
+# from silently changing the versions under production-host acceptance.
+fastmcp>=3.0,<4

@@ -1,0 +1,6 @@
+{$NEXUS_ORIGIN} {
+    reverse_proxy 127.0.0.1:18080 {
+        header_up X-Forwarded-Proto https
+        header_up Host {http.request.host}
+    }
+}

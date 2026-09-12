@@ -1,0 +1,14 @@
+.monitoring-status { border: 1px solid var(--border, #d5d8d1); padding: 1rem; background: var(--paper, #f5f6f0); min-width: 0; }
+.monitoring-status p { font-size: 16px; margin: .6rem 0; }
+.monitoring-status small { display: block; margin-top: .8rem; }
+.monitoring-controls, .monitoring-pager { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; padding: .6rem 0; }
+.monitoring-controls label { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
+.monitoring-controls .btn, .monitoring-pager .btn { min-height: 44px; }
+.monitoring-controls input { min-width: 0; }
+.monitoring-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: .8rem; }
+.monitoring-grid dt { font-family: "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .06em; font-size: 12px; }
+.monitoring-grid dd { margin: .4rem 0 0; overflow-wrap: anywhere; }
+.monitoring-request { padding: .8rem 0; border-top: 1px solid #d5d8d1; overflow-wrap: anywhere; }
+.monitoring-pager span { margin-right: auto; }
+@media (max-width: 1024px) { .monitoring-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .monitoring-grid { grid-template-columns: 1fr; } .monitoring-controls label, .monitoring-controls input { width: 100%; } }

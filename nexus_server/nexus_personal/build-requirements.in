@@ -1,0 +1,5 @@
+# Explicit build tools for dependencies without wheels (currently http-ece).
+# Install the hashed build lock first, then runtime with --no-build-isolation.
+setuptools>=83,<84
+wheel>=0.45,<1
+packaging>=25,<27

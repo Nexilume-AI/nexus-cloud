@@ -1,0 +1,33 @@
+# Local credentials and installation state
+.env
+.env.*
+!.env.example
+host.json
+installation.json
+infrastructure*.json
+*.key
+*.pem
+*.pfx
+*.p12
+*.sqlite3
+*.db
+*.log
+
+# Python, JavaScript and local builds
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.local/
+.DS_Store
+Thumbs.db

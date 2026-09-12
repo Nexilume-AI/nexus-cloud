@@ -1,0 +1,17 @@
+.runtime-image-library { min-width: 0; }
+.runtime-image-library > p { margin: .75rem 0; }
+.runtime-image-row { align-items: start; gap: .75rem; }
+.runtime-image-copy { flex: 1; min-width: 0; }
+.runtime-image-copy strong, .runtime-image-reference { overflow-wrap: anywhere; }
+.runtime-image-copy small { display: block; margin-top: .35rem; }
+.runtime-image-status { display: flex; flex-wrap: wrap; gap: .4rem .75rem; margin-top: .5rem; font: 11px "IBM Plex Mono", monospace; }
+.runtime-image-status > span { border: 1px solid var(--line); padding: .2rem .4rem; }
+.runtime-image-deployed::before { content: "●"; color: var(--lume); margin-right: .35rem; }
+.runtime-image-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.runtime-image-actions .btn { min-height: 40px; }
+@media (max-width: 767px) {
+  .runtime-image-row { flex-wrap: wrap; }
+  .runtime-image-copy { flex-basis: calc(100% - 3rem); }
+  .runtime-image-actions { width: 100%; justify-content: flex-end; }
+  .runtime-image-actions .btn { min-height: 44px; }
+}
