@@ -6,11 +6,11 @@
   "Not deployed": "未部署",
   "Usage unavailable · Refresh to check": "无法使用·刷新查看",
   "Set default": "设置默认值",
-  "Delete image": "删除图像",
-  "Delete unused image?": "删除未使用的图像？",
-  "Remove this image from the Agent’s available versions. This does not stop or redeploy the Agent.": "从智能体的可用版本中删除此图像。这不会停止或重新部署智能体。",
-  "Build, deployment and audit history are retained. Registry images, stored archives and host Docker caches are not erased.": "保留构建、部署和审核历史记录。注册表镜像、存储的档案和主机 Docker 缓存不会被删除。",
+  "Delete image": "删除镜像",
+  "Delete unused image?": "删除未使用的镜像？",
+  "Remove this image from the Agent’s available versions. This does not stop or redeploy the Agent.": "从智能体的可用版本中删除此镜像。这不会停止或重新部署智能体。",
+  "Build, deployment and audit history are retained. Registry images, stored archives and host Docker caches are not erased.": "构建、部署和审计历史记录将保留。镜像仓库中的镜像、已存储的归档文件及宿主机上的 Docker 缓存不会被删除。",
   "The default selection will move to the existing production deployment, or be cleared if none exists. No new deployment will start.": "默认选择将移至现有生产部署，或者如果不存在则清除。不会开始新的部署。",
   "Unversioned": "无版本",
-  "Delete image {{0}}": "删除图像 {{0}}"
+  "Delete image {{0}}": "删除镜像 {{0}}"
 }
