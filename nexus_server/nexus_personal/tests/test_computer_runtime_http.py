@@ -8,6 +8,7 @@ from datetime import timedelta
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
+from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from django.contrib.auth import get_user_model
@@ -225,3 +226,29 @@ class PersonalComputerRuntimeTests(TestCase):
         response = self.client.post("/api/v1/computers/pairing-codes/", {"name": "x" * 129}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(WorkspaceConnection.objects.count(), 0)
+
+    def test_connection_check_records_offline_failure_and_runtime_facts(self):
+        device, key = self.pair()
+        url = f"/api/v1/workspace-connections/{device.connection_id}/test/"
+        response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "failed")
+        device.connection.refresh_from_db()
+        self.assertIsNotNone(device.connection.last_test_at)
+        self.assertTrue(device.connection.last_test_error)
+        with patch.object(runtime, "execute_runtime_command", return_value={"facts": {"os": "Darwin"}}) as execute:
+            response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.data["status"], "succeeded")
+        self.assertEqual(execute.call_args.kwargs["operation"], "workspace.test")
+        device.connection.refresh_from_db()
+        self.assertEqual(device.connection.metadata["last_facts"], {"os": "Darwin"})
+        self.assertEqual(device.connection.last_test_error, "")
+
+    def test_connection_check_rejects_foreign_owner_before_dispatch(self):
+        device, key = self.pair()
+        other = get_user_model().objects.create_user(username="check-other")
+        WorkspaceConnection.objects.filter(pk=device.connection_id).update(created_by=other)
+        with patch.object(runtime, "execute_runtime_command") as execute:
+            response = self.client.post(f"/api/v1/workspace-connections/{device.connection_id}/test/", {}, format="json")
+        self.assertEqual(response.status_code, 404)
+        execute.assert_not_called()

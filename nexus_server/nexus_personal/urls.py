@@ -10,7 +10,7 @@ from apps.accounts.views import (
 )
 from .http import PersonalBootstrapView, PersonalContextView
 from .credential_views import RouterCredentialListView, RouterCredentialRevokeView
-from apps.workspaces.connection_views import WorkspaceConnectionDetailView, WorkspaceConnectionListView
+from apps.workspaces.connection_views import WorkspaceConnectionDetailView, WorkspaceConnectionListView, WorkspaceConnectionTestView
 from .tool_recovery_views import ToolRecoveryView
 from .provider_recovery_views import PersonalLegacyProviderListView, PersonalLegacyProviderDetailView
 from apps.agents.run_capacity import PrivateRunCapacityRecoveryView
@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/v1/workspace-terminal-sessions/<uuid:session_id>/tool-config/recovery/", ToolRecoveryView.as_view(), name="personal-tool-recovery"),
     path("api/v1/workspace-connections/", WorkspaceConnectionListView.as_view(), name="workspace-connection-list"),
     path("api/v1/workspace-connections/<uuid:connection_id>/", WorkspaceConnectionDetailView.as_view(), name="workspace-connection-detail"),
+    path("api/v1/workspace-connections/<uuid:connection_id>/test/", WorkspaceConnectionTestView.as_view(), name="workspace-connection-test"),
     path("api/v1/routers/<uuid:router_id>/credentials/", RouterCredentialListView.as_view(), name="personal-router-credentials"),
     path("api/v1/routers/<uuid:router_id>/credentials/<uuid:credential_id>/revoke/", RouterCredentialRevokeView.as_view(), name="personal-router-credential-revoke"),
     path("api/v1/public/bootstrap/", PersonalBootstrapView.as_view(), name="public-bootstrap"),

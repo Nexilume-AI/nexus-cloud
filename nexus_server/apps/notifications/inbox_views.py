@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.crypto import encrypt_secret
+from apps.common.renderers import EventStreamRenderer
 from apps.common.request_context import get_tenant_from_request
 
 from .inbox import ACTIVE_STATES, FINAL_STATES, navigation_for, receipt_for, refresh_item, require_personal_user, serialize_item, visible_items
@@ -399,6 +400,8 @@ class PushSubscriptionTestView(APIView):
 
 
 class InboxStreamView(APIView):
+    renderer_classes = [*APIView.renderer_classes, EventStreamRenderer]
+
     def get(self, request):
         require_personal_user(request)
         get_tenant_from_request(request)

@@ -1,7 +1,8 @@
 """Unchanged Computer detail HTTP contract."""
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializers import WorkspaceConnectionSerializer, WorkspaceConnectionUpdateSerializer
+from .serializers import WorkspaceConnectionSerializer, WorkspaceConnectionUpdateSerializer, WorkspaceConnectionTestSerializer
+from .connection_check import check_workspace_connection
 from .connection_core import get_workspace_connection, list_workspace_connections
 from .connection_management import update_workspace_connection, delete_workspace_connection
 
@@ -10,6 +11,12 @@ class WorkspaceConnectionListView(APIView):
     def get(self, request):
         connections = list_workspace_connections(request=request)
         return Response(WorkspaceConnectionSerializer(connections, many=True).data)
+
+
+class WorkspaceConnectionTestView(APIView):
+    def post(self, request, connection_id):
+        result = check_workspace_connection(request=request, connection_id=connection_id)
+        return Response(WorkspaceConnectionTestSerializer(result).data)
 
 
 class WorkspaceConnectionDetailView(APIView):
