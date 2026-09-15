@@ -30,7 +30,9 @@ class InboxStreamHTTPTests(TestCase):
                 await iterator.aclose()
 
         self.assertIn(b"event: ready\n", async_to_sync(first_event)())
-        response.close()
+        # The test client closes the response when its async iterator is closed.
+        # A second close would send request_finished inside TestCase's transaction.
+        self.assertTrue(response.closed)
 
     def test_stream_does_not_allow_anonymous_subscribers(self):
         response = APIClient().get("/api/v1/inbox/stream/", HTTP_ACCEPT="text/event-stream")

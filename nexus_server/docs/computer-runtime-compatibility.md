@@ -32,6 +32,11 @@ The terminal remains a pipe-based shell, not a PTY. SOCKS support requires a rea
 - Wheel and sdist pass metadata and source-content verification.
 - [All seven SDK CI jobs passed](https://github.com/Nexilume-AI/nexus-agent-sdk-python/actions/runs/34965351268): Python 3.12/3.14 on macOS, Linux and Windows, plus Python 3.9 core installation. This does not establish real macOS system-proxy or launchd acceptance.
 
-### Enterprise verification still pending
+### Enterprise verification completed (2026-09-15)
 
-The initial PostgreSQL suite passed 25 of 27 tests. Two upload tests could not write to the read-only test mount. A rerun moved uploads to `/tmp` and added an Enterprise SSE regression (28 tests total), but Docker Desktop exited before a final result was captured. Subsequent startup attempts failed on an inaccessible `dockerInference` socket. The final Enterprise rerun and removal of the dedicated `nexus-pr5-review-postgres` test container remain pending until Docker is available. No production database was used.
+- Enterprise: all 28 Runtime/Inbox/SSE tests passed against an isolated PostgreSQL database after full migrations. Runtime uploads used a writable temporary directory.
+- Community: all 11 signed enrollment, connection-check, ownership and SSE tests passed again against the exported Community source.
+- Corrected SSE regression-test cleanup: the Django test client already closes the response through its async iterator. Closing it again emitted `request_finished` inside the test transaction and invalidated the PostgreSQL connection used by subsequent tests. Both suites now assert that the response was closed by the client.
+- Docker Desktop was restored by backing up and recreating stale socket-only runtime directories. The dedicated test database container was removed after verification; Docker remains available. No production database was used.
+
+The existing install-then-pair workflow and all Runtime authentication behavior remain unchanged.
