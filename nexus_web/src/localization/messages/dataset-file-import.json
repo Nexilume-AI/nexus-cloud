@@ -1,0 +1,20 @@
+{
+  "File is empty or exceeds the import size limit.": "文件为空或超出导入大小限制。",
+  "Uploading and scanning…": "正在上传和扫描...",
+  "Imported · checks passed": "已导入·检查已通过",
+  "File import is unavailable. Refresh or upgrade the Cloud server.": "文件导入不可用。刷新或升级云服务器。",
+  "Import files": "导入文件",
+  "Import images or text files into this collection. Existing permissions, storage limits and release rules still apply.": "将图像或文本文件导入到此集合中。现有权限、存储限制和发布规则仍然适用。",
+  "Choose files": "选择文件",
+  "Ready to import": "准备导入",
+  "· Up to": "· 最多",
+  "MiB per file; images up to": "每个文件 MiB；图像高达",
+  "MiB.": "MiB。",
+  "PDF, Office, archives and executable formats require a dedicated scanner and are not accepted yet.": "PDF、Office、档案和可执行格式需要专用扫描仪，尚未被接受。",
+  "I have permission to store these files and share them with this collection's authorized users. Publication remains a separate action.": "我有权存储这些文件并与该集合的授权用户共享它们。出版仍然是一项单独的行动。",
+  "imported ·": "进口·",
+  "remaining": "剩余",
+  "Import failed. Retry this file.": "导入失败。重试此文件。",
+  "Importing…": "正在导入...",
+  "Retry remaining files": "重试剩余文件"
+}

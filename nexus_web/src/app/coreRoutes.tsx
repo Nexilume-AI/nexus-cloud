@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { lazy, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -21,6 +22,7 @@ const RoutersPage = lazy(() => import("../pages/RoutersPage").then((module) => (
 const SettingsPage = lazy(() => import("../pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 
 function OverviewRoute() {
+  useLocale();
   const auth = useAuth();
   const distribution = useApplicationDistribution();
   if (auth.status === "checking") return <PageLoader />;
@@ -28,9 +30,10 @@ function OverviewRoute() {
 }
 
 function LoginEntryRoute() {
+  useLocale();
   const auth = useAuth();
   useEffect(() => {
-    if (auth.status === "anonymous") auth.requestLogin("Sign in to open your Nexilume AI workspace.");
+    if (auth.status === "anonymous") auth.requestLogin(t("Sign in to open your Nexilume AI workspace."));
   }, [auth.requestLogin, auth.status]);
   return <OverviewRoute />;
 }
@@ -40,30 +43,30 @@ export const coreWorkspaceRoutes: ApplicationRoute[] = [
   { path: "/login", element: <LoginEntryRoute /> },
   { path: "/gateway", element: <Navigate to="/remote-workspaces" replace /> },
   { path: "/playground", element: <Navigate to="/remote-workspaces" replace /> },
-  { path: "/model-pool", element: <ProtectedRoute reason="Sign in to view published model capacity, deployments, and service health."><ModelPoolPage /></ProtectedRoute> },
+  { path: "/model-pool", element: <ProtectedRoute reason={"Sign in to view published model capacity, deployments, and service health."}><ModelPoolPage /></ProtectedRoute> },
   { path: "/models", element: <Navigate to="/model-pool" replace /> },
   { path: "/deployments", element: <Navigate to="/model-pool" replace /> },
-  { path: "/routers", element: <ProtectedRoute reason="Sign in to view and manage workspace routing policies."><RoutersPage /></ProtectedRoute> },
-  { path: "/agents/:agentId/:section?", element: <ProtectedRoute reason="Sign in to control this Agent runtime, access, observability, and publication."><AgentControlPage /></ProtectedRoute> },
-  { path: "/agents", element: <ProtectedRoute reason="Sign in to view your agents, deployments, logs, and publishing settings."><AgentsPage /></ProtectedRoute> },
-  { path: "/data-assets", element: <ProtectedRoute reason="Sign in to access workspace collections, files, and releases."><DataAssetsPage /></ProtectedRoute> },
+  { path: "/routers", element: <ProtectedRoute reason={"Sign in to view and manage workspace routing policies."}><RoutersPage /></ProtectedRoute> },
+  { path: "/agents/:agentId/:section?", element: <ProtectedRoute reason={"Sign in to control this Agent runtime, access, observability, and publication."}><AgentControlPage /></ProtectedRoute> },
+  { path: "/agents", element: <ProtectedRoute reason={"Sign in to view your agents, deployments, logs, and publishing settings."}><AgentsPage /></ProtectedRoute> },
+  { path: "/data-assets", element: <ProtectedRoute reason={"Sign in to access workspace collections, files, and releases."}><DataAssetsPage /></ProtectedRoute> },
   { path: "/remote-workspaces", element: <ProtectedRoute
-                reason="Sign in to open Computer and project-scoped execution sessions."
+                reason={"Sign in to open Computer and project-scoped execution sessions."}
                 anonymousFallback={<RemoteWorkspacePreview />}
               >
                 <PlaygroundPage />
               </ProtectedRoute> },
-  { path: "/mobile", element: <ProtectedRoute reason="Sign in to view and manage paired execution devices."><MobileDevicesPage /></ProtectedRoute> },
-  { path: "/openwrt-routers", element: <ProtectedRoute reason="Sign in to register and manage your private OpenWrt Routers."><OpenWrtRoutersPage /></ProtectedRoute> },
-  { path: "/providers", element: <ProtectedRoute reason="Sign in to access provider accounts, credentials, and runtime capacity."><ProvidersPage /></ProtectedRoute> },
-  { path: "/observability", element: <ProtectedRoute reason="Sign in to view private metrics, alerts, jobs, and audit records."><ObservabilityPage /></ProtectedRoute> },
-  { path: "/inbox", element: <ProtectedRoute reason="Sign in to open your personal Work Inbox and shared role queues."><InboxPage /></ProtectedRoute> },
+  { path: "/mobile", element: <ProtectedRoute reason={"Sign in to view and manage paired execution devices."}><MobileDevicesPage /></ProtectedRoute> },
+  { path: "/openwrt-routers", element: <ProtectedRoute reason={"Sign in to register and manage your private OpenWrt Routers."}><OpenWrtRoutersPage /></ProtectedRoute> },
+  { path: "/providers", element: <ProtectedRoute reason={"Sign in to access provider accounts, credentials, and runtime capacity."}><ProvidersPage /></ProtectedRoute> },
+  { path: "/observability", element: <ProtectedRoute reason={"Sign in to view private metrics, alerts, jobs, and audit records."}><ObservabilityPage /></ProtectedRoute> },
+  { path: "/inbox", element: <ProtectedRoute reason={"Sign in to open your personal Work Inbox and shared role queues."}><InboxPage /></ProtectedRoute> },
   { path: "/audit", element: <Navigate to="/observability" replace /> },
-  { path: "/settings", element: <ProtectedRoute reason="Sign in to manage your profile, Organization, Projects, and account security."><SettingsPage /></ProtectedRoute> },
+  { path: "/settings", element: <ProtectedRoute reason={"Sign in to manage your profile, Organization, Projects, and account security."}><SettingsPage /></ProtectedRoute> },
   { path: "*", element: <Navigate to="/" replace /> },
 ];
 
 export const coreStandaloneRoutes: ApplicationRoute[] = [
-  { path: "/agents/:agentId/private-display", element: <ProtectedRoute reason="Sign in to open this Agent's Private Display."><PrivateAgentRunDisplayPage /></ProtectedRoute> },
-  { path: "/agent-runs/:runId/display", element: <ProtectedRoute reason="Sign in as the caller who owns this Agent Run."><PrivateAgentRunDisplayPage /></ProtectedRoute> },
+  { path: "/agents/:agentId/private-display", element: <ProtectedRoute reason={"Sign in to open this Agent's Private Display."}><PrivateAgentRunDisplayPage /></ProtectedRoute> },
+  { path: "/agent-runs/:runId/display", element: <ProtectedRoute reason={"Sign in as the caller who owns this Agent Run."}><PrivateAgentRunDisplayPage /></ProtectedRoute> },
 ];

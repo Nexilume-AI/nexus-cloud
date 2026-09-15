@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { Fragment, isValidElement, useMemo, useState, type ReactNode } from "react";
 import {
   flexRender,
@@ -13,7 +14,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, Sear
 export function DataTable<TData>({
   data,
   columns,
-  searchPlaceholder = "Search resources",
+  searchPlaceholder = t("Search resources"),
   pageSize = 25,
   serverPage = false
 }: {
@@ -23,6 +24,7 @@ export function DataTable<TData>({
   pageSize?: number;
   serverPage?: boolean;
 }) {
+  useLocale();
   const safeData = Array.isArray(data) ? data : [];
   const [query, setQuery] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -73,7 +75,7 @@ export function DataTable<TData>({
             />
           </label>
           <div className="text-xs font-medium text-muted" aria-live="polite">
-            {filteredData.length.toLocaleString()} resource{filteredData.length === 1 ? "" : "s"}
+            {t("{{count}} resources", { count: filteredData.length.toLocaleString(getLocale()) })}
           </div>
         </div>
       )}
@@ -94,11 +96,11 @@ export function DataTable<TData>({
                           onClick={header.column.getToggleSortingHandler()}
                           type="button"
                         >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {typeof header.column.columnDef.header === "string" ? t(header.column.columnDef.header) : flexRender(header.column.columnDef.header, header.getContext())}
                           {sorted === "asc" ? <ChevronUp size={13} /> : sorted === "desc" ? <ChevronDown size={13} /> : <ChevronsUpDown size={13} className="opacity-50" />}
                         </button>
                       ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
+                        typeof header.column.columnDef.header === "string" ? t(header.column.columnDef.header) : flexRender(header.column.columnDef.header, header.getContext())
                       )}
                     </th>
                   );
@@ -122,16 +124,15 @@ export function DataTable<TData>({
 
       {!serverPage && pageCount > 1 && (
         <div className="flex items-center justify-between border-t border-line bg-slate-50/50 px-3 py-2.5">
-          <div className="text-xs font-medium text-muted">
-            Page {pageIndex + 1} of {pageCount}
+          <div className="text-xs font-medium text-muted">{t("Page {{page}} of {{count}}", { page: pageIndex + 1, count: pageCount })}
           </div>
           <div className="flex items-center gap-1">
             <button
               className="btn h-8 w-8 p-0"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              aria-label="Previous page"
-              title="Previous page"
+              aria-label={t("Previous page")}
+              title={t("Previous page")}
               type="button"
             >
               <ChevronLeft size={15} />
@@ -140,8 +141,8 @@ export function DataTable<TData>({
               className="btn h-8 w-8 p-0"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              aria-label="Next page"
-              title="Next page"
+              aria-label={t("Next page")}
+              title={t("Next page")}
               type="button"
             >
               <ChevronRight size={15} />

@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useEffect, useId, useRef } from "react";
 
 import { Copy, X } from "lucide-react";
@@ -16,6 +17,7 @@ export function AgentModal({
   onClose: () => void;
   maxWidth?: string;
 }) {
+  useLocale();
   const titleId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +85,7 @@ export function AgentModal({
             className="btn h-9 w-9 shrink-0 p-0"
             onClick={onClose}
             type="button"
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X size={16} />
           </button>
@@ -97,6 +99,7 @@ export function AgentModal({
 }
 
 export function TrustPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  useLocale();
   return (
     <span className="inline-flex items-center gap-1 rounded-md border border-line bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
       {icon}
@@ -114,6 +117,7 @@ export function KeyResultCard({
   value: string;
   onDismiss: () => void;
 }) {
+  useLocale();
   return (
     <div className="rounded-md border border-line p-4">
       <div className="mb-3 font-medium text-ink">{title}</div>
@@ -122,12 +126,8 @@ export function KeyResultCard({
           {value}
         </code>
         <button className="btn w-fit" onClick={() => void copy(value)}>
-          <Copy size={16} />
-          Copy
-        </button>
-        <button className="btn w-fit" onClick={onDismiss}>
-          Dismiss
-        </button>
+          <Copy size={16} />{t("Copy")}</button>
+        <button className="btn w-fit" onClick={onDismiss}>{t("Dismiss")}</button>
       </div>
     </div>
   );
@@ -173,7 +173,7 @@ export function workspaceScopeLabel(scope: string) {
 export async function copy(value: string) {
   if (!value) return;
   await navigator.clipboard.writeText(value);
-  toast.success("Copied");
+  toast.success(t("Copied"));
 }
 
 export function setOptionalSearchParam(
@@ -194,6 +194,7 @@ export function StatusStripItem({
   value: number;
   tone?: "neutral" | "success" | "warn";
 }) {
+  useLocale();
   const valueTone =
     tone === "success"
       ? "text-success"
@@ -215,6 +216,7 @@ export function AgentInventoryFact({
   label: string;
   value: string;
 }) {
+  useLocale();
   return (
     <div>
       <dt>{label}</dt>

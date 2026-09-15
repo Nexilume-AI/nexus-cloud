@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import {
   useEffect,
   useId,
@@ -30,6 +31,7 @@ export function NexilumeTabs<T extends string>({
   variant?: "stage" | "view" | "compact";
   idBase?: string;
 }) {
+  useLocale();
   const generatedId = useId();
   const id = idBase || generatedId;
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -81,8 +83,8 @@ export function NexilumeTabs<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => moveFocus(event, index)}
           >
-            {option.eyebrow && <span className="nexilume-tab__eyebrow">{option.eyebrow}</span>}
-            <span>{option.label}</span>
+            {option.eyebrow && <span className="nexilume-tab__eyebrow">{t(option.eyebrow)}</span>}
+            <span>{t(option.label)}</span>
             {typeof option.count === "number" && (
               <span className="nexilume-tab__count">{option.count}</span>
             )}
@@ -135,6 +137,7 @@ export function NexilumeDialog({
   size?: "medium" | "large";
   variant?: "dialog" | "drawer";
 }) {
+  useLocale();
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -198,7 +201,7 @@ export function NexilumeDialog({
       <button
         type="button"
         className="nexilume-dialog-backdrop"
-        aria-label="Close dialog"
+        aria-label={t("Close dialog")}
         disabled={busy}
         onClick={onClose}
       />
@@ -222,7 +225,7 @@ export function NexilumeDialog({
             type="button"
             onClick={onClose}
             disabled={busy}
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X size={18} />
           </button>

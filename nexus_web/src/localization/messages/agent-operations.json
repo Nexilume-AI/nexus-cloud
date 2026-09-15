@@ -1,0 +1,11 @@
+{
+  "Configure runtime": "配置运行时",
+  "Choose a Nexus Container or bind an OpenWrt Agent.": "选择 Nexus 容器或绑定 OpenWrt 智能体。",
+  "Deploy update": "部署更新",
+  "The selected runtime image differs from production.": "所选的运行时镜像与生产镜像不同。",
+  "Deploy Agent": "部署智能体",
+  "Start the production Runtime before connecting callers.": "在连接调用方之前启动生产运行时。",
+  "Check runtime health": "检查运行时健康状况",
+  "Verify the active Runtime before accepting new calls.": "在接受新调用之前验证活动运行时。",
+  "View Runs": "查看运行记录"
+}

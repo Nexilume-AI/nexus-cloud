@@ -1,0 +1,21 @@
+{
+  "Client configuration": "客户端配置",
+  "Server": "服务器",
+  "Secure configuration": "安全配置",
+  "Set": "设置",
+  "before starting the client.": "启动客户端之前。",
+  "Copy secure config": "复制安全配置",
+  "One-time ready configuration": "一次性就绪配置",
+  "Contains the plaintext key. It exists only in this browser session.": "包含明文密钥。它仅存在于该浏览器会话中。",
+  "Copy ready config": "复制就绪配置",
+  "Forget plaintext key": "忘记明文密钥",
+  "Load setup to generate a caller-scoped configuration. Organization and Project values are filled by Nexus.": "加载设置以生成调用方范围的配置。 组织和项目值由 Nexus 填充。",
+  "Current project": "当前项目",
+  "{{0}} · Organization-wide": "{{0}}·组织范围内",
+  "Organization-wide": "组织范围内",
+  "Authentication required": "需要身份验证",
+  "Refresh setup": "刷新设置",
+  "Load setup": "加载设置",
+  "MCP setup": "MCP 设置",
+  "Use the same caller-scoped configuration in any Streamable HTTP MCP client.": "在任何 Streamable HTTP MCP 客户端中使用相同的调用方范围配置。"
+}

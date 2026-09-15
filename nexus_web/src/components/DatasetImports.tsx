@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiContext } from "../lib/api";
@@ -14,14 +15,16 @@ export function DatasetPageControls({ total, next, loading, previous, onFirst, o
   total: number; next?: string | null; loading: boolean; previous: boolean;
   onFirst: () => void; onNext: (cursor: string) => void;
 }) {
-  return <nav aria-label="Results pagination" className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-    <span className="mr-auto text-sm text-muted">{total.toLocaleString()} records · server paginated</span>
-    <button className="btn min-h-11" disabled={!previous || loading} onClick={onFirst}>First page</button>
-    <button className="btn min-h-11" disabled={!next || loading} onClick={() => next && onNext(next)}>Next page</button>
+  useLocale();
+  return <nav aria-label={t("Results pagination")} className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+    <span className="mr-auto text-sm text-muted">{total.toLocaleString(getLocale())}{" "}{t("records · server paginated")}</span>
+    <button className="btn min-h-11" disabled={!previous || loading} onClick={onFirst}>{t("First page")}</button>
+    <button className="btn min-h-11" disabled={!next || loading} onClick={() => next && onNext(next)}>{t("Next page")}</button>
   </nav>;
 }
 
 export function DatasetImports({ ctx, datasetId }: { ctx: ApiContext; datasetId: string }) {
+  useLocale();
   const [cursor, setCursor] = useState("");
   const client = useQueryClient();
   const previousStates = useRef(new Map<string, string>());
@@ -46,24 +49,24 @@ export function DatasetImports({ ctx, datasetId }: { ctx: ApiContext; datasetId:
     mutationFn: ({ id, type }: { id: string; type: "cancel" | "retry" }) => api.changeDatasetImport(ctx, datasetId, id, type),
     onSuccess: () => client.invalidateQueries({ queryKey: ["dataset-imports"] }),
   });
-  return <section aria-label="Import activity" className="grid gap-3 border-y border-line py-4">
-    <div><h3 className="font-semibold text-ink">Import activity</h3>
-      <p className="text-sm text-muted">Imports continue in the background. Refreshing this page does not cancel them.</p></div>
-    {jobs.isPending && <p role="status">Loading imports…</p>}
-    {jobs.isError && <div role="alert">Import activity unavailable. <button className="btn min-h-11" onClick={() => void jobs.refetch()}>Retry</button></div>}
+  return <section aria-label={t("Import activity")} className="grid gap-3 border-y border-line py-4">
+    <div><h3 className="font-semibold text-ink">{t("Import activity")}</h3>
+      <p className="text-sm text-muted">{t("Imports continue in the background. Refreshing this page does not cancel them.")}</p></div>
+    {jobs.isPending && <p role="status">{t("Loading imports…")}</p>}
+    {jobs.isError && <div role="alert">{t("Import activity unavailable.")}{" "}<button className="btn min-h-11" onClick={() => void jobs.refetch()}>{t("Retry")}</button></div>}
     {action.isError && <p role="alert">{action.error.message}</p>}
-    {!jobs.isPending && !jobs.isError && !jobs.data?.items.length && <p className="text-sm text-muted">No imports submitted by you for this collection.</p>}
-    <ul className="grid gap-3" aria-label="Import jobs">
+    {!jobs.isPending && !jobs.isError && !jobs.data?.items.length && <p className="text-sm text-muted">{t("No imports submitted by you for this collection.")}</p>}
+    <ul className="grid gap-3" aria-label={t("Import jobs")}>
       {(jobs.data?.items ?? []).map(job => <li key={job.id} className="border-l-2 border-line pl-3">
         <div className="flex flex-wrap items-center gap-2"><strong className="capitalize">{job.kind} · {job.state}</strong>
           <span className="text-sm text-muted">{formatDate(job.created_at)}</span>
-          {["queued", "running"].includes(job.state) && <button className="btn min-h-11 ml-auto" disabled={action.isPending} onClick={() => action.mutate({ id: job.id, type: "cancel" })}>Cancel import</button>}
-          {job.can_retry && <button className="btn min-h-11 ml-auto" disabled={action.isPending} onClick={() => action.mutate({ id: job.id, type: "retry" })}>Retry import</button>}
+          {["queued", "running"].includes(job.state) && <button className="btn min-h-11 ml-auto" disabled={action.isPending} onClick={() => action.mutate({ id: job.id, type: "cancel" })}>{t("Cancel import")}</button>}
+          {job.can_retry && <button className="btn min-h-11 ml-auto" disabled={action.isPending} onClick={() => action.mutate({ id: job.id, type: "retry" })}>{t("Retry import")}</button>}
         </div>
-        {job.state === "queued" && <p className="text-sm">Waiting for an import Worker.</p>}
-        {job.state === "running" && <div className="grid gap-1"><span className="text-sm">{job.stage} · {(job.bytes_processed / 1048576).toFixed(1)} MiB</span>
-          <progress aria-label={`${job.kind} import progress`} className="w-full" max={job.total_bytes || undefined} value={job.total_bytes ? job.bytes_processed : undefined} /></div>}
-        {job.error_code && <p className="text-sm text-amber-900">{errors[job.error_code] || "Import could not finish."}</p>}
+        {job.state === "queued" && <p className="text-sm">{t("Waiting for an import Worker.")}</p>}
+        {job.state === "running" && <div className="grid gap-1"><span className="text-sm">{job.stage} · {(job.bytes_processed / 1048576).toFixed(1)}{" "}{t("MiB")}</span>
+          <progress aria-label={t("{{0}} import progress", { 0: job.kind })} className="w-full" max={job.total_bytes || undefined} value={job.total_bytes ? job.bytes_processed : undefined} /></div>}
+        {job.error_code && <p className="text-sm text-amber-900">{errors[job.error_code] || t("Import could not finish.")}</p>}
         <span className="break-all font-mono text-xs text-muted">{job.id}</span>
       </li>)}
     </ul>

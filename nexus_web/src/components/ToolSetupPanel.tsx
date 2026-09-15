@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, ChevronRight, KeyRound, Loader2, Plus, RefreshCw, Save, Search, Terminal, Trash2, X } from "lucide-react";
@@ -47,6 +48,7 @@ export function ToolSetupPanel({
   onDetectTools: () => void;
   onOpenSession: () => void;
 }) {
+  useLocale();
   const queryClient = useQueryClient();
   const toolStatus = getToolStatus(activeSession);
   const [tab, setTab] = useState<"overview" | "api" | "agents">("overview");
@@ -96,7 +98,7 @@ export function ToolSetupPanel({
       setPreview(result);
       setPendingChange({ ...variables, expected_revision: result.revision });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not preview this change")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Could not preview this change"))
   });
   const applyChange = useMutation({
     mutationFn: () => {
@@ -113,7 +115,7 @@ export function ToolSetupPanel({
         result
       );
       clearPreview();
-      toast.success("Tool setup updated");
+      toast.success(t("Tool setup updated"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["workspace-tool-config"] }),
         queryClient.invalidateQueries({ queryKey: ["workspace-tool-config-options"] })
@@ -121,7 +123,7 @@ export function ToolSetupPanel({
     },
     onError: async (error) => {
       clearPreview();
-      toast.error(error instanceof Error ? error.message : "Failed to apply Tool setup");
+      toast.error(error instanceof Error ? error.message : t("Failed to apply Tool setup"));
       await queryClient.invalidateQueries({ queryKey: ["workspace-tool-config"] });
     }
   });
@@ -138,7 +140,7 @@ export function ToolSetupPanel({
     onMutate: () => { clearPreview(); setRecoveryError(""); },
     onSuccess: async (result) => {
       queryClient.setQueryData(["workspace-tool-config", apiContext, activeSession?.id, "codex", "v2"], result);
-      toast.success("Computer configuration checked");
+      toast.success(t("Computer configuration checked"));
       await queryClient.invalidateQueries({ queryKey: ["workspace-tool-config-options"] });
     },
     onError: (error) => setRecoveryError(error instanceof Error ? error.message : "Could not confirm recovery. Reload status and try again.")
@@ -177,14 +179,14 @@ export function ToolSetupPanel({
         <header className="shrink-0 border-b border-line bg-white px-4 pt-4 sm:px-6">
           <div className="flex items-start justify-between gap-4 pb-4">
             <div className="min-w-0">
-              <h2 id="tool-setup-title" className="text-lg font-semibold tracking-[-0.02em] text-ink">Tool setup</h2>
+              <h2 id="tool-setup-title" className="text-lg font-semibold tracking-[-0.02em] text-ink">{t("Tool setup")}</h2>
               <p className="mt-1 truncate text-sm text-muted">
-                {selectedConnection ? `${selectedConnection.name} · ${formatComputerConnection(selectedConnection)}` : "No Computer selected"}
+                {selectedConnection ? `${selectedConnection.name} · ${formatComputerConnection(selectedConnection)}` : t("No Computer selected")}
               </p>
             </div>
-            <button className="btn h-10 w-10 shrink-0 p-0" type="button" aria-label="Close tool setup" disabled={busy} onClick={onClose}><X size={17} /></button>
+            <button className="btn h-10 w-10 shrink-0 p-0" type="button" aria-label={t("Close tool setup")} disabled={busy} onClick={onClose}><X size={17} /></button>
           </div>
-          <nav className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" aria-label="Tool setup sections">
+          <nav className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" aria-label={t("Tool setup sections")}>
             {(["overview", "api", "agents"] as const).map((item) => (
               <button
                 key={item}
@@ -194,7 +196,7 @@ export function ToolSetupPanel({
                 disabled={busy}
                 onClick={() => { setTab(item); clearPreview(); }}
               >
-                {item === "overview" ? "Overview" : item === "api" ? "API setup" : "Agent setup"}
+                {item === "overview" ? t("Overview") : item === "api" ? t("API setup") : t("Agent setup")}
               </button>
             ))}
           </nav>
@@ -212,50 +214,49 @@ export function ToolSetupPanel({
             <section className="px-4 py-6 sm:px-6">
               <div className="rounded-xl border border-dashed border-line bg-slate-50 p-5">
                 <Terminal size={24} className="text-slate-600" />
-                <h3 className="mt-3 text-sm font-semibold text-ink">Open a terminal session first</h3>
-                <p className="mt-1 text-sm leading-6 text-muted">You can inspect known tool status without a session, but Nexus needs an active Computer Runtime terminal to read or change Codex settings.</p>
+                <h3 className="mt-3 text-sm font-semibold text-ink">{t("Open a terminal session first")}</h3>
+                <p className="mt-1 text-sm leading-6 text-muted">{t("You can inspect known tool status without a session, but Nexus needs an active Computer Runtime terminal to read or change Codex settings.")}</p>
                 <button className="btn btn-primary mt-4 min-h-11" type="button" disabled={!selectedConnection || isOpeningSession} onClick={onOpenSession}>
-                  {isOpeningSession ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />} Open terminal
-                </button>
+                  {isOpeningSession ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />}{" "}{t("Open terminal")}</button>
               </div>
             </section>
           ) : toolConfig.isLoading || setupOptions.isLoading ? (
-            <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted"><Loader2 size={18} className="animate-spin" />Reading Tool setup…</div>
+            <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted"><Loader2 size={18} className="animate-spin" />{t("Reading Tool setup…")}</div>
           ) : toolConfig.isError || setupOptions.isError || !remoteConfig ? (
             <section className="px-4 py-6 sm:px-6">
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert">
-                <div className="font-semibold">Tool setup could not be loaded</div>
-                <p className="mt-1 leading-6">{toolConfig.error instanceof Error ? toolConfig.error.message : setupOptions.error instanceof Error ? setupOptions.error.message : "Reload the active session and try again."}</p>
-                <button className="btn mt-3" type="button" onClick={() => { void toolConfig.refetch(); void setupOptions.refetch(); }}><RefreshCw size={15} />Retry</button>
+                <div className="font-semibold">{t("Tool setup could not be loaded")}</div>
+                <p className="mt-1 leading-6">{toolConfig.error instanceof Error ? toolConfig.error.message : setupOptions.error instanceof Error ? setupOptions.error.message : t("Reload the active session and try again.")}</p>
+                <button className="btn mt-3" type="button" onClick={() => { void toolConfig.refetch(); void setupOptions.refetch(); }}><RefreshCw size={15} />{t("Retry")}</button>
               </div>
             </section>
           ) : tab === "overview" ? (
             <div className="divide-y divide-line">
               <section className="px-4 py-5 sm:px-6">
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="text-sm font-semibold text-ink">Tools on this Computer</h3><p className="mt-1 text-xs leading-5 text-muted">{toolStatus?.checked_at ? `Checked ${new Date(toolStatus.checked_at).toLocaleString()}` : "Status has not been checked in this session."}</p></div>
-                  <button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={isDetecting} onClick={onDetectTools}>{isDetecting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}Refresh</button>
+                  <div><h3 className="text-sm font-semibold text-ink">{t("Tools on this Computer")}</h3><p className="mt-1 text-xs leading-5 text-muted">{toolStatus?.checked_at ? t("Checked {{0}}", { 0: new Date(toolStatus.checked_at).toLocaleString(getLocale()) }) : t("Status has not been checked in this session.")}</p></div>
+                  <button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={isDetecting} onClick={onDetectTools}>{isDetecting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}{t("Refresh")}</button>
                 </div>
                 <div className="mt-4 overflow-hidden rounded-xl border border-line">
-                  <SetupStatusRow name="Codex" status={toolStatus?.tools?.codex?.installed ? "Detected" : "Not detected"} detail={toolStatus?.tools?.codex?.version || "Managed setup available"} ready={Boolean(toolStatus?.tools?.codex?.installed)} />
-                  <SetupStatusRow name="Claude Code" status={toolStatus?.tools?.claude_code?.installed ? "Detected" : "Not detected"} detail="Status only · managed setup is not available" ready={Boolean(toolStatus?.tools?.claude_code?.installed)} />
+                  <SetupStatusRow name="Codex" status={toolStatus?.tools?.codex?.installed ? "Detected" : "Not detected"} detail={toolStatus?.tools?.codex?.version || t("Managed setup available")} ready={Boolean(toolStatus?.tools?.codex?.installed)} />
+                  <SetupStatusRow name="Claude Code" status={toolStatus?.tools?.claude_code?.installed ? "Detected" : "Not detected"} detail={t("Status only · managed setup is not available")} ready={Boolean(toolStatus?.tools?.claude_code?.installed)} />
                 </div>
               </section>
               <section className="px-4 py-5 sm:px-6">
-                <h3 className="text-sm font-semibold text-ink">Configuration</h3>
+                <h3 className="text-sm font-semibold text-ink">{t("Configuration")}</h3>
                 <div className="mt-3 overflow-hidden rounded-xl border border-line">
                   <SetupActionRow
-                    title="Router API exit"
+                    title={t("Router API exit")}
                     status={remoteConfig.api.status === "ready" ? "Ready" : remoteConfig.api.status === "needs_repair" ? "Needs repair" : "Setup required"}
-                    detail={remoteConfig.api.router_name ? `${remoteConfig.api.router_name} · ${remoteConfig.api.models?.length || 1} model${(remoteConfig.api.models?.length || 1) === 1 ? "" : "s"}` : remoteConfig.api.message}
+                    detail={remoteConfig.api.router_name ? t("{{0}} · {{1}} model{{2}}", { 0: remoteConfig.api.router_name, 1: remoteConfig.api.models?.length || 1, 2: (remoteConfig.api.models?.length || 1) === 1 ? "" : "s" }) : remoteConfig.api.message}
                     ready={remoteConfig.api.status === "ready"}
                     action="Open API setup"
                     onClick={() => setTab("api")}
                   />
                   <SetupActionRow
-                    title="Agent MCP"
+                    title={t("Agent MCP")}
                     status={`${remoteConfig.agents.managed.length} connected`}
-                    detail={remoteConfig.agents.external.length ? `${remoteConfig.agents.external.length} external server${remoteConfig.agents.external.length === 1 ? "" : "s"} preserved` : "External MCP servers are never changed by normal Agent setup"}
+                    detail={remoteConfig.agents.external.length ? t("{{0}} external server{{1}} preserved", { 0: remoteConfig.agents.external.length, 1: remoteConfig.agents.external.length === 1 ? "" : "s" }) : t("External MCP servers are never changed by normal Agent setup")}
                     ready={remoteConfig.agents.credential_status !== "needs_repair"}
                     action="Open Agent setup"
                     onClick={() => setTab("agents")}
@@ -266,40 +267,40 @@ export function ToolSetupPanel({
           ) : tab === "api" ? (
             <div className="divide-y divide-line">
               <section className="px-4 py-5 sm:px-6">
-                <SetupNotice status={remoteConfig.api.status} title={remoteConfig.api.status === "ready" ? "Codex API is routed" : remoteConfig.api.status === "needs_repair" ? "Credential needs repair" : "Choose a Router"} detail={remoteConfig.api.message} />
-                <p className="mt-4 text-sm leading-6 text-muted">Codex sends requests through the selected Router. Its Pool and Source policy decides which Provider serves each request.</p>
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-white px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={routerSearch} onChange={(event) => setRouterSearch(event.target.value)} placeholder="Search Routers" aria-label="Search Routers" /></div>
+                <SetupNotice status={remoteConfig.api.status} title={remoteConfig.api.status === "ready" ? t("Codex API is routed") : remoteConfig.api.status === "needs_repair" ? t("Credential needs repair") : t("Choose a Router")} detail={remoteConfig.api.message} />
+                <p className="mt-4 text-sm leading-6 text-muted">{t("Codex sends requests through the selected Router. Its Pool and Source policy decides which Provider serves each request.")}</p>
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-white px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={routerSearch} onChange={(event) => setRouterSearch(event.target.value)} placeholder={t("Search Routers")} aria-label={t("Search Routers")} /></div>
                 <div className="mt-3 max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">
                   {filteredRouters.length ? filteredRouters.map((router) => (
                     <label key={router.id} className={`flex min-h-14 items-start gap-3 px-3 py-3 ${router.available ? "cursor-pointer hover:bg-slate-50" : "cursor-not-allowed bg-slate-50 opacity-70"}`} title={router.message || undefined}>
                       <input className="mt-1" type="radio" name="api-router" disabled={!router.available} checked={selectedRouterId === router.id} onChange={() => { setSelectedRouterId(router.id); clearPreview(); }} />
-                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-ink">{router.name}</span><span className="mt-0.5 block text-xs text-muted">{router.router_type === "aggregation" ? "Aggregation Router" : "Execution Router"} · {router.models?.length || (router.model ? 1 : 0)} model{(router.models?.length || (router.model ? 1 : 0)) === 1 ? "" : "s"} · {router.available ? (router.models?.join(", ") || router.model) : router.message}</span></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-ink">{router.name}</span><span className="mt-0.5 block text-xs text-muted">{router.router_type === "aggregation" ? t("Aggregation Router") : t("Execution Router")} · {router.models?.length || (router.model ? 1 : 0)}{" "}{t("model")}{getLocale() === "zh-CN" ? "" : (router.models?.length || (router.model ? 1 : 0)) === 1 ? "" : "s"} · {router.available ? (router.models?.join(", ") || router.model) : router.message}</span></span>
                     </label>
-                  )) : <div className="p-4 text-sm text-muted">No Router matches this search. Create a Router, add a Model Pool, and deploy it first.</div>}
+                  )) : <div className="p-4 text-sm text-muted">{t("No Router matches this search. Create a Router, add a Model Pool, and deploy it first.")}</div>}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button className="btn btn-primary min-h-11" type="button" disabled={!selectedRouter?.available || busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "api", action: "set_router", router_id: selectedRouterId })}>{previewChange.isPending ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}Review API route</button>
-                  <button className="btn min-h-11" type="button" disabled={!remoteConfig.api.credential_managed || !selectedRouter?.available || busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "api", action: "rotate_api_credential", router_id: selectedRouterId })}><KeyRound size={16} />Rotate credential</button>
+                  <button className="btn btn-primary min-h-11" type="button" disabled={!selectedRouter?.available || busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "api", action: "set_router", router_id: selectedRouterId })}>{previewChange.isPending ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}{t("Review API route")}</button>
+                  <button className="btn min-h-11" type="button" disabled={!remoteConfig.api.credential_managed || !selectedRouter?.available || busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "api", action: "rotate_api_credential", router_id: selectedRouterId })}><KeyRound size={16} />{t("Rotate credential")}</button>
                 </div>
               </section>
             </div>
           ) : (
             <div className="divide-y divide-line">
               <section className="px-4 py-5 sm:px-6">
-                <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold text-ink">Connected Agents</h3><p className="mt-1 text-xs text-muted">Each change preserves Provider API and every other MCP server.</p></div>{remoteConfig.agents.credential_status === "needs_repair" && <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Needs repair</span>}</div>
+                <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold text-ink">{t("Connected Agents")}</h3><p className="mt-1 text-xs text-muted">{t("Each change preserves Provider API and every other MCP server.")}</p></div>{remoteConfig.agents.credential_status === "needs_repair" && <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">{t("Needs repair")}</span>}</div>
                 {remoteConfig.agents.managed.length ? <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">{remoteConfig.agents.managed.map((agent) => (
-                  <div key={agent.server_name} className="flex min-h-14 items-center justify-between gap-3 px-3 py-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-ink">{agent.name}</div><div className="mt-0.5 truncate text-xs text-muted">{agent.server_name} · {agent.available ? "Available" : agent.message}</div></div><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "remove_agent", mcp_server_name: agent.server_name })}><Trash2 size={14} />Remove</button></div>
-                ))}</div> : <div className="mt-3 rounded-xl border border-dashed border-line bg-slate-50 p-4 text-sm text-muted">No Nexus Agent is connected yet.</div>}
-                {remoteConfig.agents.managed.length > 0 && <button className="btn mt-3 min-h-11" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "rotate_agent_credential" })}><KeyRound size={16} />Rotate Agent credential</button>}
+                  <div key={agent.server_name} className="flex min-h-14 items-center justify-between gap-3 px-3 py-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-ink">{agent.name}</div><div className="mt-0.5 truncate text-xs text-muted">{agent.server_name} · {agent.available ? t("Available") : agent.message}</div></div><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "remove_agent", mcp_server_name: agent.server_name })}><Trash2 size={14} />{t("Remove")}</button></div>
+                ))}</div> : <div className="mt-3 rounded-xl border border-dashed border-line bg-slate-50 p-4 text-sm text-muted">{t("No Nexus Agent is connected yet.")}</div>}
+                {remoteConfig.agents.managed.length > 0 && <button className="btn mt-3 min-h-11" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "rotate_agent_credential" })}><KeyRound size={16} />{t("Rotate Agent credential")}</button>}
               </section>
               <section className="px-4 py-5 sm:px-6">
-                <h3 className="text-sm font-semibold text-ink">Available Agents</h3>
-                <div className="mt-3 flex items-center gap-2 rounded-lg border border-line px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search Agents you can call" aria-label="Search available Agents" /></div>
+                <h3 className="text-sm font-semibold text-ink">{t("Available Agents")}</h3>
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-line px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder={t("Search Agents you can call")} aria-label={t("Search available Agents")} /></div>
                 <div className="mt-3 max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">{filteredAgents.length ? filteredAgents.map((agent) => (
-                  <div key={agent.id} className={`flex min-h-14 items-center justify-between gap-3 px-3 py-3 ${agent.available ? "" : "bg-slate-50 opacity-70"}`} title={agent.message || undefined}><button className="min-w-0 flex-1 text-left" type="button" disabled={!agent.available} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); clearPreview(); }}><span className="block truncate text-sm font-medium text-ink">{agent.name}</span><span className="mt-0.5 block text-xs text-muted">{agent.version || "No version"} · {agent.available ? agent.visibility : agent.message}</span></button><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={!agent.available || busy || !writesAllowed} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); previewChange.mutate({ tool: "codex", section: "agents", action: "add_agent", agent_id: agent.id }); }}><Plus size={14} />Add</button></div>
-                )) : <div className="p-4 text-sm text-muted">No additional callable Agent matches this search.</div>}</div>
+                  <div key={agent.id} className={`flex min-h-14 items-center justify-between gap-3 px-3 py-3 ${agent.available ? "" : "bg-slate-50 opacity-70"}`} title={agent.message || undefined}><button className="min-w-0 flex-1 text-left" type="button" disabled={!agent.available} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); clearPreview(); }}><span className="block truncate text-sm font-medium text-ink">{agent.name}</span><span className="mt-0.5 block text-xs text-muted">{agent.version || t("No version")} · {agent.available ? agent.visibility : agent.message}</span></button><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={!agent.available || busy || !writesAllowed} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); previewChange.mutate({ tool: "codex", section: "agents", action: "add_agent", agent_id: agent.id }); }}><Plus size={14} />{t("Add")}</button></div>
+                )) : <div className="p-4 text-sm text-muted">{t("No additional callable Agent matches this search.")}</div>}</div>
               </section>
-              <section className="px-4 py-5 sm:px-6"><h3 className="text-sm font-semibold text-ink">External MCP servers</h3><p className="mt-1 text-xs leading-5 text-muted">These entries were not created by Nexus and remain read-only during normal Agent setup.</p>{remoteConfig.agents.external.length ? <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">{remoteConfig.agents.external.map((server) => <div key={server.server_name} className="px-3 py-3"><div className="truncate text-sm font-medium text-ink">{server.server_name}</div><div className="mt-0.5 truncate text-xs text-muted">{server.url || server.type || "External configuration"}</div></div>)}</div> : <div className="mt-3 text-sm text-muted">No external MCP servers.</div>}</section>
+              <section className="px-4 py-5 sm:px-6"><h3 className="text-sm font-semibold text-ink">{t("External MCP servers")}</h3><p className="mt-1 text-xs leading-5 text-muted">{t("These entries were not created by Nexus and remain read-only during normal Agent setup.")}</p>{remoteConfig.agents.external.length ? <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">{remoteConfig.agents.external.map((server) => <div key={server.server_name} className="px-3 py-3"><div className="truncate text-sm font-medium text-ink">{server.server_name}</div><div className="mt-0.5 truncate text-xs text-muted">{server.url || server.type || t("External configuration")}</div></div>)}</div> : <div className="mt-3 text-sm text-muted">{t("No external MCP servers.")}</div>}</section>
             </div>
           )}
         </div>
@@ -307,11 +308,11 @@ export function ToolSetupPanel({
         {preview && pendingChange && (
           <footer className="shrink-0 border-t border-line bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:px-6">
             <div className="mb-3 max-h-36 overflow-y-auto rounded-lg border border-line bg-slate-50 p-3" aria-live="polite">
-              <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Review changes</span><span className="text-xs font-medium text-slate-700">Credential: {preview.credential_action}</span></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Review changes")}</span><span className="text-xs font-medium text-slate-700">{t("Credential:")}{" "}{preview.credential_action}</span></div>
               {preview.changes.map((change, index) => <div key={`${change.label}-${index}`} className="mt-2 text-xs text-slate-700"><span className="font-semibold">{change.label}:</span> {change.before} → {change.after}</div>)}
               {preview.warnings.map((warning) => <div key={warning.code} className="mt-2 text-xs font-medium text-amber-800">{warning.message}</div>)}
             </div>
-            <div className="flex justify-end gap-2"><button className="btn min-h-11" type="button" disabled={applyChange.isPending} onClick={clearPreview}>Cancel</button><button className="btn btn-primary min-h-11 min-w-32 justify-center" type="button" disabled={!canApplyPreview || applyChange.isPending} onClick={() => applyChange.mutate()}>{applyChange.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{applyChange.isPending ? "Applying…" : preview.can_apply ? "Apply change" : "Up to date"}</button></div>
+            <div className="flex justify-end gap-2"><button className="btn min-h-11" type="button" disabled={applyChange.isPending} onClick={clearPreview}>{t("Cancel")}</button><button className="btn btn-primary min-h-11 min-w-32 justify-center" type="button" disabled={!canApplyPreview || applyChange.isPending} onClick={() => applyChange.mutate()}>{applyChange.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{applyChange.isPending ? t("Applying…") : preview.can_apply ? t("Apply change") : t("Up to date")}</button></div>
           </footer>
         )}
       </section>
@@ -320,14 +321,17 @@ export function ToolSetupPanel({
 }
 
 function SetupStatusRow({ name, status, detail, ready }: { name: string; status: string; detail: string; ready: boolean }) {
+  useLocale();
   return <div className="flex min-h-14 items-center justify-between gap-3 border-b border-line px-3 py-3 last:border-b-0"><div className="min-w-0"><div className="text-sm font-medium text-ink">{name}</div><div className="mt-0.5 truncate text-xs text-muted">{detail}</div></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${ready ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{status}</span></div>;
 }
 
 function SetupActionRow({ title, status, detail, ready, action, onClick }: { title: string; status: string; detail: string; ready: boolean; action: string; onClick: () => void }) {
+  useLocale();
   return <div className="flex min-h-16 items-center justify-between gap-3 border-b border-line px-3 py-3 last:border-b-0"><div className="min-w-0"><div className="flex items-center gap-2 text-sm font-medium text-ink">{ready ? <CheckCircle2 size={15} className="text-emerald-700" /> : <AlertTriangle size={15} className="text-amber-700" />}{title} · {status}</div><div className="mt-1 truncate text-xs text-muted">{detail}</div></div><button className="btn h-9 shrink-0 px-3 text-xs" type="button" onClick={onClick}>{action}<ChevronRight size={14} /></button></div>;
 }
 
 function SetupNotice({ status, title, detail }: { status: string; title: string; detail: string }) {
+  useLocale();
   const ready = status === "ready";
   return <div className={`rounded-xl border p-4 ${ready ? "border-emerald-200 bg-emerald-50 text-emerald-900" : status === "needs_repair" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-line bg-slate-50 text-slate-800"}`}><div className="flex items-start gap-3">{ready ? <CheckCircle2 size={19} className="mt-0.5 shrink-0" /> : <AlertTriangle size={19} className="mt-0.5 shrink-0" />}<div><div className="text-sm font-semibold">{title}</div><div className="mt-1 text-xs leading-5 opacity-80">{detail}</div></div></div></div>;
 }

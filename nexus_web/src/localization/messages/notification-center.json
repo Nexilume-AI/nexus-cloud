@@ -1,0 +1,20 @@
+{
+  "Work Inbox": "工作收件箱",
+  "Personal work and shared role queues across authorized Projects. Reading never completes the source task.": "授权项目之间的个人工作和共享角色队列。阅读永远无法完成源任务。",
+  "Inbox summary": "收件箱摘要",
+  "Work Inbox could not refresh.": "工作收件箱无法刷新。",
+  "Loading Work Inbox…": "正在加载工作收件箱...",
+  "Agent actions, background tasks, approvals, and actionable operations will appear here.": "智能体操作、后台任务、批准和可操作操作将出现在这里。",
+  "Mark read": "标记已读",
+  "Remind in 1h": "1小时后提醒",
+  "Open Work Inbox": "打开工作收件箱",
+  "Notification settings": "通知设置",
+  "Refresh Work Inbox": "刷新工作收件箱",
+  "Work Inbox{{0}}": "工作收件箱{{0}}",
+  "Needs attention · {{0}}": "需要注意·{{0}}",
+  "In progress · {{0}}": "进行中·{{0}}",
+  "Recent": "最近",
+  "Nothing needs your attention": "没有什么需要你注意的",
+  "No work is running": "没有工作正在运行",
+  "No recent work": "最近没有工作"
+}

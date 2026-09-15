@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { ProviderFact as Fact, DialogActions, providerRuntimeId, errorToast } from "../components/ProviderPresentation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -41,6 +42,7 @@ const cliProxyLoginProviders = [
 ] as const;
 
 export function ProvidersPage() {
+  useLocale();
   const { apiContext, user, isContextReady } =
     useAuth();
   const location = useLocation();
@@ -173,19 +175,18 @@ export function ProvidersPage() {
     <section className="space-y-4" aria-labelledby="providers-title">
       <header className="provider-page-header">
         <div>
-          <h1 id="providers-title">Providers</h1>
-          <p>Connect and monitor your model providers from one place.</p>
-          <div className="provider-page-header__summary" aria-label="Provider summary">
-            <span><strong>{connections.data?.length ?? 0}</strong> connected · this page</span>
-            <span><strong>{attentionCount}</strong> need attention</span>
+          <h1 id="providers-title">{t("Providers")}</h1>
+          <p>{t("Connect and monitor your model providers from one place.")}</p>
+          <div className="provider-page-header__summary" aria-label={t("Provider summary")}>
+            <span><strong>{connections.data?.length ?? 0}</strong>{" "}{t("connected · this page")}</span>
+            <span><strong>{attentionCount}</strong>{" "}{t("need attention")}</span>
             <ProviderPublicationSummary surface="page" providers={connections.data ?? []} />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <ProviderImportDialog key={`${apiContext.tenantId}:${apiContext.projectId}`} />
           <button className="btn btn-primary" onClick={() => setCreateAccountOpen(true)}>
-            <Plus size={16} /> Connect provider
-          </button>
+            <Plus size={16} />{" "}{t("Connect provider")}</button>
         </div>
       </header>
 
@@ -193,17 +194,16 @@ export function ProvidersPage() {
         <div className="provider-fabric-workspace__controls">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-mono text-xs uppercase tracking-widest text-muted">Your connections</p>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">{t("Your connections")}</p>
               {attentionCount > 0 && (
                 <button
                   className="provider-attention-link"
                   onClick={() => setStatusFilter("attention")}
                 >
-                  <CircleAlert size={14} /> {attentionCount} need attention
-                </button>
+                  <CircleAlert size={14} /> {attentionCount}{" "}{t("need attention")}</button>
               )}
             </div>
-            <p className="mt-1 text-sm text-muted">Select a Provider to review its health, models, and availability.</p>
+            <p className="mt-1 text-sm text-muted">{t("Select a Provider to review its health, models, and availability.")}</p>
           </div>
           <div className="provider-workbench-filters">
             <div className="relative min-w-0 flex-1">
@@ -212,21 +212,21 @@ export function ProvidersPage() {
                 className="input min-h-10 pl-9"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search providers or models"
-                aria-label="Search providers"
+                placeholder={t("Search providers or models")}
+                aria-label={t("Search providers")}
               />
             </div>
-            <label className="sr-only" htmlFor="provider-status-filter">Provider status</label>
+            <label className="sr-only" htmlFor="provider-status-filter">{t("Provider status")}</label>
             <select
               id="provider-status-filter"
               className="input provider-status-filter"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as ProviderStatusFilter)}
             >
-              <option value="all">All statuses</option>
-              <option value="attention">Needs attention</option>
-              <option value="healthy">Healthy</option>
-              <option value="recovery">Stopped / Recovery</option>
+              <option value="all">{t("All statuses")}</option>
+              <option value="attention">{t("Needs attention")}</option>
+              <option value="healthy">{t("Healthy")}</option>
+              <option value="recovery">{t("Stopped / Recovery")}</option>
             </select>
           </div>
         </div>
@@ -243,11 +243,11 @@ export function ProvidersPage() {
               )}
               <ObjectWorkspace
                 empty={!providers.length}
-                emptyTitle={(connections.data?.length ?? 0) ? "No matching providers" : "No providers connected"}
+                emptyTitle={(connections.data?.length ?? 0) ? t("No matching providers") : t("No providers connected")}
                 emptyDescription={
                   (connections.data?.length ?? 0)
-                    ? "Try another search or clear the current status filter."
-                    : "Connect a Provider to make its models available in Nexus."
+                    ? t("Try another search or clear the current status filter.")
+                    : t("Connect a Provider to make its models available in Nexus.")
                 }
                 onClearFilters={(connections.data?.length ?? 0) ? () => { setSearch(""); setStatusFilter("all"); } : undefined}
                 list={providers.map((provider) => ({
@@ -268,7 +268,7 @@ export function ProvidersPage() {
                     detailRequired ? <div className="p-5" aria-live="polite">
                       <h2>{selectedProvider.name}</h2>
                       <p className="mt-2 text-sm text-muted">{selectedConnection.isError ? "Provider details unavailable. Your connections are still available." : "Loading models and health history…"}</p>
-                      {selectedConnection.isError && <button className="btn mt-3" onClick={() => void selectedConnection.refetch()}>Retry provider details</button>}
+                      {selectedConnection.isError && <button className="btn mt-3" onClick={() => void selectedConnection.refetch()}>{t("Retry provider details")}</button>}
                     </div> :
                     <ProviderInspector
                       key={selectedProvider.id}
@@ -343,6 +343,7 @@ function ObjectWorkspace({
   onClearFilters?: () => void;
   openInspectorInitially: boolean;
 }) {
+  useLocale();
   const [inspectorOpen, setInspectorOpen] = useState(openInspectorInitially);
   const inspectorRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -394,13 +395,13 @@ function ObjectWorkspace({
       <div className="provider-workbench-empty">
         <EmptyState title={emptyTitle} description={emptyDescription} />
         {onClearFilters && (
-          <button className="btn" onClick={onClearFilters}>Clear filters</button>
+          <button className="btn" onClick={onClearFilters}>{t("Clear filters")}</button>
         )}
       </div>
     );
   return (
     <div className="provider-object-workspace">
-      <div className="provider-object-track" role="listbox" aria-label="Providers">
+      <div className="provider-object-track" role="listbox" aria-label={t("Providers")}>
         {list.map((item, index) => (
           <button
             key={item.id}
@@ -437,13 +438,13 @@ function ObjectWorkspace({
               <strong>{item.title}</strong>
               <small>{item.subtitle}</small>
               <span className="provider-object-track__metrics">
-                {item.modelCount} model{item.modelCount === 1 ? "" : "s"}{item.extraSummary}
-                {item.lastCheckedAt ? ` · Checked ${formatRelativeDate(item.lastCheckedAt)}` : ""}
+                {item.modelCount}{" "}{t("model")}{getLocale() === "zh-CN" ? "" : item.modelCount === 1 ? "" : "s"}{item.extraSummary}
+                {item.lastCheckedAt ? t("· Checked {{0}}", { 0: formatRelativeDate(item.lastCheckedAt) }) : ""}
               </span>
             </span>
             <span className="provider-object-track__state">
               <em>{humanStatus(item.status)}</em>
-              {item.attentionCount > 0 && <small>{item.attentionCount} issue{item.attentionCount === 1 ? "" : "s"}</small>}
+              {item.attentionCount > 0 && <small>{item.attentionCount}{" "}{t("issue")}{getLocale() === "zh-CN" ? "" : item.attentionCount === 1 ? "" : "s"}</small>}
             </span>
           </button>
         ))}
@@ -451,19 +452,19 @@ function ObjectWorkspace({
       <aside
         ref={inspectorRef}
         className={`provider-object-inspector ${inspectorOpen ? "is-open" : ""}`}
-        aria-label="Provider inspector"
+        aria-label={t("Provider inspector")}
         role={compactInspector && inspectorOpen ? "dialog" : undefined}
         aria-modal={compactInspector && inspectorOpen ? true : undefined}
       >
         <div className="provider-object-inspector__heading">
-          <div className="provider-object-inspector__label">Provider details</div>
+          <div className="provider-object-inspector__label">{t("Provider details")}</div>
           <button
             type="button"
             className="provider-object-inspector__close"
-            aria-label="Close provider inspector"
+            aria-label={t("Close provider inspector")}
             onClick={closeInspector}
           >
-            {compactInspector ? "Back to providers" : "Close"}
+            {compactInspector ? t("Back to providers") : t("Close")}
           </button>
         </div>
         {inspector}
@@ -471,7 +472,7 @@ function ObjectWorkspace({
       <button
         type="button"
         className={`provider-object-inspector__backdrop ${inspectorOpen ? "is-open" : ""}`}
-        aria-label="Dismiss provider inspector"
+        aria-label={t("Dismiss provider inspector")}
         onClick={closeInspector}
       />
     </div>
@@ -489,6 +490,7 @@ function ProviderInspector({
   onUseSources: (offerIds?: string[]) => void;
   onRemove: () => void;
 }) {
+  useLocale();
   if (provider.access && !provider.access.can_read) {
     return (
       <div className="provider-inspector-workbench grid content-start gap-4 p-5">
@@ -497,7 +499,7 @@ function ProviderInspector({
           <ResourceOwnershipBadge ownership={provider.ownership} />
           <ResourceAccessState access={provider.access} />
         </div>
-        <p className="text-sm leading-6 text-muted">This directory entry is discoverable, but Provider health, models, endpoint, quota, and credentials require an Organization Role or explicit Share.</p>
+        <p className="text-sm leading-6 text-muted">{t("This directory entry is discoverable, but Provider health, models, endpoint, quota, and credentials require an Organization Role or explicit Share.")}</p>
       </div>
     );
   }
@@ -524,6 +526,7 @@ function RuntimeInspector({
   onUseSources: (offerIds?: string[]) => void;
   onRemove: () => void;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -540,7 +543,7 @@ function RuntimeInspector({
     mutationFn: (offerId: string) =>
       api.refreshProviderConnectionModel(apiContext, provider.id, offerId),
     onSuccess: () => {
-      toast.success("Model refreshed");
+      toast.success(t("Model refreshed"));
       queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
     },
     onError: errorToast("Model refresh failed"),
@@ -559,12 +562,12 @@ function RuntimeInspector({
       const loginUrl = info.login_url || info.public_login_path;
       if (!loginUrl) {
         popup?.close();
-        toast.error("Provider sign-in URL is not available");
+        toast.error(t("Provider sign-in URL is not available"));
         return;
       }
       if (popup) popup.location.href = loginUrl;
       else window.open(loginUrl, "_blank", "noopener,noreferrer");
-      toast.success("Secure sign-in opened");
+      toast.success(t("Secure sign-in opened"));
       void pollRuntimeLogin();
     },
     onError: (error, variables) => {
@@ -591,18 +594,18 @@ function RuntimeInspector({
         if (loginPollGeneration.current !== generation) return;
         await queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
         if (next.status === "active") {
-          toast.success("Runtime sign-in completed");
+          toast.success(t("Runtime sign-in completed"));
           return;
         }
         if (["failed", "unhealthy"].includes(next.status)) {
-          toast.error(next.last_error || "Runtime sign-in did not complete");
+          toast.error(next.last_error || t("Runtime sign-in did not complete"));
           return;
         }
       } catch {
-        if (attempt === 29) toast.error("Runtime sign-in status could not be verified");
+        if (attempt === 29) toast.error(t("Runtime sign-in status could not be verified"));
       }
     }
-    toast.info("Sign-in is still pending. Run Health after completing the browser flow.");
+    toast.info(t("Sign-in is still pending. Run Health after completing the browser flow."));
   }
 
   function openRuntimeLogin() {
@@ -645,9 +648,7 @@ function RuntimeInspector({
     <div className="provider-runtime-detail">
       <header className="provider-runtime-detail__header">
         <div className="min-w-0">
-          <p className="font-mono text-xs uppercase tracking-widest text-muted">
-            Provider
-          </p>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted">{t("Provider")}</p>
           <h2 className="mt-1 text-xl font-semibold">{provider.name}</h2>
           <p className="mt-1 text-xs text-muted">
             {humanEngine(provider.engine)} · {provider.upstream_provider}
@@ -655,7 +656,7 @@ function RuntimeInspector({
         </div>
         <div className="provider-runtime-detail__actions">
           {recommendedAction === "operational" ? (
-            <span className="provider-operational-state"><Check size={15} /> Operational</span>
+            <span className="provider-operational-state"><Check size={15} />{" "}{t("Operational")}</span>
           ) : (
             <button className="btn btn-primary" onClick={runRecommendedAction} disabled={actionPending || recommendedAction === "wait"}>
               {actionPending ? <Loader2 size={15} className="animate-spin" /> : runtimeActionIcon(recommendedAction)}
@@ -663,34 +664,27 @@ function RuntimeInspector({
             </button>
           )}
           <details className="provider-runtime-more">
-            <summary className="btn">More actions <ChevronDown size={14} /></summary>
+            <summary className="btn">{t("More actions")}{" "}<ChevronDown size={14} /></summary>
             <div className="provider-runtime-more__menu">
-              <button onClick={() => setEditProviderOpen(true)}>
-                Edit connection
-              </button>
+              <button onClick={() => setEditProviderOpen(true)}>{t("Edit connection")}</button>
               {provider.status === "active" ? (
                 <button onClick={() => lifecycle.mutate("stop")} disabled={lifecycle.isPending}>
-                  <Square size={15} /> Stop provider
-                </button>
+                  <Square size={15} />{" "}{t("Stop provider")}</button>
               ) : recommendedAction !== "start" ? (
                 <button onClick={() => lifecycle.mutate("start")} disabled={lifecycle.isPending}>
-                  <Play size={15} /> Start provider
-                </button>
+                  <Play size={15} />{" "}{t("Start provider")}</button>
               ) : null}
               {recommendedAction !== "health" && (
                 <button onClick={() => lifecycle.mutate("health")} disabled={lifecycle.isPending}>
-                  <RefreshCw size={15} /> Health check
-                </button>
+                  <RefreshCw size={15} />{" "}{t("Health check")}</button>
               )}
               {recommendedAction !== "refresh" && (
                 <button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
-                  <RefreshCw size={15} /> Refresh models
-                </button>
+                  <RefreshCw size={15} />{" "}{t("Refresh models")}</button>
               )}
               {recommendedAction !== "use_source" && (
                 <button onClick={() => onUseSources()} disabled={!sourceEligibleOffers.length}>
-                  <Plus size={15} /> Use in source
-                </button>
+                  <Plus size={15} />{" "}{t("Use in source")}</button>
               )}
               {publicationEnabled && recommendedAction !== "publish" && (
                 <button onClick={onPublish} disabled={!hasPublishableOffers}>
@@ -698,28 +692,27 @@ function RuntimeInspector({
                 </button>
               )}
               <button className="is-danger" onClick={onRemove}>
-                <Trash2 size={15} /> Delete provider
-              </button>
+                <Trash2 size={15} />{" "}{t("Delete provider")}</button>
             </div>
           </details>
         </div>
       </header>
       <dl className="provider-runtime-facts" data-publishing={publicationEnabled}>
-        <Fact label="Connection" value={provider.status} />
-        <Fact label="Models" value={String(provider.models.length)} />
+        <Fact label={t("Connection")} value={provider.status} />
+        <Fact label={t("Models")} value={String(provider.models.length)} />
         <ProviderPublicationSummary surface="facts" provider={provider} />
-        <Fact label="Quota" value={formatProviderQuota(provider)} />
-        <Fact label="Last checked" value={formatRelativeDate(provider.last_checked_at)} />
+        <Fact label={t("Quota")} value={formatProviderQuota(provider)} />
+        <Fact label={t("Last checked")} value={formatRelativeDate(provider.last_checked_at)} />
       </dl>
       {provider.last_error && (
         <div className="provider-runtime-error" role="status">
           <CircleAlert size={17} />
-          <div><strong>Provider needs attention</strong><p>{provider.last_error}</p></div>
+          <div><strong>{t("Provider needs attention")}</strong><p>{provider.last_error}</p></div>
         </div>
       )}
       {(provider.health_history ?? []).length > 0 && (
         <details className="provider-technical-details">
-          <summary>Recent health checks</summary>
+          <summary>{t("Recent health checks")}</summary>
           <div className="divide-y divide-border">
             {(provider.health_history ?? []).map((check, index) => (
               <div className="flex items-start justify-between gap-4 py-3" key={`${check.checked_at}-${index}`}>
@@ -728,7 +721,7 @@ function RuntimeInspector({
                   {check.reason && <p className="mt-1 truncate text-xs text-muted" title={check.reason}>{check.reason}</p>}
                 </div>
                 <span className="shrink-0 text-xs text-muted">
-                  {check.latency_ms ? `${check.latency_ms} ms · ` : ""}{formatRelativeDate(check.checked_at)}
+                  {check.latency_ms ? t("{{0}} ms ·", { 0: check.latency_ms }) : ""}{formatRelativeDate(check.checked_at)}
                 </span>
               </div>
             ))}
@@ -738,10 +731,8 @@ function RuntimeInspector({
       <section className="provider-offer-catalog">
         <div className="provider-offer-catalog__header">
           <div>
-            <h3>Models</h3>
-            <p className="text-sm text-muted">
-              Review available models, health, and Source readiness.
-            </p>
+            <h3>{t("Models")}</h3>
+            <p className="text-sm text-muted">{t("Review available models, health, and Source readiness.")}</p>
           </div>
           <button
             className="btn"
@@ -751,20 +742,18 @@ function RuntimeInspector({
             <RefreshCw
               size={15}
               className={refresh.isPending ? "animate-spin" : ""}
-            />{" "}
-            Refresh models
-          </button>
+            />{" "}{t("Refresh models")}</button>
         </div>
         {provider.models.length ? (
-          <div className="provider-offer-table" data-publishing={publicationEnabled} role="table" aria-label="Provider models">
+          <div className="provider-offer-table" data-publishing={publicationEnabled} role="table" aria-label={t("Provider models")}>
             <div className="provider-offer-table__head" role="row">
-              <span role="columnheader">Model</span>
-              <span role="columnheader">Nexus model</span>
-              <span role="columnheader">Health</span>
+              <span role="columnheader">{t("Model")}</span>
+              <span role="columnheader">{t("Nexus model")}</span>
+              <span role="columnheader">{t("Health")}</span>
               <ProviderPublicationSummary surface="price-heading" />
-              <span role="columnheader">Source</span>
+              <span role="columnheader">{t("Source")}</span>
               <ProviderPublicationSummary surface="publication-heading" />
-              <span role="columnheader">Actions</span>
+              <span role="columnheader">{t("Actions")}</span>
             </div>
             {provider.models.map((offer) => (
               <div className="provider-offer-table__row" role="row" key={offer.id}>
@@ -779,8 +768,8 @@ function RuntimeInspector({
                 <ProviderPublicationSummary surface="price" offer={offer} />
                 <div role="cell" data-label="Source">
                   {offer.source_ids.length ? (
-                    <button className="provider-table-link" onClick={() => navigate("/model-pool?view=sources")}>Connected</button>
-                  ) : <span>Not connected</span>}
+                    <button className="provider-table-link" onClick={() => navigate("/model-pool?view=sources")}>{t("Connected")}</button>
+                  ) : <span>{t("Not connected")}</span>}
                 </div>
                 <ProviderPublicationSummary surface="publication" offer={offer} />
                 <div role="cell" data-label="Actions" className="provider-offer-table__actions">
@@ -788,25 +777,21 @@ function RuntimeInspector({
                     className="btn"
                     onClick={() => refreshOffer.mutate(offer.id)}
                     disabled={provider.status !== "active" || refreshOffer.isPending}
-                    aria-label={`Refresh ${offer.upstream_model_id}`}
-                    title={provider.status === "active" ? "Refresh this model" : "Start the Provider before refreshing this model."}
+                    aria-label={t("Refresh {{0}}", { 0: offer.upstream_model_id })}
+                    title={provider.status === "active" ? t("Refresh this model") : t("Start the Provider before refreshing this model.")}
                   >
                     <RefreshCw
                       size={14}
                       className={refreshOffer.isPending && refreshOffer.variables === offer.id ? "animate-spin" : ""}
-                    />
-                    Refresh
-                  </button>
-                  {publishing && <button className="btn" onClick={() => setEditingOffer(offer)}>Edit</button>}
+                    />{t("Refresh")}</button>
+                  {publishing && <button className="btn" onClick={() => setEditingOffer(offer)}>{t("Edit")}</button>}
                   {!offer.source_ids.length && (
                     <button
                       className="btn"
                       onClick={() => onUseSources([offer.id])}
                       disabled={provider.status !== "active" || !isSourceEligibleOffer(offer)}
-                      title={provider.status === "active" ? sourceOfferBlockReason(offer) : "Start the Provider before creating a Source."}
-                    >
-                      Use model
-                    </button>
+                      title={provider.status === "active" ? sourceOfferBlockReason(offer) : t("Start the Provider before creating a Source.")}
+                    >{t("Use model")}</button>
                   )}
                 </div>
               </div>
@@ -814,19 +799,19 @@ function RuntimeInspector({
           </div>
         ) : (
           <div className="provider-offer-empty">
-            <strong>No models discovered</strong>
-            <p>{provider.status === "active" ? "Refresh the Provider catalog to discover available models." : "Start the Provider, then refresh its model catalog."}</p>
-            {provider.status === "active" && <button className="btn" onClick={() => refresh.mutate()}>Refresh models</button>}
+            <strong>{t("No models discovered")}</strong>
+            <p>{provider.status === "active" ? t("Refresh the Provider catalog to discover available models.") : t("Start the Provider, then refresh its model catalog.")}</p>
+            {provider.status === "active" && <button className="btn" onClick={() => refresh.mutate()}>{t("Refresh models")}</button>}
           </div>
         )}
       </section>
       <details className="provider-technical-details">
-        <summary>Technical details</summary>
+        <summary>{t("Technical details")}</summary>
         <dl>
-          <Fact label="Provider ID" value={compactId(provider.id)} />
-          <Fact label="Engine" value={humanEngine(provider.engine)} />
-          <Fact label="Internal runtime" value={compactId(providerRuntimeId(provider)) || "Missing"} />
-          <Fact label="Authentication" value={humanAuthMode(provider.auth_mode)} />
+          <Fact label={t("Provider ID")} value={compactId(provider.id)} />
+          <Fact label={t("Engine")} value={humanEngine(provider.engine)} />
+          <Fact label={t("Internal runtime")} value={compactId(providerRuntimeId(provider)) || "Missing"} />
+          <Fact label={t("Authentication")} value={humanAuthMode(provider.auth_mode)} />
         </dl>
       </details>
       <ProviderModelSettingsDialog
@@ -852,6 +837,7 @@ function EditProviderDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
@@ -880,7 +866,7 @@ function EditProviderDialog({
       ...(form.key ? { key: form.key } : {}),
     }),
     onSuccess: () => {
-      toast.success("Provider updated");
+      toast.success(t("Provider updated"));
       queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
       onClose();
     },
@@ -896,20 +882,20 @@ function EditProviderDialog({
       open={open}
       onClose={onClose}
       busy={update.isPending}
-      title="Edit provider"
-      description="Update the connection label or access method. Stop the Provider before changing its Engine."
+      title={t("Edit provider")}
+      description={t("Update the connection label or access method. Stop the Provider before changing its Engine.")}
     >
       <div className="space-y-4">
-        <Field label="Name"><input className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></Field>
-        <Field label="Engine">
+        <Field label={t("Name")}><input className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></Field>
+        <Field label={t("Engine")}>
           <select className="input" value={form.engine} onChange={(event) => setForm((current) => ({ ...current, engine: event.target.value as typeof current.engine }))}>
-            <option value="direct_api">Direct API</option>
-            <option value="codex_proxy">Codex</option>
-            <option value="cliproxyapi">CLIProxyAPI</option>
+            <option value="direct_api">{t("Direct API")}</option>
+            <option value="codex_proxy">{t("Codex")}</option>
+            <option value="cliproxyapi">{t("CLIProxyAPI")}</option>
           </select>
         </Field>
         {form.engine === "cliproxyapi" && (
-          <Field label="Provider">
+          <Field label={t("Provider")}>
             <select className="input" value={form.upstreamProvider} onChange={(event) => setForm((current) => ({ ...current, upstreamProvider: event.target.value }))}>
               {cliProxyLoginProviders.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
@@ -917,16 +903,16 @@ function EditProviderDialog({
         )}
         {form.engine === "direct_api" && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="API base URL"><input className="input" type="url" value={form.url} onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))} /></Field>
-            <Field label="API key" hint={provider.engine === "direct_api" ? "Leave blank to keep the current key." : "Required when switching to Direct API."}>
+            <Field label={t("API base URL")}><input className="input" type="url" value={form.url} onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))} /></Field>
+            <Field label={t("API key")} hint={provider.engine === "direct_api" ? t("Leave blank to keep the current key.") : t("Required when switching to Direct API.")}>
               <input className="input" type="password" value={form.key} onChange={(event) => setForm((current) => ({ ...current, key: event.target.value }))} autoComplete="new-password" />
             </Field>
           </div>
         )}
         {engineChanged && !["stopped", "created", "failed"].includes(provider.status) && (
-          <p className="provider-offer-dialog__error">Stop this Provider before changing its Engine or upstream Provider.</p>
+          <p className="provider-offer-dialog__error">{t("Stop this Provider before changing its Engine or upstream Provider.")}</p>
         )}
-        <DialogActions onClose={onClose} onSubmit={() => update.mutate()} label="Save changes" disabled={!valid || update.isPending || (engineChanged && !["stopped", "created", "failed"].includes(provider.status))} />
+        <DialogActions onClose={onClose} onSubmit={() => update.mutate()} label={t("Save changes")} disabled={!valid || update.isPending || (engineChanged && !["stopped", "created", "failed"].includes(provider.status))} />
       </div>
     </NexilumeDialog>
   );
@@ -941,6 +927,7 @@ function CreateAccountDialog({
   onClose: () => void;
   onCreated: (accountId: string) => void;
 }) {
+  useLocale();
   const { apiContext, projects, projectId } = useAuth();
   const queryClient = useQueryClient();
   const [ownership, setOwnership] = useState<import("../lib/types").ResourceOwnershipInput>(
@@ -964,7 +951,7 @@ function CreateAccountDialog({
         key: form.engine === "direct_api" ? form.key : "",
       }),
     onSuccess: async (provider) => {
-      toast.success("Provider connected");
+      toast.success(t("Provider connected"));
       setForm((current) => ({ ...current, name: "", key: "" }));
       await queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
       onCreated(provider.id);
@@ -981,25 +968,25 @@ function CreateAccountDialog({
       open={open}
       onClose={onClose}
       busy={create.isPending}
-      title="Connect Provider"
-      description="Name the connection and choose how Nexus should access it."
+      title={t("Connect Provider")}
+      description={t("Name the connection and choose how Nexus should access it.")}
     >
       <div className="space-y-5">
         <div>
-          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">Connection engine</p>
+          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">{t("Connection engine")}</p>
           <NexilumeTabs
-            label="Provider engine"
+            label={t("Provider engine")}
             variant="compact"
             value={form.engine}
             onChange={(value) => setForm((current) => ({ ...current, engine: value as typeof current.engine }))}
             options={[
-              { value: "direct_api", label: "API key" },
-              { value: "codex_proxy", label: "Codex" },
-              { value: "cliproxyapi", label: "CLIProxyAPI" },
+              { value: "direct_api", label: t("API key") },
+              { value: "codex_proxy", label: t("Codex") },
+              { value: "cliproxyapi", label: t("CLIProxyAPI") },
             ]}
           />
         </div>
-        <Field label="Name" hint="A label for this Provider Account in Nexus.">
+        <Field label={t("Name")} hint={t("A label for this Provider Account in Nexus.")}>
           <input
             className="input"
             value={form.name}
@@ -1009,7 +996,7 @@ function CreateAccountDialog({
                 name: event.target.value,
               }))
             }
-            placeholder="e.g. Production API or Team Claude"
+            placeholder={t("e.g. Production API or Team Claude")}
             autoFocus
             required
           />
@@ -1018,7 +1005,7 @@ function CreateAccountDialog({
 
         {form.engine === "direct_api" ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="API base URL">
+            <Field label={t("API base URL")}>
               <input
                 className="input"
                 type="url"
@@ -1027,7 +1014,7 @@ function CreateAccountDialog({
                 required
               />
             </Field>
-            <Field label="API key" hint="Stored encrypted and never returned.">
+            <Field label={t("API key")} hint={t("Stored encrypted and never returned.")}>
               <input
                 className="input font-mono"
                 type="password"
@@ -1041,10 +1028,10 @@ function CreateAccountDialog({
         ) : (
           <div className="grid gap-4 border border-border p-4 sm:grid-cols-2">
             {form.engine === "cliproxyapi" && (
-              <Field label="Provider">
+              <Field label={t("Provider")}>
                 <select
                   className="input"
-                  aria-label="Provider"
+                  aria-label={t("Provider")}
                   value={form.provider}
                   onChange={(event) => setForm((current) => ({ ...current, provider: event.target.value }))}
                 >
@@ -1056,15 +1043,15 @@ function CreateAccountDialog({
             )}
             <p className="text-sm leading-6 text-muted sm:col-span-2">
               {form.engine === "cliproxyapi"
-                ? `CLIProxyAPI will open ${form.provider === "claude" ? "Claude" : "OpenAI"} browser sign-in and expose an OpenAI-compatible API.`
-                : "After connecting, start the Provider and complete the secure browser sign-in."}
+                ? t("CLIProxyAPI will open {{0}} browser sign-in and expose an OpenAI-compatible API.", { 0: form.provider === "claude" ? "Claude" : "OpenAI" })
+                : t("After connecting, start the Provider and complete the secure browser sign-in.")}
             </p>
           </div>
         )}
         <DialogActions
           onClose={onClose}
           onSubmit={() => create.mutate()}
-          label="Connect provider"
+          label={t("Connect provider")}
           disabled={!canSubmit || create.isPending}
         />
       </div>
@@ -1081,6 +1068,7 @@ function RemoveProviderDialog({
   onClose: () => void;
   onRemoved: (providerId: string) => void;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState("");
@@ -1095,7 +1083,7 @@ function RemoveProviderDialog({
     mutationFn: () => api.removeProviderConnection(apiContext, provider!.id, confirmation),
     onSuccess: async () => {
       const removedId = provider!.id;
-      toast.success("Provider deleted");
+      toast.success(t("Provider deleted"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["provider-connections"] }),
         queryClient.invalidateQueries({ queryKey: ["provider-runtimes"] }),
@@ -1111,33 +1099,33 @@ function RemoveProviderDialog({
       open={Boolean(provider)}
       onClose={onClose}
       busy={remove.isPending}
-      title="Delete provider"
+      title={t("Delete provider")}
       description={managementCopy.providerDeletion}
     >
       {provider && (
         <div className="provider-remove-dialog">
           {impact.isLoading ? (
-            <div className="provider-remove-dialog__loading"><Loader2 size={16} className="animate-spin" /> Checking dependencies…</div>
+            <div className="provider-remove-dialog__loading"><Loader2 size={16} className="animate-spin" />{" "}{t("Checking dependencies…")}</div>
           ) : impact.isError ? (
             <div className="provider-runtime-error" role="alert">
               <CircleAlert size={17} />
-              <div><strong>Deletion impact is unavailable</strong><p>Retry before removing this Provider.</p></div>
-              <button className="btn" onClick={() => void impact.refetch()}>Retry</button>
+              <div><strong>{t("Deletion impact is unavailable")}</strong><p>{t("Retry before removing this Provider.")}</p></div>
+              <button className="btn" onClick={() => void impact.refetch()}>{t("Retry")}</button>
             </div>
           ) : deletion ? (
             <>
               <dl className="provider-remove-dialog__impact">
-                <Fact label="Provider" value={deletion.provider_name} />
-                <Fact label="Status" value={deletion.runtime_status} />
-                <Fact label="Models" value={String(deletion.model_count)} />
+                <Fact label={t("Provider")} value={deletion.provider_name} />
+                <Fact label={t("Status")} value={deletion.runtime_status} />
+                <Fact label={t("Models")} value={String(deletion.model_count)} />
                 {managementCopy.providerPublishedLabel && <Fact label={managementCopy.providerPublishedLabel} value={String(deletion.published_count)} />}
-                <Fact label="Sources removed" value={String(deletion.source_count)} />
+                <Fact label={t("Sources removed")} value={String(deletion.source_count)} />
               </dl>
               <p className="provider-remove-dialog__warning">
                 {managementCopy.providerDeletionWarning}
               </p>
               {deletion.requires_name_confirmation && (
-                <Field label={`Enter ${deletion.provider_name} to confirm`}>
+                <Field label={t("Enter {{0}} to confirm", { 0: deletion.provider_name })}>
                   <input
                     className="input"
                     value={confirmation}
@@ -1151,7 +1139,7 @@ function RemoveProviderDialog({
           <DialogActions
             onClose={onClose}
             onSubmit={() => remove.mutate()}
-            label="Delete provider"
+            label={t("Delete provider")}
             disabled={!deletion || !confirmed || remove.isPending}
           />
         </div>
@@ -1161,27 +1149,27 @@ function RemoveProviderDialog({
 }
 
 function LegacyRuntimeRecovery({ runtimes }: { runtimes: ProviderRuntimeAccount[] }) {
+  useLocale();
   const { apiContext } = useAuth();
   const queryClient = useQueryClient();
   const remove = useMutation({
     mutationFn: (runtimeId: string) => api.deleteProviderRuntime(apiContext, runtimeId),
     onSuccess: () => {
-      toast.success("Legacy runtime removed");
+      toast.success(t("Legacy runtime removed"));
       queryClient.invalidateQueries({ queryKey: ["provider-runtimes"] });
     },
     onError: errorToast("Legacy runtime cleanup failed"),
   });
   return (
     <details className="provider-legacy-recovery">
-      <summary><CircleAlert size={15} /> Legacy recovery · {runtimes.length}</summary>
-      <p>These historical runtimes are not connected to a Provider. They are excluded from normal Provider status.</p>
+      <summary><CircleAlert size={15} />{" "}{t("Legacy recovery ·")}{" "}{runtimes.length}</summary>
+      <p>{t("These historical runtimes are not connected to a Provider. They are excluded from normal Provider status.")}</p>
       <div>
         {runtimes.map((runtime) => (
           <div key={runtime.id}>
             <span><strong>{runtime.name}</strong><small>{humanEngine(runtime.runtime_type)} · {humanStatus(runtime.status)}</small></span>
             <button className="btn" onClick={() => remove.mutate(runtime.id)} disabled={remove.isPending}>
-              <Trash2 size={14} /> Remove
-            </button>
+              <Trash2 size={14} />{" "}{t("Remove")}</button>
           </div>
         ))}
       </div>
@@ -1192,8 +1180,9 @@ function LegacyRuntimeRecovery({ runtimes }: { runtimes: ProviderRuntimeAccount[
 
 
 function ProviderWorkbenchSkeleton() {
+  useLocale();
   return (
-    <div className="provider-workbench-skeleton" aria-label="Loading Provider operations">
+    <div className="provider-workbench-skeleton" aria-label={t("Loading Provider operations")}>
       <div>{[0, 1, 2].map((item) => <span key={item} />)}</div>
       <div><span /><span /><span /></div>
     </div>
@@ -1201,14 +1190,15 @@ function ProviderWorkbenchSkeleton() {
 }
 
 function ProviderPartialFailure({ onRetry }: { onRetry: () => void }) {
+  useLocale();
   return (
     <div className="provider-partial-failure" role="alert">
       <CircleAlert size={17} />
       <div>
-        <strong>Some Provider status is unavailable</strong>
-        <p>Loaded Providers remain usable. Retry to restore missing connection or model details.</p>
+        <strong>{t("Some Provider status is unavailable")}</strong>
+        <p>{t("Loaded Providers remain usable. Retry to restore missing connection or model details.")}</p>
       </div>
-      <button className="btn" onClick={onRetry}>Retry</button>
+      <button className="btn" onClick={onRetry}>{t("Retry")}</button>
     </div>
   );
 }
@@ -1280,21 +1270,21 @@ function runtimeActionIcon(action: RuntimeRecommendedAction) {
 function formatProviderQuota(provider: ProviderConnection) {
   const tokens = provider.quota.remaining_tokens;
   const requests = provider.quota.remaining_requests;
-  if (typeof tokens === "number") return `${tokens.toLocaleString()} tokens`;
-  if (typeof requests === "number") return `${requests.toLocaleString()} requests`;
-  return provider.status === "active" ? humanStatus(provider.quota.status) : "Not verified";
+  if (typeof tokens === "number") return t("{{0}} tokens", { 0: tokens.toLocaleString(getLocale()) });
+  if (typeof requests === "number") return t("{{0}} requests", { 0: requests.toLocaleString(getLocale()) });
+  return provider.status === "active" ? humanStatus(provider.quota.status) : t("Not verified");
 }
 
 function formatRelativeDate(value: string | null) {
-  if (!value) return "Not checked";
+  if (!value) return t("Not checked");
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Not checked";
+  if (!Number.isFinite(timestamp)) return t("Not checked");
   const elapsed = Date.now() - timestamp;
-  if (elapsed < 60_000) return "just now";
-  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
-  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
-  if (elapsed < 604_800_000) return `${Math.floor(elapsed / 86_400_000)}d ago`;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(timestamp));
+  if (elapsed < 60_000) return t("just now");
+  if (elapsed < 3_600_000) return t("{{0}}m ago", { 0: Math.floor(elapsed / 60_000) });
+  if (elapsed < 86_400_000) return t("{{0}}h ago", { 0: Math.floor(elapsed / 3_600_000) });
+  if (elapsed < 604_800_000) return t("{{0}}d ago", { 0: Math.floor(elapsed / 86_400_000) });
+  return new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium" }).format(new Date(timestamp));
 }
 
 function isSourceEligibleOffer(offer: ProviderRuntimeModelOffer) {
@@ -1307,11 +1297,11 @@ function isSourceEligibleOffer(offer: ProviderRuntimeModelOffer) {
 }
 
 function sourceOfferBlockReason(offer: ProviderRuntimeModelOffer) {
-  if (offer.source_ids.length) return "A Source already exists for this Model Offer.";
-  if (!offer.canonical_model_id) return "Refresh this model to apply its upstream model name.";
-  if (!["detected", "confirmed"].includes(offer.status)) return "This Model Offer is not currently advertised.";
-  if (!["healthy", "degraded"].includes(offer.health_status)) return `Model Offer health is ${offer.health_status}.`;
-  return "Create an immutable Source from this Model Offer.";
+  if (offer.source_ids.length) return t("A Source already exists for this Model Offer.");
+  if (!offer.canonical_model_id) return t("Refresh this model to apply its upstream model name.");
+  if (!["detected", "confirmed"].includes(offer.status)) return t("This Model Offer is not currently advertised.");
+  if (!["healthy", "degraded"].includes(offer.health_status)) return t("Model Offer health is {{0}}.", { 0: offer.health_status });
+  return t("Create an immutable Source from this Model Offer.");
 }
 
 function providerConnectionSourceOrigin(provider: ProviderConnection): RuntimeSourceComposerOrigin {
@@ -1334,19 +1324,19 @@ function providerConnectionSourceOrigin(provider: ProviderConnection): RuntimeSo
 }
 
 function humanAuthMode(value: string) {
-  if (value === "api_key") return "API key";
-  if (value === "username_password_login") return "CLIProxy credentials";
-  if (value === "interactive_login") return "Browser sign-in";
+  if (value === "api_key") return t("API key");
+  if (value === "username_password_login") return t("CLIProxy credentials");
+  if (value === "interactive_login") return t("Browser sign-in");
   return value.replaceAll("_", " ");
 }
 
 function humanEngine(value: string) {
-  if (value === "direct_api") return "Direct API";
-  if (value === "codex_proxy") return "Codex";
-  if (value === "cliproxyapi") return "CLIProxyAPI";
+  if (value === "direct_api") return t("Direct API");
+  if (value === "codex_proxy") return t("Codex");
+  if (value === "cliproxyapi") return t("CLIProxyAPI");
   return humanStatus(value);
 }
 
 function humanStatus(value: string) {
-  return (value || "unknown").replaceAll("_", " ");
+  return t((value || "unknown").replaceAll("_", " "));
 }

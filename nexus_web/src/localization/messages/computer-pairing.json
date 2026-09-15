@@ -1,0 +1,3 @@
+{
+  "Install Nexus Computer Runtime as your current user. It connects outward to your Nexus instance; no SSH host, password, or inbound port is needed.": "以当前用户身份安装 Nexus 电脑运行时。它向外连接到您的 Nexus 实例；不需要 SSH 主机、密码或入站端口。"
+}

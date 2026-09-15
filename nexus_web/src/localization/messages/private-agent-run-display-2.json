@@ -1,0 +1,14 @@
+{
+  "Reconnecting": "重新连接",
+  "Polling fallback": "轮询回退",
+  "{{0}} · {{1}} · read only": "{{0}}·{{1}}·只读",
+  "No exit code": "无退出代码",
+  "Copy output for {{0}}": "复制 {{0}} 的输出",
+  "Unable to copy Shell output": "无法复制 Shell 输出",
+  "Shell output copied": "已复制 Shell 输出",
+  "Run completed": "运行完成",
+  "Run failed": "运行失败",
+  "Waiting for input": "等待输入",
+  "Agent is working": "智能体正在工作",
+  "Updates available": "有更新"
+}

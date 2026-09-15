@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { Suspense } from "react";
 import type { ResourceManagementCopy } from "../app/resourcePublishing";
 import type { AgentPublicationSummaryProps, DatasetPublicationSummaryProps } from "../app/resourcePublishing";
@@ -17,59 +18,69 @@ export function useResourceManagementCopy(): ResourceManagementCopy {
 
 /** Missing extensions mount no component, query or mutation. Authorization stays server-side. */
 export function ResourceListingEditor(props: ResourceListingEditorProps) {
+  useLocale();
   const Editor = useApplicationDistribution().resourcePublishing?.ListingEditor;
-  return Editor ? <Suspense fallback={<p role="status">Loading listing editor…</p>}><Editor {...props} /></Suspense> : null;
+  return Editor ? <Suspense fallback={<p role="status">{t("Loading listing editor…")}</p>}><Editor {...props} /></Suspense> : null;
 }
 
 export function ProviderPublicationSummary(props: ProviderPublicationSummaryProps) {
+  useLocale();
   const Summary = useApplicationDistribution().resourcePublishing?.ProviderSummary;
   return Summary ? <Summary {...props} /> : null;
 }
 
 export function AgentPublicationSummary(props: AgentPublicationSummaryProps) {
+  useLocale();
   const Summary = useApplicationDistribution().resourcePublishing?.AgentSummary;
   return Summary ? <Summary {...props} /> : null;
 }
 
 export function DatasetPublicationSummary(props: DatasetPublicationSummaryProps) {
+  useLocale();
   const Summary = useApplicationDistribution().resourcePublishing?.DatasetSummary;
   return Summary ? <Summary {...props} /> : null;
 }
 
 export function AgentSettingsPublication(props: AgentSettingsPublicationProps) {
+  useLocale();
   const Panel = useApplicationDistribution().resourcePublishing?.AgentSettingsPanel;
-  return Panel ? <Suspense fallback={<p role="status">Loading publishing tools…</p>}><Panel {...props} /></Suspense> : null;
+  return Panel ? <Suspense fallback={<p role="status">{t("Loading publishing tools…")}</p>}><Panel {...props} /></Suspense> : null;
 }
 
 export function ProviderPublicationDialog(props: ProviderPublicationDialogProps) {
+  useLocale();
   const Dialog = useApplicationDistribution().resourcePublishing?.ProviderDialog;
-  return Dialog && props.provider ? <Suspense fallback={<p role="status">Loading publishing tools…</p>}><Dialog {...props} /></Suspense> : null;
+  return Dialog && props.provider ? <Suspense fallback={<p role="status">{t("Loading publishing tools…")}</p>}><Dialog {...props} /></Suspense> : null;
 }
 
 export function ProviderModelSettingsDialog(props: ProviderModelSettingsDialogProps) {
+  useLocale();
   const Dialog = useApplicationDistribution().resourcePublishing?.ProviderModelDialog;
-  return Dialog && props.offer ? <Suspense fallback={<p role="status">Loading model settings…</p>}><Dialog {...props} /></Suspense> : null;
+  return Dialog && props.offer ? <Suspense fallback={<p role="status">{t("Loading model settings…")}</p>}><Dialog {...props} /></Suspense> : null;
 }
 
 export function AgentPublicationWorkspace(props: AgentPublicationPanelProps) {
+  useLocale();
   const Panel = useApplicationDistribution().resourcePublishing?.AgentPanel;
-  const testing = <section className="agent-control-section" aria-label="Test Agent">
+  const testing = <section className="agent-control-section" aria-label={t("Test Agent")}>
     <div className="agent-control-section__header"><div>
-      <h2>Test your Agent</h2>
-      <p>Attach your devices and open Private Display to test this Agent.</p>
+      <h2>{t("Test your Agent")}</h2>
+      <p>{t("Attach your devices and open Private Display to test this Agent.")}</p>
     </div></div>
     <div className="agent-action-cluster">{props.testActions}</div>
   </section>;
-  return Panel ? <Suspense fallback={<><p role="status">Loading publishing tools…</p>{testing}</>}><Panel {...props} /></Suspense> : testing;
+  return Panel ? <Suspense fallback={<><p role="status">{t("Loading publishing tools…")}</p>{testing}</>}><Panel {...props} /></Suspense> : testing;
 }
 
 /** One optional scope owns drafts across the workspace and settings surfaces. */
 export function DatasetPublicationScope(props: DatasetPublicationScopeProps) {
+  useLocale();
   const Scope = useApplicationDistribution().resourcePublishing?.DatasetScope;
   return Scope ? <Scope {...props} /> : <>{props.children}</>;
 }
 
 export function DatasetPublicationPanel(props: DatasetPublicationPanelProps) {
+  useLocale();
   const Panel = useApplicationDistribution().resourcePublishing?.DatasetPanel;
   return Panel ? <Panel {...props} /> : <>{props.capacityControl}</>;
 }

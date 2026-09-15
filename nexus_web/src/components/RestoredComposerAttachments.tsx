@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useQueries } from "@tanstack/react-query";
 import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
@@ -6,6 +7,7 @@ import type { AgentInteractionTool } from "../lib/types";
 import { AttachmentImagePreview } from "./RunImageAttachments";
 
 function RestoredImagePreview({ assetId, name }: { assetId: string; name: string }) {
+  useLocale();
   const { apiContext } = useAuth();
   const preview = useQueries({ queries: [{
     queryKey: ["composer-image-preview", apiContext, assetId],
@@ -13,7 +15,7 @@ function RestoredImagePreview({ assetId, name }: { assetId: string; name: string
     staleTime: 240_000, retry: false,
   }] })[0];
   return preview.data?.url ? <AttachmentImagePreview src={preview.data.url} name={name} />
-    : <div aria-label={`Preview unavailable for ${name}`} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-black/5 text-center text-[10px] text-muted">{preview.isError ? "Preview unavailable" : "Loading preview"}</div>;
+    : <div aria-label={t("Preview unavailable for {{0}}", { 0: name })} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-black/5 text-center text-[10px] text-muted">{preview.isError ? t("Preview unavailable") : t("Loading preview")}</div>;
 }
 
 export function useRestoredAttachments(key: string, assets: DraftAsset[], tool: AgentInteractionTool | null, run?: { id: string; token: string }) {
@@ -47,14 +49,15 @@ export function useRestoredAttachments(key: string, assets: DraftAsset[], tool: 
 export function RestoredComposerAttachments({ state, onRemove, disabled }: {
   state: ReturnType<typeof useRestoredAttachments>; onRemove: (asset: DraftAsset) => void; disabled: boolean;
 }) {
+  useLocale();
   if (!state.rows.length) return null;
-  return <section aria-label="Restored attachments" className="mb-2 rounded-md border border-black/10 bg-white p-3 text-sm">
-    <p className="mb-2 text-xs text-muted">Saved attachments · checked with Cloud before use</p>
+  return <section aria-label={t("Restored attachments")} className="mb-2 rounded-md border border-black/10 bg-white p-3 text-sm">
+    <p className="mb-2 text-xs text-muted">{t("Saved attachments · checked with Cloud before use")}</p>
     {state.rows.map(({ asset, reason, checking, ready, retry }) => <div key={`${asset.kind}:${asset.id}`} className="flex items-start justify-between gap-2 border-t border-black/5 py-2">
       {asset.kind === "image" && ready ? <RestoredImagePreview assetId={asset.id} name={asset.name} /> : null}
-      <div className="min-w-0 flex-1"><p className="break-words">{asset.name}</p><p className="text-xs text-muted">{asset.kind === "computer" ? "Computer file snapshot" : asset.kind} · {Math.ceil(asset.size / 1024)} KiB</p>
-        <p role="status" className={`mt-1 text-xs ${reason ? "text-amber-800" : "text-muted"}`}>{checking ? "Checking attachment…" : ready ? "Ready to send" : reason}</p></div>
-      <div className="shrink-0"><select value="" aria-label={`Saved attachment actions: ${asset.name}`} disabled={disabled} className="min-h-11 max-w-28 rounded-md border border-black/15 bg-white px-2 text-xs" onChange={event => event.target.value === "remove" ? onRemove(asset) : retry()}><option value="">Actions</option><option value="check">Check again</option><option value="remove">Remove</option></select></div>
+      <div className="min-w-0 flex-1"><p className="break-words">{asset.name}</p><p className="text-xs text-muted">{asset.kind === "computer" ? t("Computer file snapshot") : asset.kind} · {Math.ceil(asset.size / 1024)}{" "}{t("KiB")}</p>
+        <p role="status" className={`mt-1 text-xs ${reason ? "text-amber-800" : "text-muted"}`}>{checking ? t("Checking attachment…") : ready ? t("Ready to send") : reason}</p></div>
+      <div className="shrink-0"><select value="" aria-label={t("Saved attachment actions: {{0}}", { 0: asset.name })} disabled={disabled} className="min-h-11 max-w-28 rounded-md border border-black/15 bg-white px-2 text-xs" onChange={event => event.target.value === "remove" ? onRemove(asset) : retry()}><option value="">{t("Actions")}</option><option value="check">{t("Check again")}</option><option value="remove">{t("Remove")}</option></select></div>
     </div>)}
   </section>;
 }

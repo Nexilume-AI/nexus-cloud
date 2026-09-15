@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, type AgentFileTransfer } from "../lib/api";
@@ -102,22 +103,23 @@ export const RunFileAttachments = forwardRef<AttachmentIntake, {
     }
     setEntries(current => current.filter(item => item.file !== entry.file));
   }
-  return <section aria-label="Private file attachments" className={entries.length || limitError || error ? "my-2 min-w-0" : "min-w-0"}>
-    {entries.length ? <p className="text-xs text-muted">{maxBytes ? `${maxBytes >= 1024**3 ? `${(maxBytes / 1024**3).toFixed(1)} GiB` : `${Math.ceil(maxBytes / 1024**2)} MiB`} per file` : "Loading file limit…"} · Uploading does not mean the Agent has read the file.</p> : null}
-    {limitError ? <p role="alert" className="text-sm text-red-700">File service unavailable. <button type="button" className="min-h-11 underline" onClick={() => void loadLimits()}>Retry file service</button></p> : null}
+  return <section aria-label={t("Private file attachments")} className={entries.length || limitError || error ? "my-2 min-w-0" : "min-w-0"}>
+    {entries.length ? <p className="text-xs text-muted">{maxBytes ? t("{{0}} per file", { 0: maxBytes >= 1024**3 ? `${(maxBytes / 1024**3).toFixed(1)} GiB` : `${Math.ceil(maxBytes / 1024**2)} MiB` }) : t("Loading file limit…")}{" "}{t("· Uploading does not mean the Agent has read the file.")}</p> : null}
+    {limitError ? <p role="alert" className="text-sm text-red-700">{t("File service unavailable.")}{" "}<button type="button" className="min-h-11 underline" onClick={() => void loadLimits()}>{t("Retry file service")}</button></p> : null}
     {entries.map((entry, index) => <div key={index} className="mt-2 border-t border-black/10 pt-2 text-sm">
       <div className="break-all">{entry.file.name}</div>
-      <progress aria-label={`Upload ${entry.file.name}`} max={entry.file.size || 1} value={entry.transfer?.received_bytes || 0} className="w-full" />
-      <div aria-live="polite">{entry.transfer?.state === "ready" ? "Ready to send" : entry.transfer?.state === "queued" || entry.transfer?.state === "processing" ? "Verifying file…" : `${Math.floor((entry.transfer?.received_bytes || 0) / Math.max(entry.file.size,1) * 100)}% uploaded`}</div>
+      <progress aria-label={t("Upload {{0}}", { 0: entry.file.name })} max={entry.file.size || 1} value={entry.transfer?.received_bytes || 0} className="w-full" />
+      <div aria-live="polite">{entry.transfer?.state === "ready" ? t("Ready to send") : entry.transfer?.state === "queued" || entry.transfer?.state === "processing" ? t("Verifying file…") : t("{{0}}% uploaded", { 0: Math.floor((entry.transfer?.received_bytes || 0) / Math.max(entry.file.size,1) * 100) })}</div>
       {entry.error ? <p role="alert" className="text-red-700">{entry.error}</p> : null}
-      {entry.error ? <button type="button" disabled={working} className="btn min-h-11" onClick={() => void transfer(entry)}>Retry upload</button> : null}
-      <button type="button" className="btn min-h-11" disabled={disabled} onClick={() => void remove(entry)}>Remove {entry.file.name}</button>
+      {entry.error ? <button type="button" disabled={working} className="btn min-h-11" onClick={() => void transfer(entry)}>{t("Retry upload")}</button> : null}
+      <button type="button" className="btn min-h-11" disabled={disabled} onClick={() => void remove(entry)}>{t("Remove")}{" "}{entry.file.name}</button>
     </div>)}
-    {error ? <div role="alert" className="whitespace-pre-wrap text-sm text-red-700">{error}<button type="button" className="block min-h-11 underline" onClick={() => setError("")}>Dismiss rejected files</button></div> : null}
+    {error ? <div role="alert" className="whitespace-pre-wrap text-sm text-red-700">{error}<button type="button" className="block min-h-11 underline" onClick={() => setError("")}>{t("Dismiss rejected files")}</button></div> : null}
   </section>;
 });
 
 export function RunInputFiles({ runId, displayToken }: { runId: string; displayToken: string }) {
+  useLocale();
   const { apiContext } = useAuth();
   const files = useQuery({ queryKey: ["private-run-input-files", apiContext, runId, displayToken],
     queryFn: () => api.privateRunFiles(apiContext, runId, displayToken), enabled: Boolean(displayToken) });
@@ -125,15 +127,15 @@ export function RunInputFiles({ runId, displayToken }: { runId: string; displayT
     mutationFn: (file: AgentFileTransfer) => api.prepareAgentDownload(apiContext, `/api/v1/agent-runs/${runId}/files/${file.file_id}/download/`, displayToken),
     onSuccess: value => { const anchor = document.createElement("a"); anchor.href = value.url; anchor.download = value.file_name; document.body.appendChild(anchor); anchor.click(); anchor.remove(); },
   });
-  return <section aria-label="Run input files">
-    <h3 className="text-sm font-semibold">Input files</h3>
-    {files.isPending ? <p className="text-sm">Loading files…</p> : null}
-    {files.isError ? <button type="button" className="btn min-h-11" onClick={() => void files.refetch()}>Retry input files</button> : null}
-    {files.data?.length === 0 ? <p className="text-sm text-muted">No input files for this Run.</p> : null}
+  return <section aria-label={t("Run input files")}>
+    <h3 className="text-sm font-semibold">{t("Input files")}</h3>
+    {files.isPending ? <p className="text-sm">{t("Loading files…")}</p> : null}
+    {files.isError ? <button type="button" className="btn min-h-11" onClick={() => void files.refetch()}>{t("Retry input files")}</button> : null}
+    {files.data?.length === 0 ? <p className="text-sm text-muted">{t("No input files for this Run.")}</p> : null}
     {files.data?.map(file => <div key={file.file_id} className="my-2 border-b border-black/10 py-2">
-      <p className="break-all text-sm">{file.name}</p><p className="text-xs text-muted">{(file.size_bytes / 1024**2).toFixed(1)} MiB · private input</p>
-      <button type="button" className="btn min-h-11" disabled={download.isPending} onClick={() => download.mutate(file)}>Download {file.name}</button>
+      <p className="break-all text-sm">{file.name}</p><p className="text-xs text-muted">{(file.size_bytes / 1024**2).toFixed(1)}{" "}{t("MiB · private input")}</p>
+      <button type="button" className="btn min-h-11" disabled={download.isPending} onClick={() => download.mutate(file)}>{t("Download")}{" "}{file.name}</button>
     </div>)}
-    {download.isError ? <p role="alert" className="text-sm text-red-700">Download unavailable. Retry to renew access.</p> : null}
+    {download.isError ? <p role="alert" className="text-sm text-red-700">{t("Download unavailable. Retry to renew access.")}</p> : null}
   </section>;
 }

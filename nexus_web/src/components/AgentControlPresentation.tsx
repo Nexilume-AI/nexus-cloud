@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 /** Shared presentation and existing action checks; no commercial requests. */
 import { useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
@@ -18,13 +19,14 @@ export function ResponsiveAgentInspector({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const content = (mode: "desktop" | "drawer") => (
     <aside
       className={`agent-inspector agent-inspector--${mode}`}
-      aria-label={`${eyebrow} context`}
+      aria-label={t("{{0}} context", { 0: eyebrow })}
     >
-      <p className="agent-inspector__eyebrow">Inspector · {eyebrow}</p>
+      <p className="agent-inspector__eyebrow">{t("Inspector ·")}{" "}{eyebrow}</p>
       <h2>{title}</h2>
       <p>{description}</p>
       <dl>{children}</dl>
@@ -41,18 +43,17 @@ export function ResponsiveAgentInspector({
         onClick={() => setOpen(true)}
       >
         <span>
-          <small>Inspector · {eyebrow}</small>
+          <small>{t("Inspector ·")}{" "}{eyebrow}</small>
           <strong>{title}</strong>
         </span>
-        <span>
-          View context <ChevronRight size={15} />
+        <span>{t("View context")}{" "}<ChevronRight size={15} />
         </span>
       </button>
       {content("desktop")}
       <NexilumeDialog
         open={open}
         variant="drawer"
-        eyebrow={`Inspector · ${eyebrow}`}
+        eyebrow={t("Inspector · {{0}}", { 0: eyebrow })}
         title={title}
         description={description}
         onClose={() => setOpen(false)}
@@ -72,6 +73,7 @@ export function SectionHeading({
   title: string;
   description: string;
 }) {
+  useLocale();
   return (
     <header className="agent-section-heading">
       <p className="agent-control-eyebrow">{eyebrow}</p>
@@ -82,6 +84,7 @@ export function SectionHeading({
 }
 
 export function InspectorValue({ label, value }: { label: string; value: string }) {
+  useLocale();
   return (
     <div>
       <dt>{label}</dt>
@@ -98,12 +101,12 @@ export function canAgent(agent: Agent, action: string) {
 
 export function agentOwnershipLabel(agent: Agent) {
   if (agent.ownership?.label) return agent.ownership.label;
-  return agent.project_id ? "Project resource" : "Organization shared";
+  return agent.project_id ? t("Project resource") : t("Organization shared");
 }
 
 export function humanize(value: string | null | undefined) {
   const normalized = String(value ?? "").trim();
-  if (!normalized) return "Unknown";
+  if (!normalized) return t("Unknown");
   return normalized
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -127,6 +130,7 @@ export function OverviewRow({
   detail: string;
   to: string;
 }) {
+  useLocale();
   return (
     <Link className="agent-overview-row" to={to}>
       <span className="agent-overview-row__icon">{icon}</span>

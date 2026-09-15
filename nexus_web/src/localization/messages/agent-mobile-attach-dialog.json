@@ -1,0 +1,19 @@
+{
+  "Attach caller Mobile": "附加调用方移动设备",
+  "Mobile ready": "移动设备就绪",
+  "is the default for the next Run. An active Run keeps its original device.": "是下次运行的默认值。主动运行保留其原始设备。",
+  "The grant is caller-private and can be revoked immediately.": "该授权是调用方私有的，可以立即撤销。",
+  "No Mobile actions requested.": "没有请求移动设备操作。",
+  "The latest Agent Mobile policy could not be loaded. Retry before attaching.": "无法加载最新的智能体移动设备策略。连接前重试。",
+  "Choose your phone": "选择您的手机",
+  "Loading caller devices": "加载调用方设备",
+  "Mobile devices could not be loaded.": "无法加载移动设备。",
+  "No paired Mobile": "没有配对的移动设备",
+  "Pair a caller-owned phone in Operate &gt; Mobile, then return here.": "在“操作”>“移动设备”中配对调用方拥有的手机，然后返回此处。",
+  "Pair Mobile": "配对移动设备",
+  "Caller Mobile devices": "调用方移动设备",
+  "Mobile attached for future Runs": "连接移动设备用于将来的运行记录",
+  "Unable to attach Mobile": "无法连接移动设备",
+  "{{0}} can operate only the phone you explicitly authorize for this Agent.": "{{0}} 只能操作您为此智能体明确授权的手机。",
+  "The selected phone": "所选手机"
+}

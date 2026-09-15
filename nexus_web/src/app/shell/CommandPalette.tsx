@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../../localization";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ExternalLink, Search, X } from "lucide-react";
 
@@ -21,6 +22,7 @@ export function CommandPalette({
   onClose: () => void;
   onSelect: (item: NavigationItem) => void;
 }) {
+  useLocale();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -31,10 +33,10 @@ export function CommandPalette({
     return sections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !normalized || `${item.label} ${item.description} ${section.label}`.toLowerCase().includes(normalized))
+        items: section.items.filter((item) => !normalized || `${item.label} ${item.description} ${section.label} ${t(item.label)} ${t(item.description)} ${t(section.label)}`.toLowerCase().includes(normalized))
       }))
       .filter((section) => section.items.length > 0);
-  }, [query, sections]);
+  }, [query, sections, getLocale()]);
   const flatItems = filteredSections.flatMap((section) => section.items);
 
   useEffect(() => {
@@ -89,19 +91,19 @@ export function CommandPalette({
 
   let itemIndex = -1;
   return (
-    <div className="nexilume-command-layer" role="dialog" aria-modal="true" aria-label="Quick navigation" onKeyDown={handleKeyDown}>
-      <button className="nexilume-command-layer__backdrop" onClick={onClose} aria-label="Close quick navigation" type="button" />
+    <div className="nexilume-command-layer" role="dialog" aria-modal="true" aria-label={t("Quick navigation")} onKeyDown={handleKeyDown}>
+      <button className="nexilume-command-layer__backdrop" onClick={onClose} aria-label={t("Close quick navigation")} type="button" />
       <div className="nexilume-command" ref={dialogRef}>
         <label className="nexilume-command__search">
           <Search size={18} />
-          <span className="sr-only">Find a Nexilume AI page</span>
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capability and workflows" />
-          <button onClick={onClose} aria-label="Close" type="button"><X size={17} /></button>
+          <span className="sr-only">{t("Find a Nexilume AI page")}</span>
+          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search capability and workflows")} />
+          <button onClick={onClose} aria-label={t("Close")} type="button"><X size={17} /></button>
         </label>
         <div className="nexilume-command__results">
           {filteredSections.map((section) => (
             <section key={section.id}>
-              <header><span>{section.label}</span><small>{section.verb}</small></header>
+              <header><span>{t(section.label)}</span><small>{t(section.verb)}</small></header>
               <div>
                 {section.items.map((item) => {
                   itemIndex += 1;
@@ -117,7 +119,7 @@ export function CommandPalette({
                       type="button"
                     >
                       <span className="nexilume-command__node" aria-hidden="true"><Icon size={16} /></span>
-                      <span><strong>{item.label}</strong><small>{item.description}</small></span>
+                      <span><strong>{t(item.label)}</strong><small>{t(item.description)}</small></span>
                       {item.opensInWindow ? <ExternalLink size={14} aria-hidden="true" /> : null}
                     </button>
                   );
@@ -125,7 +127,7 @@ export function CommandPalette({
               </div>
             </section>
           ))}
-          {flatItems.length === 0 ? <div className="nexilume-command__empty">No matching Nexilume AI capability.</div> : null}
+          {flatItems.length === 0 ? <div className="nexilume-command__empty">{t("No matching Nexilume AI capability.")}</div> : null}
         </div>
       </div>
     </div>

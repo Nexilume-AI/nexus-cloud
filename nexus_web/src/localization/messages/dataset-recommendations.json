@@ -1,0 +1,8 @@
+{
+  "Import assets": "导入资产",
+  "Choose an Agent and add an approved trace, memory selection, or output file.": "选择智能体并添加批准的跟踪、内存选择或输出文件。",
+  "Create first release": "创建第一个版本",
+  "Review policy checks and freeze the current assets into an immutable release.": "审查策略检查并将当前资产冻结为不可变版本。",
+  "Review release": "审查版本",
+  "View the current immutable release and its files.": "查看当前的不可变版本及其文件。"
+}

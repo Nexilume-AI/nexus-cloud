@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "build:community": "tsc -p tsconfig.community.json && vite build --config vite.community.config.ts",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -p tsconfig.community.json",
     "test:unit": "vitest run src",
-    "generate:api": "openapi-typescript ../nexus_server/openapi.yaml -o src/lib/openapi.d.ts"
+    "generate:api": "openapi-typescript ../nexus_server/openapi.yaml -o src/lib/openapi.d.ts",
+    "test:i18n": "npm run build:community && playwright test --config tooling/localization/playwright.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

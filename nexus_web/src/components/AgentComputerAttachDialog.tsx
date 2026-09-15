@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -37,6 +38,7 @@ export function AgentComputerAttachDialog({
   onAttached: () => void | Promise<void>;
   targetRun?: { id: string; displayToken: string; revision: number; name: string };
 }) {
+  useLocale();
   const queryClient = useQueryClient();
   const connections = useQuery({
     queryKey: [
@@ -159,11 +161,11 @@ export function AgentComputerAttachDialog({
         }),
       ]);
       setComplete(true);
-      toast.success(targetRun ? "Computer changed for the next turn in this Run" : "Default Computer changed for future Runs");
+      toast.success(targetRun ? t("Computer changed for the next turn in this Run") : t("Default Computer changed for future Runs"));
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Unable to attach Computer",
+        error instanceof Error ? error.message : t("Unable to attach Computer"),
       ),
   });
   const selected = runtimeConnections.find(
@@ -175,9 +177,9 @@ export function AgentComputerAttachDialog({
     <NexilumeDialog
       open={open}
       onClose={onClose}
-      title={targetRun ? "Change Computer for this Run" : `${defaultConnectionId ? "Change" : "Attach"} default Computer`}
-      eyebrow="PRIVATE RUN SETUP"
-      description={targetRun ? `Replace ${targetRun.name || "the current Computer"} for the next turn. This conversation and historical outputs stay; files and browser sessions are not migrated. The default for new Runs is unchanged.` : `Choose the default Computer for new Runs of ${agentName}. Existing Runs are unchanged.`}
+      title={targetRun ? t("Change Computer for this Run") : t("{{0}} default Computer", { 0: defaultConnectionId ? "Change" : "Attach" })}
+      eyebrow={t("PRIVATE RUN SETUP")}
+      description={targetRun ? t("Replace {{0}} for the next turn. This conversation and historical outputs stay; files and browser sessions are not migrated. The default for new Runs is unchanged.", { 0: targetRun.name || "the current Computer" }) : t("Choose the default Computer for new Runs of {{0}}. Existing Runs are unchanged.", { 0: agentName })}
       busy={busy}
       size="large"
       footer={
@@ -186,9 +188,7 @@ export function AgentComputerAttachDialog({
             type="button"
             className="btn btn-primary min-h-11"
             onClick={() => void onAttached()}
-          >
-            Done
-          </button>
+          >{t("Done")}</button>
         ) : (
           <div className="flex w-full justify-between gap-3">
             <button
@@ -199,17 +199,14 @@ export function AgentComputerAttachDialog({
               }
               disabled={busy}
             >
-              <RefreshCw size={15} /> Refresh status
-            </button>
+              <RefreshCw size={15} />{t("Refresh status")}</button>
             <div className="flex gap-2">
               <button
                 type="button"
                 className="btn min-h-11"
                 onClick={onClose}
                 disabled={busy}
-              >
-                Cancel
-              </button>
+              >{t("Cancel")}</button>
               <button
                 type="button"
                 className="btn btn-primary min-h-11"
@@ -240,9 +237,9 @@ export function AgentComputerAttachDialog({
           <div className="flex gap-3">
             <CheckCircle2 size={20} />
             <div>
-              <h3 className="font-semibold">Computer ready</h3>
+              <h3 className="font-semibold">{t("Computer ready")}</h3>
               <p className="mt-1 text-sm">
-                {selected?.name || "The selected Computer"}{targetRun ? " will be used for the next turn of this Run. Your conversation and previous output snapshots remain available." : " is the default for future Runs. Existing Runs keep their original binding."}
+                {selected?.name || t("The selected Computer")}{targetRun ? t("will be used for the next turn of this Run. Your conversation and previous output snapshots remain available.") : t("is the default for future Runs. Existing Runs keep their original binding.")}
               </p>
             </div>
           </div>
@@ -253,18 +250,12 @@ export function AgentComputerAttachDialog({
             aria-labelledby="computer-permission-title"
             className="border border-line bg-paper p-4"
           >
-            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
-              01 · Permissions
-            </div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{t("01 · Permissions")}</div>
             <h3
               id="computer-permission-title"
               className="mt-2 font-semibold text-ink"
-            >
-              Allow requested capabilities
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              The grant belongs to the caller and applies only to this Agent.
-            </p>
+            >{t("Allow requested capabilities")}</h3>
+            <p className="mt-1 text-sm leading-6 text-muted">{t("The grant belongs to the caller and applies only to this Agent.")}</p>
             <ul className="mt-4 grid gap-2 text-sm text-ink">
               {effectiveDeclaredScopes.map((scope) => (
                 <li
@@ -276,77 +267,60 @@ export function AgentComputerAttachDialog({
                 </li>
               ))}
               {!effectiveDeclaredScopes.length && policyReady ? (
-                <li>No Computer actions requested.</li>
+                <li>{t("No Computer actions requested.")}</li>
               ) : null}
             </ul>
             {grant.isError ? (
               <div
                 role="alert"
                 className="mt-4 border border-danger/30 bg-red-50 p-3 text-sm text-danger"
-              >
-                The latest Agent Computer policy could not be loaded. Retry
-                before attaching.
-              </div>
+              >{t("The latest Agent Computer policy could not be loaded. Retry before attaching.")}</div>
             ) : null}
             <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
               {grant.isLoading
-                ? "Checking latest policy"
+                ? t("Checking latest policy")
                 : grant.isError
-                  ? "Policy unavailable"
+                  ? t("Policy unavailable")
                   : authorized
-                    ? "Permission granted"
-                    : "Approval required"}
+                    ? t("Permission granted")
+                    : t("Approval required")}
             </div>
           </section>
           <section aria-labelledby="computer-device-title">
-            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
-              02 · Device
-            </div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{t("02 · Device")}</div>
             <h3
               id="computer-device-title"
               className="mt-2 font-semibold text-ink"
-            >
-              Choose your Computer
-            </h3>
+            >{t("Choose your Computer")}</h3>
             {connections.isLoading || bindings.isLoading ? (
               <div className="mt-4 flex min-h-28 items-center justify-center border border-line text-sm text-muted">
-                <Loader2 className="mr-2 animate-spin" size={16} /> Loading
-                caller Computers
-              </div>
+                <Loader2 className="mr-2 animate-spin" size={16} />{" "}{t("Loading caller Computers")}</div>
             ) : null}
             {connections.isError ? (
               <div
                 role="alert"
                 className="mt-4 border border-danger/30 bg-red-50 p-3 text-sm text-danger"
-              >
-                Computer Runtime connections could not be loaded.
-              </div>
+              >{t("Computer Runtime connections could not be loaded.")}</div>
             ) : null}
-            {bindings.isError ? <p role="alert" className="mt-4 text-danger">The current Computer binding could not be loaded. Refresh status before attaching.</p> : null}
+            {bindings.isError ? <p role="alert" className="mt-4 text-danger">{t("The current Computer binding could not be loaded. Refresh status before attaching.")}</p> : null}
             {!connections.isLoading &&
             !connections.isError &&
             !runtimeConnections.length ? (
               <div className="mt-4 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
                 <div className="flex gap-2 font-semibold">
-                  <AlertTriangle size={17} /> No paired Computer
-                </div>
-                <p className="mt-2 leading-6">
-                  Pair a caller-owned Computer Runtime in Operate &gt; Computer,
-                  then return here.
-                </p>
+                  <AlertTriangle size={17} />{" "}{t("No paired Computer")}</div>
+                <p className="mt-2 leading-6">{t("Pair a caller-owned Computer Runtime in Operate &gt; Computer, then return here.")}</p>
                 <Link
                   className="btn mt-3 min-h-11"
                   to={`/remote-workspaces?return=${encodeURIComponent(returnTo)}`}
                   onClick={onClose}
-                >
-                  Pair Computer
-                </Link>
+                >{t("Pair Computer")}</Link>
               </div>
             ) : (
               <div
                 className="mt-4 grid gap-2"
                 role="radiogroup"
-                aria-label="Caller Computers"
+                aria-label={t("Caller Computers")}
               >
                 {runtimeConnections.map((connection) => (
                   <ComputerChoice
@@ -374,6 +348,7 @@ function ComputerChoice({
   selected: boolean;
   onSelect: () => void;
 }) {
+  useLocale();
   const available = Boolean(connection.availability?.available);
   return (
     <button
@@ -394,12 +369,12 @@ function ComputerChoice({
         <span
           className={`mt-1 block pl-[18px] text-xs ${available ? "text-muted" : "text-amber-700"}`}
         >
-          {connection.runtime?.platform || "Computer Runtime"} ·{" "}
-          {available ? "Online" : connection.availability?.message || "Offline"}
+          {connection.runtime?.platform || t("Computer Runtime")} ·{" "}
+          {available ? t("Online") : connection.availability?.message || t("Offline")}
         </span>
       </span>
       <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
-        {available ? "ready" : "unavailable"}
+        {available ? t("ready") : t("unavailable")}
       </span>
     </button>
   );

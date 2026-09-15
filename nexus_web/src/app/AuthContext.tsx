@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -74,6 +75,7 @@ function persistContext(state: AuthState) {
 }
 
 export function AuthProvider({ children, contextDirectory }: { children: ReactNode; contextDirectory: ContextDirectory }) {
+  useLocale();
   const directory = requireContextDirectory(contextDirectory);
   const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>(loadInitialState);
@@ -154,9 +156,9 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
       setStatus("authenticated");
       setLoginOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["private"] });
-      toast.success("Signed in");
+      toast.success(t("Signed in"));
     },
-    [bootstrapQuery, queryClient, state.tenantId, updateState]
+    [bootstrapQuery, queryClient, state.tenantId, updateState, getLocale()]
   );
 
   const loginWithGoogle = useCallback((next?: string) => {
@@ -183,8 +185,8 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
       current ? { ...current, session_authenticated: false } : current
     );
     setStatus("anonymous");
-    toast.success("Signed out");
-  }, [baseCtx, queryClient, status, updateState, userQuery.data?.user_id]);
+    toast.success(t("Signed out"));
+  }, [baseCtx, queryClient, status, updateState, userQuery.data?.user_id, getLocale()]);
 
   const requestLogin = useCallback((reason = "Sign in to access your Nexilume AI workspace.") => {
     if (status === "authenticated") return;
@@ -241,24 +243,7 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
       setTenantId,
       setProjectId
     }),
-    [
-      baseCtx,
-      closeLogin,
-      isLoginOpen,
-      login,
-      loginWithGoogle,
-      loginWithGitHub,
-      loginReason,
-      logout,
-      projects,
-      requestLogin,
-      setProjectId,
-      setTenantId,
-      state,
-      status,
-      tenants,
-      userQuery.data
-    ]
+    [baseCtx, closeLogin, isLoginOpen, login, loginWithGoogle, loginWithGitHub, loginReason, logout, projects, requestLogin, setProjectId, setTenantId, state, status, tenants, userQuery.data]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

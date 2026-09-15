@@ -1,3 +1,4 @@
+import { useLocale, t } from "../localization";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -8,14 +9,15 @@ function safeUrl(url: string) {
 
 export function ContentMarkdown({
   value,
-  empty = "No content available.",
+  empty = t("No content available."),
 }: {
   value?: string | null;
   empty?: string;
 }) {
+  useLocale();
   const content = value ?? "";
   if (!content.trim())
-    return <p className="content-markdown-empty">{empty}</p>;
+    return <p className="content-markdown-empty">{t(empty)}</p>;
   return (
     <div className="content-markdown">
       <ReactMarkdown

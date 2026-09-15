@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiContext } from "../lib/api";
@@ -27,9 +28,10 @@ export function useObservabilityPage<T>(ctx: ApiContext, agent: string, path: st
 }
 
 export function ObservabilityPaging({ paging, label }: { paging: { index: number; count: number; busy: boolean; hasNext: boolean; next: () => void; previous: () => void }; label?: string }) {
-  return <nav aria-label={label || "Observability pages"} className="flex min-w-0 flex-wrap items-center gap-3 py-3 text-sm">
-    <button className="nex-button nex-button--secondary min-h-11" aria-label={label ? `${label} previous page` : "Previous page"} disabled={paging.busy || paging.index === 0} onClick={paging.previous}>Previous</button>
-    <span>Page {paging.index + 1} · {paging.count} loaded</span>
-    <button className="nex-button nex-button--secondary min-h-11" aria-label={label ? `${label} next page` : "Next page"} disabled={paging.busy || !paging.hasNext} onClick={paging.next}>Next</button>
+  useLocale();
+  return <nav aria-label={label || t("Observability pages")} className="flex min-w-0 flex-wrap items-center gap-3 py-3 text-sm">
+    <button className="nex-button nex-button--secondary min-h-11" aria-label={label ? t("{{0}} previous page", { 0: label }) : t("Previous page")} disabled={paging.busy || paging.index === 0} onClick={paging.previous}>{t("Previous")}</button>
+    <span>{t("Page")}{" "}{paging.index + 1} · {paging.count}{" "}{t("loaded")}</span>
+    <button className="nex-button nex-button--secondary min-h-11" aria-label={label ? t("{{0}} next page", { 0: label }) : t("Next page")} disabled={paging.busy || !paging.hasNext} onClick={paging.next}>{t("Next")}</button>
   </nav>;
 }

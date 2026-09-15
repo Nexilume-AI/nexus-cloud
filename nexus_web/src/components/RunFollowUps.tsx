@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuth } from "../app/AuthContext";
@@ -42,7 +43,7 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
   // Older Cloud keeps normal-turn attachments separate from its text-only
   // inbox. Never submit them or clear them after sending an old-protocol input.
   const attachmentError = supportsAttachments ? attachments?.blocked || (hasAttachments && follow?.attachment_protocol?.[selectedMode] !== 1
-    ? "This Agent has not enabled attachments for guidance. Choose Queue next turn, or remove the attachments." : "") : "";
+    ? t("This Agent has not enabled attachments for guidance. Choose Queue next turn, or remove the attachments.") : "") : "";
   function delivered(input: FollowUpSubmission | undefined) { if (input) attachments?.onDelivered(input); }
   const pendingId = draft.pending?.idempotency_key;
   const deliveryKey = JSON.stringify([draftKey, pendingId]);
@@ -178,6 +179,7 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
   controller: ReturnType<typeof useRunFollowUps>; active: boolean;
   restoreDisabled?: string; appendDraft?: boolean; onRestoreDraft: (text: string) => void;
 }) {
+  useLocale();
   const { run, follow, text, send, remove, draft, check, displayToken, autoChecking, automaticStatus } = controller;
   const { reason } = useRunFollowUpPresentation();
   if (!run) return null;
@@ -187,36 +189,36 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
   const uncertain = draft.pending;
   const checked = check.data?.key === uncertain?.idempotency_key && check.data?.submission === null;
   const busy = send.isPending || check.isPending || autoChecking;
-  return <section aria-label="Run follow-up messages" className="grid gap-2">
-    {active && follow && follow.attachment_protocol?.queue !== 1 ? <p className="text-xs text-muted">Text-only follow-up · saved attachments stay in your next-message draft. Upgrade Cloud to send them while working.</p> : null}
+  return <section aria-label={t("Run follow-up messages")} className="grid gap-2">
+    {active && follow && follow.attachment_protocol?.queue !== 1 ? <p className="text-xs text-muted">{t("Text-only follow-up · saved attachments stay in your next-message draft. Upgrade Cloud to send them while working.")}</p> : null}
     {items.length ? <div className={hasVisibleItems ? "max-h-40 overflow-y-auto rounded-md border border-black/10 bg-white p-2" : "contents"} aria-live="polite">
       {items.map(item => <div key={item.id} className={needsQueueDisplay(item) ? "flex items-start justify-between gap-3 border-b border-black/5 px-2 py-2 last:border-0" : "contents"}>
         {needsQueueDisplay(item) ? <div className="min-w-0"><p className="break-words text-sm">{item.content}</p>
-          {[...(item.attachments || []).map(ref => ref.name || "Image"), ...(item.files || []).map(ref => ref.name)].map((name, index) => <p key={index} className="truncate text-xs text-muted" title={name}>Attached · {name}</p>)}
-          <p className="mt-1 text-xs text-[#535350]">{item.mode === "steer" ? "Current turn" : "Next turn"} · {labels[item.status]}{item.dispatched_turn ? ` · Turn ${item.dispatched_turn}` : ""}</p>
+          {[...(item.attachments || []).map(ref => ref.name || "Image"), ...(item.files || []).map(ref => ref.name)].map((name, index) => <p key={index} className="truncate text-xs text-muted" title={name}>{t("Attached ·")}{" "}{name}</p>)}
+          <p className="mt-1 text-xs text-[#535350]">{item.mode === "steer" ? t("Current turn") : t("Next turn")} · {labels[item.status]}{item.dispatched_turn ? t("· Turn {{0}}", { 0: item.dispatched_turn }) : ""}</p>
           {reason(item.code) ? <p className="mt-1 text-xs text-amber-800">{reason(item.code)}</p> : null}</div> : null}
         {/* Retain the keyed editor if dispatch wins a race with an open edit.
             Its draft stays reviewable, without keeping the receipt row visible. */}
-        {item.mode === "queue" ? <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} /> : ["pending", "blocked"].includes(item.status) ? <button type="button" className="min-h-11 shrink-0 px-2 text-xs underline" disabled={remove.isPending && remove.variables === item.id} onClick={() => remove.mutate(item.id)} aria-label={`Remove follow-up: ${item.content}`}>Remove</button> : null}
+        {item.mode === "queue" ? <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} /> : ["pending", "blocked"].includes(item.status) ? <button type="button" className="min-h-11 shrink-0 px-2 text-xs underline" disabled={remove.isPending && remove.variables === item.id} onClick={() => remove.mutate(item.id)} aria-label={t("Remove follow-up: {{0}}", { 0: item.content })}>{t("Remove")}</button> : null}
       </div>)}
     </div> : null}
-    {remove.isError ? <p role="alert" className="text-xs text-red-800">Unable to remove this message. It may already have been received; refresh and try again.</p> : null}
-    {uncertain ? <section aria-label="Message delivery" className={`min-w-0 rounded-md border p-3 text-sm ${send.isPending || autoChecking ? "border-black/10 bg-white" : "border-amber-200 bg-amber-50/60"}`}>
-      <p className="font-medium">{send.isPending ? "Sending message…" : autoChecking ? "Checking delivery…" : "Delivery not confirmed"}</p>
-      <p role="status" className="mt-1 text-xs text-[#535350]">{send.isPending ? "You can keep editing while this message sends." : autoChecking || check.isPending ? "Checking saved messages. Nothing is being sent again." : check.isError || (!check.data && automaticStatus === "error") ? "Could not check delivery. Your message is still here." : checked || automaticStatus === "unconfirmed" ? "Delivery is still unconfirmed. Retry the original message to avoid sending a duplicate." : "Your message is kept here. Check its status before retrying."}</p>
-      <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words" aria-label="Original message">{uncertain.content}</p>
-      {uncertain.attachments?.length || uncertain.files?.length ? <p className="mt-1 text-xs text-muted">Original request · {uncertain.attachments?.length || 0} images · {uncertain.files?.length || 0} files. Retry keeps these same references.</p> : null}
+    {remove.isError ? <p role="alert" className="text-xs text-red-800">{t("Unable to remove this message. It may already have been received; refresh and try again.")}</p> : null}
+    {uncertain ? <section aria-label={t("Message delivery")} className={`min-w-0 rounded-md border p-3 text-sm ${send.isPending || autoChecking ? "border-black/10 bg-white" : "border-amber-200 bg-amber-50/60"}`}>
+      <p className="font-medium">{send.isPending ? t("Sending message…") : autoChecking ? t("Checking delivery…") : t("Delivery not confirmed")}</p>
+      <p role="status" className="mt-1 text-xs text-[#535350]">{send.isPending ? t("You can keep editing while this message sends.") : autoChecking || check.isPending ? t("Checking saved messages. Nothing is being sent again.") : check.isError || (!check.data && automaticStatus === "error") ? t("Could not check delivery. Your message is still here.") : checked || automaticStatus === "unconfirmed" ? t("Delivery is still unconfirmed. Retry the original message to avoid sending a duplicate.") : t("Your message is kept here. Check its status before retrying.")}</p>
+      <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words" aria-label={t("Original message")}>{uncertain.content}</p>
+      {uncertain.attachments?.length || uncertain.files?.length ? <p className="mt-1 text-xs text-muted">{t("Original request ·")}{" "}{uncertain.attachments?.length || 0}{" "}{t("images ·")}{" "}{uncertain.files?.length || 0}{" "}{t("files. Retry keeps these same references.")}</p> : null}
       {!send.isPending && !autoChecking ? <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" className="min-h-11 min-w-28 rounded-md border border-black/15 bg-white px-3 text-xs font-medium disabled:opacity-50" disabled={busy || !displayToken} onClick={() => check.mutate(uncertain)}>Check status</button>
-        <button type="button" className="min-h-11 px-2 text-xs underline disabled:opacity-50" disabled={busy || !displayToken} onClick={() => send.mutate(uncertain.content)}>Retry original message</button>
+        <button type="button" className="min-h-11 min-w-28 rounded-md border border-black/15 bg-white px-3 text-xs font-medium disabled:opacity-50" disabled={busy || !displayToken} onClick={() => check.mutate(uncertain)}>{t("Check status")}</button>
+        <button type="button" className="min-h-11 px-2 text-xs underline disabled:opacity-50" disabled={busy || !displayToken} onClick={() => send.mutate(uncertain.content)}>{t("Retry original message")}</button>
       </div> : null}
-    </section> : !canSend && text && !send.isPending ? <section aria-label="Follow-up draft" className="min-w-0 rounded-md border border-black/10 bg-white p-3 text-sm">
-      <p className="font-medium">Unsent draft</p>
+    </section> : !canSend && text && !send.isPending ? <section aria-label={t("Follow-up draft")} className="min-w-0 rounded-md border border-black/10 bg-white p-3 text-sm">
+      <p className="font-medium">{t("Unsent draft")}</p>
       {controller.error ? <p role="status" className="mt-1 text-xs text-[#535350]">{controller.error}</p> : null}
-      <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words" aria-label="Unsent follow-up draft">{text}</p>
+      <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words" aria-label={t("Unsent follow-up draft")}>{text}</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" className="min-h-11 rounded-md border border-black/15 px-3 text-xs font-medium disabled:opacity-50" disabled={Boolean(restoreDisabled)} onClick={() => { onRestoreDraft(text); controller.setText(""); }}>{appendDraft ? "Add to message" : "Continue editing"}</button>
-        <button type="button" className="min-h-11 px-2 text-xs text-[#535350] underline" onClick={() => controller.setText("")}>Discard draft</button>
+        <button type="button" className="min-h-11 rounded-md border border-black/15 px-3 text-xs font-medium disabled:opacity-50" disabled={Boolean(restoreDisabled)} onClick={() => { onRestoreDraft(text); controller.setText(""); }}>{appendDraft ? t("Add to message") : t("Continue editing")}</button>
+        <button type="button" className="min-h-11 px-2 text-xs text-[#535350] underline" onClick={() => controller.setText("")}>{t("Discard draft")}</button>
       </div>
       {restoreDisabled ? <p className="mt-1 text-xs text-[#535350]">{restoreDisabled}</p> : null}
     </section> : null}
@@ -224,15 +226,16 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
 }
 
 export function RunFollowUpMode({ controller, compact = false }: { controller: ReturnType<typeof useRunFollowUps>; compact?: boolean }) {
+  useLocale();
   const { run, selectedMode, setMode, send, canSteer } = controller;
   const { queuedTurnDescription } = useRunFollowUpPresentation();
   const help = selectedMode === "steer" ? "Applied at the Agent’s next safe step. Commands already running are not undone."
     : queuedTurnDescription(run);
   return <div className={`flex h-11 min-w-0 items-center gap-2 text-xs ${compact ? "shrink-0" : ""}`}>
-    <label htmlFor="run-follow-up-mode" className="sr-only">While Agent is working</label>
+    <label htmlFor="run-follow-up-mode" className="sr-only">{t("While Agent is working")}</label>
     <select id="run-follow-up-mode" aria-describedby="run-follow-up-help" title={help} className={`h-11 min-w-0 max-w-full rounded-md border border-black/15 bg-white px-2 ${compact ? "w-[104px]" : ""}`} value={selectedMode} disabled={send.isPending || Boolean(controller.draft.pending)} onChange={event => setMode(event.target.value as "queue" | "steer")}>
-      <option value="queue">{compact ? "Next turn" : "Queue next turn"}</option>
-      {canSteer ? <option value="steer">{compact ? "Guide turn" : "Guide current turn"}</option> : null}
+      <option value="queue">{compact ? t("Next turn") : t("Queue next turn")}</option>
+      {canSteer ? <option value="steer">{compact ? t("Guide turn") : t("Guide current turn")}</option> : null}
     </select>
     <span id="run-follow-up-help" className={compact ? "sr-only" : "min-w-0 truncate text-[#535350]"} title={help}>{help}</span>
   </div>;

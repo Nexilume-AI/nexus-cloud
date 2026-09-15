@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { useAuth } from "../app/AuthContext";
@@ -10,19 +11,21 @@ export type AttachmentIntake = { add: (files: File[]) => void };
 type PendingImage = { file: File; error?: string; prepared?: Awaited<ReturnType<typeof prepareImageUpload>> };
 
 export function AttachmentImagePreview({ src, name }: { src: string; name: string }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [dimensions, setDimensions] = useState("");
   return <>
-    <button type="button" aria-label={`Preview ${name}`} className="flex min-h-11 min-w-11 items-center justify-center rounded-md bg-black/5" onClick={() => setOpen(true)}>
+    <button type="button" aria-label={t("Preview {{0}}", { 0: name })} className="flex min-h-11 min-w-11 items-center justify-center rounded-md bg-black/5" onClick={() => setOpen(true)}>
       <img src={src} alt={name} onLoad={event => setDimensions(`${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`)} className="h-14 w-14 rounded-md object-contain" />
     </button>
-    <NexilumeDialog open={open} title={name} description={dimensions || "Private image preview"} onClose={() => setOpen(false)} size="large">
+    <NexilumeDialog open={open} title={name} description={dimensions || t("Private image preview")} onClose={() => setOpen(false)} size="large">
       <img src={src} alt={name} className="max-h-[70vh] w-full object-contain" />
     </NexilumeDialog>
   </>;
 }
 
 function LocalPreview({ file }: { file: File }) {
+  useLocale();
   const [url, setUrl] = useState("");
   useEffect(() => { const next = URL.createObjectURL(file); setUrl(next); return () => URL.revokeObjectURL(next); }, [file]);
   return url ? <AttachmentImagePreview src={url} name={file.name} /> : null;
@@ -81,16 +84,16 @@ export const RunImageAttachments = forwardRef<AttachmentIntake, {
     latest.current = latest.current.filter(row => row.file !== file); onChange(latest.current);
   }
   if (!value.length && !pending.length && !errors.length) return null;
-  return <section aria-label="Private image attachments" className="my-2 grid gap-2">
+  return <section aria-label={t("Private image attachments")} className="my-2 grid gap-2">
     {[...value.map(row => ({ file: row.file, ready: true, error: "", prepared: { file: row.file, originalSize: row.originalSize } })), ...pending.map(row => ({ ...row, ready: false }))].map((row, index) => <div key={index} className="flex min-w-0 items-center gap-2 rounded-md border border-black/10 bg-white p-2">
-      {row.prepared || row.file.size <= IMAGE_UPLOAD_LIMIT ? <LocalPreview file={row.prepared?.file || row.file} /> : <div className="h-14 w-14 shrink-0 rounded-md bg-black/5" aria-label="Image preview available after preparation" />}
-      <div className="min-w-0 flex-1"><p className="truncate text-sm" title={(row.prepared?.file || row.file).name}>{(row.prepared?.file || row.file).name}</p><p className="text-xs text-muted">{Math.ceil((row.prepared?.file || row.file).size / 1024)} KiB · {row.ready ? "Ready to send" : row.error ? "Upload failed" : !row.prepared && row.file.size > IMAGE_UPLOAD_LIMIT ? "Preparing upload copy…" : "Uploading image…"}</p>
-        {row.prepared?.originalSize ? <p className="text-xs text-muted">Optimized copy · {Math.ceil(row.prepared.originalSize / 1024)} → {Math.ceil(row.prepared.file.size / 1024)} KiB. Original unchanged.</p> : null}
+      {row.prepared || row.file.size <= IMAGE_UPLOAD_LIMIT ? <LocalPreview file={row.prepared?.file || row.file} /> : <div className="h-14 w-14 shrink-0 rounded-md bg-black/5" aria-label={t("Image preview available after preparation")} />}
+      <div className="min-w-0 flex-1"><p className="truncate text-sm" title={(row.prepared?.file || row.file).name}>{(row.prepared?.file || row.file).name}</p><p className="text-xs text-muted">{Math.ceil((row.prepared?.file || row.file).size / 1024)}{" "}{t("KiB ·")}{" "}{row.ready ? t("Ready to send") : row.error ? t("Upload failed") : !row.prepared && row.file.size > IMAGE_UPLOAD_LIMIT ? t("Preparing upload copy…") : t("Uploading image…")}</p>
+        {row.prepared?.originalSize ? <p className="text-xs text-muted">{t("Optimized copy ·")}{" "}{Math.ceil(row.prepared.originalSize / 1024)} → {Math.ceil(row.prepared.file.size / 1024)}{" "}{t("KiB. Original unchanged.")}</p> : null}
         {row.error ? <p role="alert" className="text-xs text-red-700">{row.error}</p> : null}
-        {row.error ? <button type="button" disabled={disabled} className="min-h-11 text-xs underline" onClick={() => { update(pendingRef.current.map(item => item.file === row.file ? { ...item, error: undefined } : item)); jobs.current.push(row.file); void pump(); }}>Retry image upload</button> : null}</div>
+        {row.error ? <button type="button" disabled={disabled} className="min-h-11 text-xs underline" onClick={() => { update(pendingRef.current.map(item => item.file === row.file ? { ...item, error: undefined } : item)); jobs.current.push(row.file); void pump(); }}>{t("Retry image upload")}</button> : null}</div>
       {!row.ready && !row.error ? <Loader2 size={16} className="shrink-0 animate-spin" /> : null}
-      <button type="button" disabled={disabled} aria-label={`Remove image ${row.file.name}`} className="flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-black/5" onClick={() => remove(row.file)}><X size={16} /></button>
+      <button type="button" disabled={disabled} aria-label={t("Remove image {{0}}", { 0: row.file.name })} className="flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-black/5" onClick={() => remove(row.file)}><X size={16} /></button>
     </div>)}
-    {errors.length ? <div role="alert" className="text-sm text-red-700">{errors.map((error, index) => <p key={index}>{error}</p>)}<button type="button" className="min-h-11 underline" onClick={() => setErrors([])}>Dismiss rejected images</button></div> : null}
+    {errors.length ? <div role="alert" className="text-sm text-red-700">{errors.map((error, index) => <p key={index}>{error}</p>)}<button type="button" className="min-h-11 underline" onClick={() => setErrors([])}>{t("Dismiss rejected images")}</button></div> : null}
   </section>;
 });

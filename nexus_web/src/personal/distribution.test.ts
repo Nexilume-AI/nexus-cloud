@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { personalDistribution } from "./application";
 import { personalContextDirectory } from "./contextDirectory";
@@ -34,7 +34,7 @@ describe("Community build-selected Web host", () => {
     for (const path of ['/api/v1/access/grants/', '/api/v1/billing/plans/', String.raw`\/api\/v1\/marketplace\/datasets`, String.raw`/api/v1/(datasets|dataset-acquisitions)`]) expect(hasPrivateApiReference(path)).toBe(true);
     expect(hasPrivateApiReference('/api/v1/personal/context/')).toBe(false);
   });
-  it("never changes the Enterprise build and never proxies its development API", async () => {
+  it.skipIf(!existsSync(new URL("../../vite.config.ts", import.meta.url)))("preserves the Enterprise build when its source is present", () => {
     const current = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     const helper = readFileSync(new URL('../../tooling/pdfAssets.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     const source = [
@@ -47,6 +47,8 @@ describe("Community build-selected Web host", () => {
       current.slice(current.indexOf('export default')),
     ].join('\n');
     expect(createHash('sha256').update(source).digest('hex')).toBe('95098d1a7381f2f33723a942eb272736933a3cb818ab2be7168262599b02ae29');
+  });
+  it("builds Community without proxying the Enterprise development API", async () => {
     if (typeof communityConfig !== 'function') throw new Error('Expected explicit build factory');
     const built = await communityConfig({ command: 'build', mode: 'production' });
     expect(built.build?.outDir?.replaceAll('\\', '/')).toMatch(/\/nexus_web\/dist\/community$/);

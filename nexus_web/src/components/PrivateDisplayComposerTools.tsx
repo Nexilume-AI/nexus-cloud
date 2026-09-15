@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AtSign, FileAudio, FileText, Gauge, Loader2, Mic, MicOff, Monitor, Paperclip, Plus, Slash, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
@@ -21,7 +22,7 @@ export function PrivateDisplayComposerTools({
   agentId, value, onValueChange, tools, activeTool, disabled, running, usage,
   uploadedFiles, onImportedFilesChange, onAudioChange, execution, onExecutionChange,
   onBuiltIn, onToolChange, commandMode = "full", cancelPending = false,
-  showProfiles, onShowProfilesChange, selectionLabel = "Next Run",
+  showProfiles, onShowProfilesChange, selectionLabel = t("Next Run"),
   onDraftComputerFiles, onDraftAudioFiles, onMediaBusy,
   toolbarTarget, onChooseAttachments, attachmentDisabled = false, attachmentActionsLocked = false,
 }: {
@@ -53,6 +54,7 @@ export function PrivateDisplayComposerTools({
   attachmentDisabled?: boolean;
   attachmentActionsLocked?: boolean;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const [computerFiles, setComputerFiles] = useState<AgentFileTransfer[]>([]);
   const [audio, setAudio] = useState<AgentFileTransfer[]>([]);
@@ -122,7 +124,7 @@ export function PrivateDisplayComposerTools({
       setComputerFiles(current => {
         if (current.some(item => item.file_id === file.file_id)) return current;
         if (current.length + uploadedFiles.length + audio.length >= 8) {
-          toast.error("A Run can include at most eight files and recordings.");
+          toast.error(t("A Run can include at most eight files and recordings."));
           return current;
         }
         return [...current, file];
@@ -134,7 +136,7 @@ export function PrivateDisplayComposerTools({
       setComputerPickerOpen(false);
       overlayAnchor.current?.closest("form")?.querySelector("textarea")?.focus();
     },
-    onError: () => toast.error("Computer file could not be imported. Refresh its folder and retry."),
+    onError: () => toast.error(t("Computer file could not be imported. Refresh its folder and retry.")),
   });
   useEffect(() => onMediaBusy?.(recording || uploadingAudio || importFile.isPending), [recording, uploadingAudio, importFile.isPending, onMediaBusy]);
 
@@ -145,10 +147,10 @@ export function PrivateDisplayComposerTools({
     : defaultProfile;
   const followsPublisherDefault = Boolean(profiles.length && !execution.profileId);
   const profileLabel = !profiles.length
-    ? "Managed by Agent"
+    ? t("Managed by Agent")
     : followsPublisherDefault
-      ? `Publisher default · ${defaultProfile?.label || "Unavailable"}`
-      : selectedProfile?.label || "Profile unavailable";
+      ? t("Publisher default · {{0}}", { 0: defaultProfile?.label || "Unavailable" })
+      : selectedProfile?.label || t("Profile unavailable");
   const reasoningEfforts = selectedProfile?.reasoning_efforts || [];
   const profileDefaultEffort = selectedProfile?.default_reasoning_effort || reasoningEfforts[0] || "";
 
@@ -190,7 +192,7 @@ export function PrivateDisplayComposerTools({
       if (current.length + uploadedFiles.length + computerFiles.length >= 8) {
         URL.revokeObjectURL(previewUrl);
         audioPreviews.current.delete(state.file_id);
-        toast.error("A Run can include at most eight files and recordings.");
+        toast.error(t("A Run can include at most eight files and recordings."));
         return current;
       }
       return [...current, state];
@@ -213,14 +215,14 @@ export function PrivateDisplayComposerTools({
         const mediaType = (recorder.mimeType || "audio/webm").split(";", 1)[0].toLowerCase();
         const blob = new Blob(chunks.current, { type: mediaType });
         const extension = blob.type.includes("ogg") ? "ogg" : "webm";
-        void uploadAudio(new File([blob], `voice-${Date.now()}.${extension}`, { type: blob.type })).catch(error => toast.error(error instanceof Error ? error.message : "Audio upload failed"));
+        void uploadAudio(new File([blob], `voice-${Date.now()}.${extension}`, { type: blob.type })).catch(error => toast.error(error instanceof Error ? error.message : t("Audio upload failed")));
       };
       recorder.start(500);
       media.current = recorder;
       startedAt.current = Date.now();
       setElapsed(0);
       setRecording(true);
-    } catch { toast.error("Microphone permission is unavailable."); }
+    } catch { toast.error(t("Microphone permission is unavailable.")); }
   }
 
   const slashItems = useMemo(() => {
@@ -314,44 +316,44 @@ export function PrivateDisplayComposerTools({
   }, [attachmentActionsLocked]);
   const acceptsAttachments = Boolean(activeTool?.accepts_files || activeTool?.input_modalities?.includes("image"));
   const toolbarControls = <div className="flex min-h-11 min-w-0 items-center gap-1">
-    {onChooseAttachments && acceptsAttachments ? <button ref={addButton} type="button" aria-label="Attach" title="Add files or images" aria-haspopup="menu" aria-expanded={addOpen}
+    {onChooseAttachments && acceptsAttachments ? <button ref={addButton} type="button" aria-label={t("Attach")} title={t("Add files or images")} aria-haspopup="menu" aria-expanded={addOpen}
       disabled={attachmentDisabled && disabled} onClick={() => setAddOpen(open => !open)}
       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#535350] hover:bg-black/5 disabled:opacity-40"><Plus size={20} /></button> : null}
-    {activeTool?.input_modalities?.includes("audio") ? <button type="button" disabled={disabled && !recording} onClick={() => void toggleRecording()} className={`inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs ${recording ? "bg-red-50 text-red-800" : "text-[#535350] hover:bg-black/5"}`}>{recording ? <MicOff size={13} /> : <Mic size={13} />}{recording ? `Stop · ${formatDuration(elapsed)}` : "Voice"}</button> : null}
-    {profiles.length ? <button type="button" onClick={() => onShowProfilesChange(!showProfiles)} className="inline-flex min-h-11 min-w-0 max-w-44 items-center gap-1.5 rounded-md px-2 text-xs text-[#535350] hover:bg-black/5" aria-expanded={showProfiles} aria-label={`${selectionLabel} execution · ${profileLabel}`} title={profileLabel}><Gauge size={13} className="shrink-0" /><span className="truncate">{profileLabel}</span></button> : <span className="inline-flex min-h-11 min-w-0 items-center gap-1.5 px-2 text-xs text-[#6f6e69]" title="This Agent does not expose caller-selectable execution profiles."><Gauge size={13} className="shrink-0" /><span className="truncate">Managed by Agent</span></span>}
-    <span className="composer-context-usage ml-auto truncate text-xs text-[#858481]" title="Context usage">Context usage · {usage?.reported && usage.current ? `${Math.min(100, Math.round(usage.current.input_tokens / usage.current.context_window * 100))}%` : "Not reported"}</span>
+    {activeTool?.input_modalities?.includes("audio") ? <button type="button" disabled={disabled && !recording} onClick={() => void toggleRecording()} className={`inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs ${recording ? "bg-red-50 text-red-800" : "text-[#535350] hover:bg-black/5"}`}>{recording ? <MicOff size={13} /> : <Mic size={13} />}{recording ? t("Stop · {{0}}", { 0: formatDuration(elapsed) }) : t("Voice")}</button> : null}
+    {profiles.length ? <button type="button" onClick={() => onShowProfilesChange(!showProfiles)} className="inline-flex min-h-11 min-w-0 max-w-44 items-center gap-1.5 rounded-md px-2 text-xs text-[#535350] hover:bg-black/5" aria-expanded={showProfiles} aria-label={t("{{0}} execution · {{1}}", { 0: selectionLabel, 1: profileLabel })} title={profileLabel}><Gauge size={13} className="shrink-0" /><span className="truncate">{profileLabel}</span></button> : <span className="inline-flex min-h-11 min-w-0 items-center gap-1.5 px-2 text-xs text-[#6f6e69]" title={t("This Agent does not expose caller-selectable execution profiles.")}><Gauge size={13} className="shrink-0" /><span className="truncate">{t("Managed by Agent")}</span></span>}
+    <span className="composer-context-usage ml-auto truncate text-xs text-[#858481]" title={t("Context usage")}>{t("Context usage ·")}{" "}{usage?.reported && usage.current ? `${Math.min(100, Math.round(usage.current.input_tokens / usage.current.context_window * 100))}%` : t("Not reported")}</span>
   </div>;
 
   return <div ref={overlayAnchor} className="relative grid gap-2">
-    {addOpen ? <ComposerOverlay anchor={overlayAnchor}><div ref={addMenu} role="menu" aria-label="Add attachments" className="max-h-[inherit] overflow-auto rounded-xl border border-black/15 bg-white p-2 shadow-lg" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== addButton.current) setAddOpen(false); }} onKeyDown={event => {
+    {addOpen ? <ComposerOverlay anchor={overlayAnchor}><div ref={addMenu} role="menu" aria-label={t("Add attachments")} className="max-h-[inherit] overflow-auto rounded-xl border border-black/15 bg-white p-2 shadow-lg" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== addButton.current) setAddOpen(false); }} onKeyDown={event => {
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
       const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)'));
       const index = items.indexOf(document.activeElement as HTMLButtonElement);
       items[event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
     }}>
-      <button type="button" role="menuitem" disabled={attachmentDisabled} onClick={() => { setAddOpen(false); onChooseAttachments?.(); addButton.current?.focus(); }} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left text-sm hover:bg-black/5 disabled:opacity-40"><Paperclip size={16} />{activeTool?.accepts_files ? activeTool.input_modalities?.includes("image") ? "Upload files and images" : "Upload files" : "Upload images"}</button>
-      {activeTool?.accepts_files ? <button type="button" role="menuitem" disabled={disabled} onClick={() => { setAddOpen(false); setComputerSearch(""); setComputerPickerOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left text-sm hover:bg-black/5 disabled:opacity-40"><Monitor size={16} />Import from Computer</button> : null}
-      <p className="px-2 py-2 text-xs text-[#6f6e69]">You can also paste or drop files here. Attachments stay private to this Run.</p>
-      {activeTool?.input_modalities?.includes("image") ? <p className="px-2 pb-2 text-xs text-[#6f6e69]">Up to 4 images · PNG, JPEG, WebP · over 2 MiB optimized locally (20 MiB source limit).</p> : null}
-      {disabled && activeTool?.accepts_files ? <p className="px-2 pb-2 text-xs text-[#6f6e69]">Computer import is available when the Agent is ready and the Computer is authorized.</p> : null}
+      <button type="button" role="menuitem" disabled={attachmentDisabled} onClick={() => { setAddOpen(false); onChooseAttachments?.(); addButton.current?.focus(); }} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left text-sm hover:bg-black/5 disabled:opacity-40"><Paperclip size={16} />{activeTool?.accepts_files ? activeTool.input_modalities?.includes("image") ? t("Upload files and images") : t("Upload files") : t("Upload images")}</button>
+      {activeTool?.accepts_files ? <button type="button" role="menuitem" disabled={disabled} onClick={() => { setAddOpen(false); setComputerSearch(""); setComputerPickerOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left text-sm hover:bg-black/5 disabled:opacity-40"><Monitor size={16} />{t("Import from Computer")}</button> : null}
+      <p className="px-2 py-2 text-xs text-[#6f6e69]">{t("You can also paste or drop files here. Attachments stay private to this Run.")}</p>
+      {activeTool?.input_modalities?.includes("image") ? <p className="px-2 pb-2 text-xs text-[#6f6e69]">{t("Up to 4 images · PNG, JPEG, WebP · over 2 MiB optimized locally (20 MiB source limit).")}</p> : null}
+      {disabled && activeTool?.accepts_files ? <p className="px-2 pb-2 text-xs text-[#6f6e69]">{t("Computer import is available when the Agent is ready and the Computer is authorized.")}</p> : null}
     </div></ComposerOverlay> : null}
-    {slashMenuOpen ? <ComposerOverlay anchor={overlayAnchor}><div ref={commandList} role="listbox" aria-label="Slash commands" onKeyDown={handleCommandListKeys} className="max-h-[inherit] overflow-auto rounded-lg border border-black/10 bg-white p-2 shadow-xl">
-      <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">Commands</div>
+    {slashMenuOpen ? <ComposerOverlay anchor={overlayAnchor}><div ref={commandList} role="listbox" aria-label={t("Slash commands")} onKeyDown={handleCommandListKeys} className="max-h-[inherit] overflow-auto rounded-lg border border-black/10 bg-white p-2 shadow-xl">
+      <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Commands")}</div>
       {slashItems.map(item => <button key={`${item.tool}:${item.name}`} type="button" role="option" aria-selected="false" disabled={item.disabled} onClick={() => chooseCommand(item)} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-[#f3f3f1] disabled:cursor-not-allowed disabled:opacity-45"><Slash size={14} /><span className="w-24 font-mono text-xs">/{item.name}</span><span className="min-w-0 flex-1 truncate text-xs text-[#6f6e69]">{item.description}</span></button>)}
-      {!slashItems.length ? <div role="status" className="px-2 py-3 text-xs text-[#6f6e69]">No matching command. Use /help to review available commands.</div> : null}
+      {!slashItems.length ? <div role="status" className="px-2 py-3 text-xs text-[#6f6e69]">{t("No matching command. Use /help to review available commands.")}</div> : null}
     </div></ComposerOverlay> : null}
     {commandMode === "full" ? <>
     {(atMatch || computerPickerOpen) && activeTool?.accepts_files ? <ComposerOverlay anchor={overlayAnchor}><div className="max-h-[inherit] overflow-auto rounded-lg border border-black/10 bg-white p-2 shadow-xl" onKeyDown={event => { if (event.key === "Escape" && computerPickerOpen) { event.preventDefault(); setComputerPickerOpen(false); addButton.current?.focus(); } }}>
-      {computerPickerOpen ? <div className="mb-2 flex items-center gap-2"><input ref={computerSearchInput} aria-label="Search Computer files" placeholder="Search Computer files" value={computerSearch} onChange={event => setComputerSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} className="min-h-11 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-sm" /><button type="button" aria-label="Close Computer files" className="h-11 w-11 shrink-0 rounded-md hover:bg-black/5" onClick={() => { setComputerPickerOpen(false); addButton.current?.focus(); }}><X size={16} className="mx-auto" /></button></div> : null}
-      <div role="listbox" aria-label="File mentions" onKeyDown={moveListboxFocus}>
-      <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">Uploaded</div>
+      {computerPickerOpen ? <div className="mb-2 flex items-center gap-2"><input ref={computerSearchInput} aria-label={t("Search Computer files")} placeholder={t("Search Computer files")} value={computerSearch} onChange={event => setComputerSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} className="min-h-11 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-sm" /><button type="button" aria-label={t("Close Computer files")} className="h-11 w-11 shrink-0 rounded-md hover:bg-black/5" onClick={() => { setComputerPickerOpen(false); addButton.current?.focus(); }}><X size={16} className="mx-auto" /></button></div> : null}
+      <div role="listbox" aria-label={t("File mentions")} onKeyDown={moveListboxFocus}>
+      <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Uploaded")}</div>
       {[...uploadedFiles, ...computerFiles].map(file => <button key={file.file_id} type="button" role="option" aria-selected="false" onClick={() => { if (atMatch && !computerPickerOpen) { const prefix = value.slice(0, value.length - (atMatch[1]?.length || 0) - 1); onValueChange(`${prefix}@${file.name} `); } setComputerPickerOpen(false); }} className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-[#f3f3f1]"><FileText size={14} /><span className="truncate text-sm">{file.name}</span></button>)}
-      <div className="mt-1 border-t border-black/10 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">Computer</div>
-      {computer.isLoading ? <div className="flex min-h-11 items-center gap-2 px-2 text-xs"><Loader2 className="animate-spin" size={14} /> Searching</div> : null}
+      <div className="mt-1 border-t border-black/10 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Computer")}</div>
+      {computer.isLoading ? <div className="flex min-h-11 items-center gap-2 px-2 text-xs"><Loader2 className="animate-spin" size={14} />{" "}{t("Searching")}</div> : null}
       {computer.data?.items.filter(item => item.type === "file").map(item => <button key={item.path} type="button" role="option" aria-selected="false" disabled={disabled || importFile.isPending} onClick={() => importFile.mutate(item)} className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-[#f3f3f1] disabled:opacity-50"><AtSign size={14} /><span className="min-w-0 flex-1 truncate text-sm">{item.name}</span><span className="text-xs text-[#858481]">{formatBytes(item.size_bytes)}</span></button>)}
-      {computer.isError ? <div className="px-2 py-3 text-xs text-[#9b2c2c]">Computer files unavailable or not authorized.</div> : null}
-      {computer.data && !computer.data.items.some(item => item.type === "file") ? <p className="px-2 py-3 text-xs text-[#6f6e69]">No matching Computer files. Try another search.</p> : null}
+      {computer.isError ? <div className="px-2 py-3 text-xs text-[#9b2c2c]">{t("Computer files unavailable or not authorized.")}</div> : null}
+      {computer.data && !computer.data.items.some(item => item.type === "file") ? <p className="px-2 py-3 text-xs text-[#6f6e69]">{t("No matching Computer files. Try another search.")}</p> : null}
       </div>
     </div></ComposerOverlay> : null}
     {[...computerFiles, ...audio].length ? <div className="flex flex-wrap gap-2">
@@ -363,21 +365,22 @@ export function PrivateDisplayComposerTools({
         audioDrafts.current = audioDrafts.current.filter(item => item.file_id !== file.file_id);
         onDraftAudioFiles?.(audioDrafts.current);
         setAudio(current => current.filter(item => item.file_id !== file.file_id));
-      }} />{audioPreviews.current.get(file.file_id) ? <audio controls preload="metadata" src={audioPreviews.current.get(file.file_id)} className="h-9 max-w-48" aria-label={`Preview ${file.name}`} /> : null}</div>)}
+      }} />{audioPreviews.current.get(file.file_id) ? <audio controls preload="metadata" src={audioPreviews.current.get(file.file_id)} className="h-9 max-w-48" aria-label={t("Preview {{0}}", { 0: file.name })} /> : null}</div>)}
     </div> : null}
     {toolbarTarget ? createPortal(toolbarControls, toolbarTarget) : toolbarTarget === undefined ? toolbarControls : null}
     {showProfiles && profiles.length ? <div className="grid gap-3 rounded-md border border-black/10 bg-white p-3 sm:grid-cols-2">
-      <div className="sm:col-span-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{selectionLabel} execution</div>
-      <label className="grid gap-1 text-xs font-semibold">Execution profile<select ref={profileSelect} value={execution.profileId} disabled={running} onChange={event => { const profile = profiles.find(item => item.id === event.target.value); onExecutionChange(profile ? { profileId: profile.id, reasoningEffort: "" } : { profileId: "", reasoningEffort: "" }); }} className="min-h-10 rounded-md border border-black/10 px-2 font-normal"><option value="">Publisher default · {defaultProfile?.label} · {defaultProfile?.model}</option>{profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label} · {profile.model}{profile.is_default ? " · default" : ""}</option>)}</select></label>
-      <label className="grid gap-1 text-xs font-semibold">Reasoning<select aria-label="Reasoning" value={execution.reasoningEffort} disabled={!execution.profileId || !reasoningEfforts.length || running} onChange={event => onExecutionChange({ profileId: selectedProfile?.id || "", reasoningEffort: event.target.value })} className="min-h-10 rounded-md border border-black/10 px-2 font-normal"><option value="">{execution.profileId ? `Profile default · ${profileDefaultEffort || "managed by model"}` : `Publisher default · ${profileDefaultEffort || "managed by model"}`}</option>{reasoningEfforts.map(effort => <option key={effort} value={effort}>{effort}</option>)}</select></label>
-      {usage?.reported && usage.current ? <div className="sm:col-span-2 border-t border-black/10 pt-3 text-xs text-[#535350]"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-[#34322d]">Observed usage · {usage.current.model}{usage.current.profile_id ? ` · ${usage.current.profile_id}` : ""}</span><span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#6f6e69]">{usage.current.source === "gateway" ? "Gateway verified" : "Agent reported"}</span></div><div className="grid grid-cols-2 gap-2"><span>Input {usage.current.input_tokens.toLocaleString()}</span><span>Output {usage.current.output_tokens.toLocaleString()}</span><span>Cached {usage.current.cached_input_tokens.toLocaleString()}</span><span>Reasoning {usage.current.reasoning_tokens.toLocaleString()}</span><span>Run input total {usage.totals.input_tokens.toLocaleString()}</span><span>Run output total {usage.totals.output_tokens.toLocaleString()}</span></div></div> : <p className="sm:col-span-2 text-xs text-[#858481]">No model or token usage has been reported by the Agent or Nexus Gateway.</p>}
+      <div className="sm:col-span-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{selectionLabel}{" "}{t("execution")}</div>
+      <label className="grid gap-1 text-xs font-semibold">{t("Execution profile")}<select ref={profileSelect} value={execution.profileId} disabled={running} onChange={event => { const profile = profiles.find(item => item.id === event.target.value); onExecutionChange(profile ? { profileId: profile.id, reasoningEffort: "" } : { profileId: "", reasoningEffort: "" }); }} className="min-h-10 rounded-md border border-black/10 px-2 font-normal"><option value="">{t("Publisher default ·")}{" "}{defaultProfile?.label} · {defaultProfile?.model}</option>{profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label} · {profile.model}{profile.is_default ? t("· default") : ""}</option>)}</select></label>
+      <label className="grid gap-1 text-xs font-semibold">{t("Reasoning")}<select aria-label={t("Reasoning")} value={execution.reasoningEffort} disabled={!execution.profileId || !reasoningEfforts.length || running} onChange={event => onExecutionChange({ profileId: selectedProfile?.id || "", reasoningEffort: event.target.value })} className="min-h-10 rounded-md border border-black/10 px-2 font-normal"><option value="">{execution.profileId ? t("Profile default · {{0}}", { 0: profileDefaultEffort || "managed by model" }) : t("Publisher default · {{0}}", { 0: profileDefaultEffort || "managed by model" })}</option>{reasoningEfforts.map(effort => <option key={effort} value={effort}>{effort}</option>)}</select></label>
+      {usage?.reported && usage.current ? <div className="sm:col-span-2 border-t border-black/10 pt-3 text-xs text-[#535350]"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-[#34322d]">{t("Observed usage ·")}{" "}{usage.current.model}{usage.current.profile_id ? ` · ${usage.current.profile_id}` : ""}</span><span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#6f6e69]">{usage.current.source === "gateway" ? t("Gateway verified") : t("Agent reported")}</span></div><div className="grid grid-cols-2 gap-2"><span>{t("Input")}{" "}{usage.current.input_tokens.toLocaleString(getLocale())}</span><span>{t("Output")}{" "}{usage.current.output_tokens.toLocaleString(getLocale())}</span><span>{t("Cached")}{" "}{usage.current.cached_input_tokens.toLocaleString(getLocale())}</span><span>{t("Reasoning")}{" "}{usage.current.reasoning_tokens.toLocaleString(getLocale())}</span><span>{t("Run input total")}{" "}{usage.totals.input_tokens.toLocaleString(getLocale())}</span><span>{t("Run output total")}{" "}{usage.totals.output_tokens.toLocaleString(getLocale())}</span></div></div> : <p className="sm:col-span-2 text-xs text-[#858481]">{t("No model or token usage has been reported by the Agent or Nexus Gateway.")}</p>}
     </div> : null}
-    </> : <div className="flex items-center gap-2 px-1"><span className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-black/10 bg-white px-2 text-xs text-[#535350]"><Slash size={13} /> commands</span></div>}
+    </> : <div className="flex items-center gap-2 px-1"><span className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-black/10 bg-white px-2 text-xs text-[#535350]"><Slash size={13} />{" "}{t("commands")}</span></div>}
   </div>;
 }
 
 // Menus must escape the bounded composer scroll region without resizing it.
 export function ComposerOverlay({ anchor, children }: { anchor: RefObject<HTMLDivElement | null>; children: ReactNode }) {
+  useLocale();
   const [position, setPosition] = useState({ left: 0, bottom: 0, width: 0, maxHeight: 0 });
   useLayoutEffect(() => {
     const element = anchor.current;
@@ -398,7 +401,8 @@ export function ComposerOverlay({ anchor, children }: { anchor: RefObject<HTMLDi
 }
 
 function FileChip({ file, icon, onRemove }: { file: AgentFileTransfer; icon: ReactNode; onRemove: () => void }) {
-  return <span className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-md border border-black/10 bg-white px-2 text-xs">{icon}<span className="truncate">{file.name}</span><span className="text-[#858481]">{file.source_kind}</span><button type="button" onClick={onRemove} className="inline-flex h-7 w-7 items-center justify-center rounded" aria-label={`Remove ${file.name}`}><X size={12} /></button></span>;
+  useLocale();
+  return <span className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-md border border-black/10 bg-white px-2 text-xs">{icon}<span className="truncate">{file.name}</span><span className="text-[#858481]">{file.source_kind}</span><button type="button" onClick={onRemove} className="inline-flex h-7 w-7 items-center justify-center rounded" aria-label={t("Remove {{0}}", { 0: file.name })}><X size={12} /></button></span>;
 }
 
 function formatBytes(value: number) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KiB` : `${(value / 1024 / 1024).toFixed(1)} MiB`; }

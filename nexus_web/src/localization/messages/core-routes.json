@@ -1,0 +1,17 @@
+{
+  "Sign in to view published model capacity, deployments, and service health.": "登录以查看已发布的模型容量、部署和服务运行状况。",
+  "Sign in to view and manage workspace routing policies.": "登录以查看和管理工作区路由策略。",
+  "Sign in to control this Agent runtime, access, observability, and publication.": "登录以控制此智能体运行时、访问、可观察性和发布。",
+  "Sign in to view your agents, deployments, logs, and publishing settings.": "登录以查看您的智能体、部署、日志和发布设置。",
+  "Sign in to access workspace collections, files, and releases.": "登录以访问工作区集合、文件和版本。",
+  "Sign in to open Computer and project-scoped execution sessions.": "登录以打开计算机和项目范围的执行会话。",
+  "Sign in to view and manage paired execution devices.": "登录以查看和管理配对的执行设备。",
+  "Sign in to register and manage your private OpenWrt Routers.": "登录以注册和管理您的私有 OpenWrt 路由器。",
+  "Sign in to access provider accounts, credentials, and runtime capacity.": "登录以访问提供商账号、凭据和运行时容量。",
+  "Sign in to view private metrics, alerts, jobs, and audit records.": "登录以查看私有指标、警报、作业和审核记录。",
+  "Sign in to open your personal Work Inbox and shared role queues.": "登录以打开您的个人工作收件箱和共享角色队列。",
+  "Sign in to manage your profile, Organization, Projects, and account security.": "登录以管理您的个人资料、组织、项目和账号安全。",
+  "Sign in to open this Agent's Private Display.": "登录以打开此智能体的专属工作台。",
+  "Sign in as the caller who owns this Agent Run.": "以拥有此智能体运行的调用方身份登录。",
+  "Sign in to open your Nexilume AI workspace.": "登录以打开您的 Nexilume AI 工作区。"
+}

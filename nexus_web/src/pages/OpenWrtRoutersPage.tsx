@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -36,6 +37,7 @@ import type { EdgeNode, EdgeNodeDetail, EdgeRelayEndpoint, EdgeRelayServiceStatu
 type RouterScope = "own" | "admin";
 
 export function OpenWrtRoutersPage() {
+  useLocale();
   const routerStatusLabel = useRouterStatusLabel();
   const { apiContext, isContextReady, projects } = useAuth();
   const queryClient = useQueryClient();
@@ -63,7 +65,7 @@ export function OpenWrtRoutersPage() {
     onSuccess: async (result) => {
       queryClient.setQueryData(["edge-relay-service", apiContext.token, apiContext.tenantId], result);
       await queryClient.invalidateQueries({ queryKey: ["edge-router-capabilities"] });
-      toast.success(result.enabled ? "Cloud Relay enabled" : "Cloud Relay disabled");
+      toast.success(result.enabled ? t("Cloud Relay enabled") : t("Cloud Relay disabled"));
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -108,28 +110,26 @@ export function OpenWrtRoutersPage() {
     <div className={`edge-router-page ${mobileDetailOpen ? "has-mobile-detail" : ""}`}>
       <header className="edge-router-header">
         <div>
-          <p className="edge-router-eyebrow">Organization · Private edge fabric</p>
-          <h1>OpenWrt Routers</h1>
-          <p>Register physical edge Routers you own, inspect their published Agent registrations, and control where they may be used.</p>
+          <p className="edge-router-eyebrow">{t("Organization · Private edge fabric")}</p>
+          <h1>{t("OpenWrt Routers")}</h1>
+          <p>{t("Register physical edge Routers you own, inspect their published Agent registrations, and control where they may be used.")}</p>
         </div>
         <div className="edge-router-header__actions">
           <button className="btn" type="button" onClick={() => void refreshRouters()} disabled={nodes.isFetching || detail.isFetching}>
-            <RefreshCw size={15} className={nodes.isFetching ? "animate-spin" : ""} />Refresh
-          </button>
+            <RefreshCw size={15} className={nodes.isFetching ? "animate-spin" : ""} />{t("Refresh")}</button>
           {capabilities.data?.create_own && (
             <button className="btn btn-primary" type="button" onClick={() => { setScope("own"); setRegisterOpen(true); }}>
-              <Plus size={16} />Register Router
-            </button>
+              <Plus size={16} />{t("Register Router")}</button>
           )}
         </div>
       </header>
 
       <div className="edge-router-overview">
-        <section className="edge-router-status" aria-label="OpenWrt Router status summary">
-          <RouterMetric label="Total" value={totals.total} detail={scope === "admin" ? "Audited routers" : "Your routers"} />
-          <RouterMetric label="Online" value={totals.online} detail="Connected now" tone="healthy" />
-          <RouterMetric label="Attention" value={totals.attention} detail="Offline or degraded" tone={totals.attention ? "warning" : "neutral"} />
-          <RouterMetric label="Known Agents" value={totals.registrations} detail="Registration records" />
+        <section className="edge-router-status" aria-label={t("OpenWrt Router status summary")}>
+          <RouterMetric label={t("Total")} value={totals.total} detail={scope === "admin" ? t("Audited routers") : t("Your routers")} />
+          <RouterMetric label={t("Online")} value={totals.online} detail={t("Connected now")} tone="healthy" />
+          <RouterMetric label={t("Attention")} value={totals.attention} detail={t("Offline or degraded")} tone={totals.attention ? "warning" : "neutral"} />
+          <RouterMetric label={t("Known Agents")} value={totals.registrations} detail={t("Registration records")} />
         </section>
 
         <RouterInfrastructureBar
@@ -145,33 +145,33 @@ export function OpenWrtRoutersPage() {
       {capabilities.data?.audit && (
         <div className="edge-router-scope">
           <NexilumeTabs
-            label="Router view"
+            label={t("Router view")}
             variant="compact"
             value={scope}
             onChange={(value) => { setScope(value); setMobileDetailOpen(false); }}
             options={[
-              { value: "own", label: "My Routers" },
-              { value: "admin", label: "Admin audit" },
+              { value: "own", label: t("My Routers") },
+              { value: "admin", label: t("Admin audit") },
             ]}
           />
-          <p>{scope === "admin" ? "Audit is read-only except for emergency revocation. Other users' Routers cannot be bound or edited." : "Only Routers registered by your current identity are listed."}</p>
+          <p>{scope === "admin" ? t("Audit is read-only except for emergency revocation. Other users' Routers cannot be bound or edited.") : t("Only Routers registered by your current identity are listed.")}</p>
         </div>
       )}
 
       {nodes.isError ? (
-        <RouterError title="Routers unavailable" detail={errorMessage(nodes.error)} retry={() => void nodes.refetch()} />
+        <RouterError title={t("Routers unavailable")} detail={errorMessage(nodes.error)} retry={() => void nodes.refetch()} />
       ) : nodes.isLoading ? (
-        <div className="edge-router-loading"><Loader2 className="animate-spin" size={20} />Loading private Router inventory</div>
+        <div className="edge-router-loading"><Loader2 className="animate-spin" size={20} />{t("Loading private Router inventory")}</div>
       ) : (nodes.data ?? []).length === 0 ? (
         <EmptyState
-          title={scope === "admin" ? "No Routers to audit" : "No OpenWrt Routers registered"}
-          description={scope === "admin" ? "Registered and legacy Organization Routers will appear here." : "Generate a one-time code, then pair from LuCI or UCI on your Router."}
-          action={scope === "own" && capabilities.data?.create_own ? <button className="btn btn-primary" type="button" onClick={() => setRegisterOpen(true)}><Plus size={16} />Register Router</button> : undefined}
+          title={scope === "admin" ? t("No Routers to audit") : t("No OpenWrt Routers registered")}
+          description={scope === "admin" ? t("Registered and legacy Organization Routers will appear here.") : t("Generate a one-time code, then pair from LuCI or UCI on your Router.")}
+          action={scope === "own" && capabilities.data?.create_own ? <button className="btn btn-primary" type="button" onClick={() => setRegisterOpen(true)}><Plus size={16} />{t("Register Router")}</button> : undefined}
         />
       ) : (
         <div className="edge-router-workspace">
-          <section className="edge-router-track" aria-label="OpenWrt Routers">
-            <header><span>{scope === "admin" ? "Audit inventory" : "Private inventory"}</span><strong>{nodes.data?.length ?? 0} routers</strong></header>
+          <section className="edge-router-track" aria-label={t("OpenWrt Routers")}>
+            <header><span>{scope === "admin" ? t("Audit inventory") : t("Private inventory")}</span><strong>{nodes.data?.length ?? 0}{" "}{t("routers")}</strong></header>
             <div className="edge-router-track__list">
               {(nodes.data ?? []).map((node) => (
                 <button
@@ -185,21 +185,21 @@ export function OpenWrtRoutersPage() {
                     <strong className="flex flex-wrap items-center gap-2">{node.display_name}<ResourceAccessState access={node.access} /></strong>
                     <small>{node.router_id}</small>
                     <ResourceOwnershipBadge ownership={node.ownership} />
-                    {node.access?.can_read !== false && <em>{node.connectivity_mode === "relay" ? "Relay" : "Direct IPv6"}</em>}
+                    {node.access?.can_read !== false && <em>{node.connectivity_mode === "relay" ? t("Relay") : t("Direct IPv6")}</em>}
                   </span>
                   <span className={`edge-router-row__status is-${node.connection_status}`}>{routerStatusLabel(node)}</span>
-                  <span className="edge-router-row__count">{node.registration_count} Agents</span>
+                  <span className="edge-router-row__count">{node.registration_count}{" "}{t("Agents")}</span>
                 </button>
               ))}
             </div>
           </section>
 
           <section className="edge-router-detail" aria-live="polite">
-            <button className="edge-router-mobile-back" type="button" onClick={() => setMobileDetailOpen(false)}><ArrowLeft size={16} />All Routers</button>
+            <button className="edge-router-mobile-back" type="button" onClick={() => setMobileDetailOpen(false)}><ArrowLeft size={16} />{t("All Routers")}</button>
             {detail.isError ? (
-              <RouterError title="Router details unavailable" detail={errorMessage(detail.error)} retry={() => void detail.refetch()} />
+              <RouterError title={t("Router details unavailable")} detail={errorMessage(detail.error)} retry={() => void detail.refetch()} />
             ) : !selected ? (
-              <div className="edge-router-empty-detail">Select a Router to inspect its edge identity and Agent registrations.</div>
+              <div className="edge-router-empty-detail">{t("Select a Router to inspect its edge identity and Agent registrations.")}</div>
             ) : (
               <RouterDetail node={selected} projects={projects} />
             )}
@@ -208,23 +208,23 @@ export function OpenWrtRoutersPage() {
           <aside className="edge-router-inspector">
             {selected ? (
               <>
-                <p className="edge-router-inspector__eyebrow">Inspector · Router control</p>
+                <p className="edge-router-inspector__eyebrow">{t("Inspector · Router control")}</p>
                 <div className="edge-router-inspector__identity"><RouterGlyph status={selected.connection_status} /><span><strong>{selected.display_name}</strong><small>{compactId(selected.id)}</small></span></div>
                 <dl>
-                  <InspectorFact label="Owner" value={selected.owner_label} />
-                  <InspectorFact label="Project" value={projectName(selected.project_id, projects)} />
-                  <InspectorFact label="Connection" value={selected.connectivity_mode === "relay" ? "Outbound Relay" : "Direct IPv6"} />
-                  <InspectorFact label="Last heartbeat" value={formatDate(selected.last_presence_at)} />
-                  <InspectorFact label="Presence expires" value={formatDate(selected.presence_expires_at)} />
+                  <InspectorFact label={t("Owner")} value={selected.owner_label} />
+                  <InspectorFact label={t("Project")} value={projectName(selected.project_id, projects)} />
+                  <InspectorFact label={t("Connection")} value={selected.connectivity_mode === "relay" ? "Outbound Relay" : "Direct IPv6"} />
+                  <InspectorFact label={t("Last heartbeat")} value={formatDate(selected.last_presence_at)} />
+                  <InspectorFact label={t("Presence expires")} value={formatDate(selected.presence_expires_at)} />
                 </dl>
                 <div className="edge-router-inspector__actions">
-                  {selected.allowed_actions?.includes("update") && <button className="btn" type="button" onClick={() => setEditOpen(true)}><Pencil size={15} />Rename or move</button>}
-                  {selected.allowed_actions?.includes("revoke") && <button className="btn edge-router-danger" type="button" onClick={() => setRevokeOpen(true)}><Trash2 size={15} />Revoke Router</button>}
-                  {selected.owner_relation === "other" && <p>Audit access does not grant permission to bind or impersonate this device.</p>}
-                  {selected.is_legacy && <p>This legacy Router has no verified owner. Revoke it, then ask the user to register it again.</p>}
+                  {selected.allowed_actions?.includes("update") && <button className="btn" type="button" onClick={() => setEditOpen(true)}><Pencil size={15} />{t("Rename or move")}</button>}
+                  {selected.allowed_actions?.includes("revoke") && <button className="btn edge-router-danger" type="button" onClick={() => setRevokeOpen(true)}><Trash2 size={15} />{t("Revoke Router")}</button>}
+                  {selected.owner_relation === "other" && <p>{t("Audit access does not grant permission to bind or impersonate this device.")}</p>}
+                  {selected.is_legacy && <p>{t("This legacy Router has no verified owner. Revoke it, then ask the user to register it again.")}</p>}
                 </div>
               </>
-            ) : <p className="edge-router-inspector__empty">No Router selected.</p>}
+            ) : <p className="edge-router-inspector__empty">{t("No Router selected.")}</p>}
           </aside>
         </div>
       )}
@@ -274,11 +274,12 @@ export function OpenWrtRoutersPage() {
 }
 
 function RouterDetail({ node, projects }: { node: EdgeNode | EdgeNodeDetail; projects: Array<{ id: string; name: string }> }) {
+  useLocale();
   const { apiContext } = useAuth();
   if (node.access && !node.access.can_read) {
     return <div className="grid content-start gap-4 p-5">
       <div className="flex flex-wrap items-center gap-2"><h2>{node.display_name}</h2><ResourceOwnershipBadge ownership={node.ownership} /><ResourceAccessState access={node.access} /></div>
-      <p className="text-sm leading-6 text-muted">This Router can be discovered in the catalog, but its network identity, health, and Agent registrations require a Role or explicit Share.</p>
+      <p className="text-sm leading-6 text-muted">{t("This Router can be discovered in the catalog, but its network identity, health, and Agent registrations require a Role or explicit Share.")}</p>
     </div>;
   }
   const queryClient = useQueryClient();
@@ -287,7 +288,7 @@ function RouterDetail({ node, projects }: { node: EdgeNode | EdgeNodeDetail; pro
   const resumeManaged = useMutation({
     mutationFn: (registrationId: string) => api.resumeManagedEdgeAgent(apiContext, registrationId),
     onSuccess: async () => {
-      toast.success("Managed Agent binding resumed");
+      toast.success(t("Managed Agent binding resumed"));
       await queryClient.invalidateQueries({ queryKey: ["edge-node"] });
       await queryClient.invalidateQueries({ queryKey: ["edge-nodes"] });
     },
@@ -296,56 +297,54 @@ function RouterDetail({ node, projects }: { node: EdgeNode | EdgeNodeDetail; pro
   return (
     <>
       <header className="edge-router-detail__header">
-        <div><p className="edge-router-eyebrow">Physical edge device</p><h2>{node.display_name}</h2><p>{node.router_id} · {projectName(node.project_id, projects)}</p></div>
+        <div><p className="edge-router-eyebrow">{t("Physical edge device")}</p><h2>{node.display_name}</h2><p>{node.router_id} · {projectName(node.project_id, projects)}</p></div>
         <StatusBadge status={node.connection_status} />
       </header>
       <div className="edge-router-facts">
-        <DetailFact label="Transport" value={node.connectivity_mode === "relay" ? "Outbound Relay" : "Direct IPv6"} icon={node.connectivity_mode === "relay" ? <Radio size={16} /> : <Wifi size={16} />} />
-        <DetailFact label="Software" value={node.software_version || "Not reported"} />
-        <DetailFact label="IPv6 mode" value={humanize(node.ipv6_mode)} />
-        <DetailFact label="Last heartbeat" value={formatDate(node.last_presence_at)} />
+        <DetailFact label={t("Transport")} value={node.connectivity_mode === "relay" ? "Outbound Relay" : "Direct IPv6"} icon={node.connectivity_mode === "relay" ? <Radio size={16} /> : <Wifi size={16} />} />
+        <DetailFact label={t("Software")} value={node.software_version || "Not reported"} />
+        <DetailFact label={t("IPv6 mode")} value={humanize(node.ipv6_mode)} />
+        <DetailFact label={t("Last heartbeat")} value={formatDate(node.last_presence_at)} />
       </div>
       {node.connection_status_reason === "firmware_upgrade_required" && (
         <div className="edge-router-presence-warning" role="status">
           <AlertTriangle size={18} />
           <div>
-            <strong>Firmware upgrade required</strong>
-            <p>This Router uses the legacy connector and cannot prove live cloud presence. Existing Agent leases may continue until they expire.</p>
+            <strong>{t("Firmware upgrade required")}</strong>
+            <p>{t("This Router uses the legacy connector and cannot prove live cloud presence. Existing Agent leases may continue until they expire.")}</p>
           </div>
         </div>
       )}
       {node.connection_status_reason === "heartbeat_expired" && (
         <div className="edge-router-presence-warning" role="status">
           <WifiOff size={18} />
-          <div><strong>Router heartbeat expired</strong><p>No Presence renewal arrived within five minutes.</p></div>
+          <div><strong>{t("Router heartbeat expired")}</strong><p>{t("No Presence renewal arrived within five minutes.")}</p></div>
         </div>
       )}
       {node.connection_status === "degraded" && <RouterRegistrationDiagnostic node={node} />}
       <section className="edge-router-capabilities">
-        <div><p className="edge-router-eyebrow">Device capabilities</p><h3>Router capability surface</h3></div>
-        {capabilityNames.length ? <div>{capabilityNames.map((name) => <span key={name}>{humanize(name)}</span>)}</div> : <p>No device capabilities have been reported.</p>}
+        <div><p className="edge-router-eyebrow">{t("Device capabilities")}</p><h3>{t("Router capability surface")}</h3></div>
+        {capabilityNames.length ? <div>{capabilityNames.map((name) => <span key={name}>{humanize(name)}</span>)}</div> : <p>{t("No device capabilities have been reported.")}</p>}
       </section>
       <section className="edge-router-registrations">
-        <header><div><p className="edge-router-eyebrow">Agent Registrations</p><h3>Published by this Router</h3></div><strong>{node.registration_count}</strong></header>
-        {!registrations.length ? <p className="edge-router-empty-registrations">{node.connection_status === "degraded" ? "No Agent registrations to display. Resolve the sync issue above before waiting for registration." : "No active Agent registrations. Healthy Router agents will appear after the next connector sync."}</p> : registrations.map((registration) => (
+        <header><div><p className="edge-router-eyebrow">{t("Agent Registrations")}</p><h3>{t("Published by this Router")}</h3></div><strong>{node.registration_count}</strong></header>
+        {!registrations.length ? <p className="edge-router-empty-registrations">{node.connection_status === "degraded" ? t("No Agent registrations to display. Resolve the sync issue above before waiting for registration.") : t("No active Agent registrations. Healthy Router agents will appear after the next connector sync.")}</p> : registrations.map((registration) => (
           <div className="edge-router-registration" key={registration.id}>
             <span className="edge-router-agent-node"><Bot size={16} /></span>
             <span>
               <strong>{registration.agent?.name || registration.managed_agent_name || registration.origin}</strong>
-              <small>{registration.binding_mode === "manual" ? "Manual binding" : "OpenWrt managed"} / {registration.transport === "relay" ? "Relay" : "Direct IPv6"}</small>
+              <small>{registration.binding_mode === "manual" ? t("Manual binding") : t("OpenWrt managed")} / {registration.transport === "relay" ? t("Relay") : t("Direct IPv6")}</small>
               <small>{registration.origin}</small>
             </span>
             <StatusBadge status={registration.provisioning_state || registration.health_status} />
             <span className="edge-router-registration__lease">
-              {registration.lease_active ? `Lease until ${formatDate(registration.lease_expires_at)}` : "Lease expired"}
+              {registration.lease_active ? t("Lease until {{0}}", { 0: formatDate(registration.lease_expires_at) }) : t("Lease expired")}
               {registration.manifest_digest ? ` / Manifest ${compactId(registration.manifest_digest)}` : ""}
             </span>
             <span className="edge-router-registration__actions">
-              {registration.agent?.id && <Link className="btn" to={`/agents/${registration.agent.id}`}>Open Agent</Link>}
+              {registration.agent?.id && <Link className="btn" to={`/agents/${registration.agent.id}`}>{t("Open Agent")}</Link>}
               {registration.binding_mode === "suppressed" && node.allowed_actions?.includes("use") && (
-                <button className="btn btn-primary" type="button" disabled={resumeManaged.isPending} onClick={() => resumeManaged.mutate(registration.id)}>
-                  Resume automatic binding
-                </button>
+                <button className="btn btn-primary" type="button" disabled={resumeManaged.isPending} onClick={() => resumeManaged.mutate(registration.id)}>{t("Resume automatic binding")}</button>
               )}
             </span>
           </div>
@@ -365,6 +364,7 @@ function RegisterRouterDialog({ open, apiContext, projects, currentProjectId, re
   onClose: () => void;
   onRegistered: (node: EdgeNode) => Promise<void>;
 }) {
+  useLocale();
   const [ownership, setOwnership] = useState<import("../lib/types").ResourceOwnershipInput>(
     currentProjectId ? { scope: "project", project_id: currentProjectId } : { scope: "organization", project_id: null },
   );
@@ -396,7 +396,7 @@ function RegisterRouterDialog({ open, apiContext, projects, currentProjectId, re
     });
     if (!connected) return;
     setRegistered(connected);
-    toast.success(`${connected.display_name} connected`);
+    toast.success(t("{{0}} connected", { 0: connected.display_name }));
     void onRegistered(connected);
   }, [baseline, onRegistered, pairing, polling.data, registered]);
 
@@ -420,34 +420,34 @@ function RegisterRouterDialog({ open, apiContext, projects, currentProjectId, re
   return (
     <NexilumeDialog
       open={open}
-      title={registered ? "Router connected" : pairing ? "Pair your OpenWrt Router" : "Register OpenWrt Router"}
-      eyebrow="Private device enrollment"
-      description="The one-time code assigns this Router to your current Nexus identity. It cannot be claimed by another user."
+      title={registered ? t("Router connected") : pairing ? t("Pair your OpenWrt Router") : t("Register OpenWrt Router")}
+      eyebrow={t("Private device enrollment")}
+      description={t("The one-time code assigns this Router to your current Nexus identity. It cannot be claimed by another user.")}
       busy={create.isPending}
       initialFocusRef={initialRef}
       onClose={onClose}
-      footer={registered ? <button className="btn btn-primary" type="button" onClick={onClose}>Done</button> : pairing ? <><button className="btn" type="button" onClick={onClose}>Close</button><button className="btn btn-primary" type="button" onClick={() => void polling.refetch()} disabled={polling.isFetching}><RefreshCw size={15} className={polling.isFetching ? "animate-spin" : ""} />Check now</button></> : <><button className="btn" type="button" onClick={onClose} disabled={create.isPending}>Cancel</button><button className="btn btn-primary" type="button" onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending && <Loader2 size={15} className="animate-spin" />}Generate pairing code</button></>}
+      footer={registered ? <button className="btn btn-primary" type="button" onClick={onClose}>{t("Done")}</button> : pairing ? <><button className="btn" type="button" onClick={onClose}>{t("Close")}</button><button className="btn btn-primary" type="button" onClick={() => void polling.refetch()} disabled={polling.isFetching}><RefreshCw size={15} className={polling.isFetching ? "animate-spin" : ""} />{t("Check now")}</button></> : <><button className="btn" type="button" onClick={onClose} disabled={create.isPending}>{t("Cancel")}</button><button className="btn btn-primary" type="button" onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending && <Loader2 size={15} className="animate-spin" />}{t("Generate pairing code")}</button></>}
     >
       {registered ? (
         <div className="edge-router-success">
           <Check size={22} />
-          <div><strong>{registered.display_name}</strong><p>The Router is now private to your identity and ready to publish Agent registrations.</p></div>
-          <div className="edge-router-lineage"><span>User</span><i /><span>{registered.display_name}</span><i /><span>{registered.registration_count} Agent Registrations</span></div>
+          <div><strong>{registered.display_name}</strong><p>{t("The Router is now private to your identity and ready to publish Agent registrations.")}</p></div>
+          <div className="edge-router-lineage"><span>{t("User")}</span><i /><span>{registered.display_name}</span><i /><span>{registered.registration_count}{" "}{t("Agent Registrations")}</span></div>
         </div>
       ) : pairing ? (
         <div className="edge-router-pairing">
-          <div className="edge-router-pairing__code"><span>One-time pairing code</span><code>{pairing.pairing_code}</code><button className="btn" type="button" onClick={() => copyText(pairing.pairing_code)}><Copy size={14} />Copy</button></div>
-          <p className="edge-router-pairing__expiry">Expires {formatDate(pairing.expires_at)}. Nexus checks for a new Router every five seconds.</p>
-          {relayAvailable === false && <div className="edge-router-revoke-warning"><AlertTriangle size={18} /><div><strong>Relay is unavailable on this Nexus Cloud</strong><p>Use Direct IPv6 on the Router. Relay enrollment is blocked before the code is consumed.</p></div></div>}
-          {relayRouterEndpoint && <div className="edge-router-relay-hint"><Radio size={18} /><div><strong>Relay Router target</strong><p>The Connector will receive <code>{formatRelayEndpoint(relayRouterEndpoint)}</code>. Allow outbound TCP port <b>{relayRouterEndpoint.port}</b>.</p></div></div>}
-          <div className="edge-router-pairing__method"><strong>LuCI</strong><p>Open <b>Status → Agent Routing → Nexus Cloud</b>, paste the Nexus URL and pairing code, enable the connector, then Save & Apply. On an already enrolled Router, the new code replaces its existing Cloud identity.</p></div>
-          <div className="edge-router-pairing__method"><strong>UCI command</strong><pre>{command}</pre><button className="btn" type="button" onClick={() => copyText(command)}><Copy size={14} />Copy command</button></div>
-          <div className="edge-router-waiting">{polling.isFetching ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}Waiting for the Router to complete enrollment</div>
+          <div className="edge-router-pairing__code"><span>{t("One-time pairing code")}</span><code>{pairing.pairing_code}</code><button className="btn" type="button" onClick={() => copyText(pairing.pairing_code)}><Copy size={14} />{t("Copy")}</button></div>
+          <p className="edge-router-pairing__expiry">{t("Expires")}{" "}{formatDate(pairing.expires_at)}{t(". Nexus checks for a new Router every five seconds.")}</p>
+          {relayAvailable === false && <div className="edge-router-revoke-warning"><AlertTriangle size={18} /><div><strong>{t("Relay is unavailable on this Nexus Cloud")}</strong><p>{t("Use Direct IPv6 on the Router. Relay enrollment is blocked before the code is consumed.")}</p></div></div>}
+          {relayRouterEndpoint && <div className="edge-router-relay-hint"><Radio size={18} /><div><strong>{t("Relay Router target")}</strong><p>{t("The Connector will receive")}{" "}<code>{formatRelayEndpoint(relayRouterEndpoint)}</code>{t(". Allow outbound TCP port")}{" "}<b>{relayRouterEndpoint.port}</b>.</p></div></div>}
+          <div className="edge-router-pairing__method"><strong>{t("LuCI")}</strong><p>{t("Open")}{" "}<b>{t("Status → Agent Routing → Nexus Cloud")}</b>{t(", paste the Nexus URL and pairing code, enable the connector, then Save & Apply. On an already enrolled Router, the new code replaces its existing Cloud identity.")}</p></div>
+          <div className="edge-router-pairing__method"><strong>{t("UCI command")}</strong><pre>{command}</pre><button className="btn" type="button" onClick={() => copyText(command)}><Copy size={14} />{t("Copy command")}</button></div>
+          <div className="edge-router-waiting">{polling.isFetching ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}{t("Waiting for the Router to complete enrollment")}</div>
           {polling.isError && <p className="edge-router-field-error">{errorMessage(polling.error)}</p>}
         </div>
       ) : (
         <div className="edge-router-register-form" ref={initialRef}><ResourceOwnershipPicker projects={projects as import("../lib/types").Project[]} value={ownership} onChange={setOwnership} />
-          <div className="edge-router-security-note"><ShieldCheck size={18} /><p>The device Token and certificate identity are returned only to the Router. They are never shown in this page or Agent configuration.</p></div>
+          <div className="edge-router-security-note"><ShieldCheck size={18} /><p>{t("The device Token and certificate identity are returned only to the Router. They are never shown in this page or Agent configuration.")}</p></div>
           {create.isError && <p className="edge-router-field-error">{errorMessage(create.error)}</p>}
         </div>
       )}
@@ -463,11 +463,12 @@ function RouterInfrastructureBar({ status, loading, error, busy, onRefresh, onTo
   onRefresh: () => void;
   onToggle: (enabled: boolean) => void;
 }) {
-  if (loading) return <div className="edge-router-infrastructure is-loading"><Loader2 className="animate-spin" size={16} />Loading Router infrastructure</div>;
+  useLocale();
+  if (loading) return <div className="edge-router-infrastructure is-loading"><Loader2 className="animate-spin" size={16} />{t("Loading Router infrastructure")}</div>;
   if (error || !status) return (
-    <section className="edge-router-infrastructure is-error" aria-label="Router infrastructure">
-      <AlertTriangle size={16} /><span><strong>Infrastructure status unavailable</strong><small>{error || "No status was returned."}</small></span>
-      <button className="btn btn-sm" type="button" onClick={onRefresh}><RefreshCw size={14} />Retry</button>
+    <section className="edge-router-infrastructure is-error" aria-label={t("Router infrastructure")}>
+      <AlertTriangle size={16} /><span><strong>{t("Infrastructure status unavailable")}</strong><small>{error || t("No status was returned.")}</small></span>
+      <button className="btn btn-sm" type="button" onClick={onRefresh}><RefreshCw size={14} />{t("Retry")}</button>
     </section>
   );
   const router = status.router_endpoint;
@@ -476,35 +477,35 @@ function RouterInfrastructureBar({ status, loading, error, busy, onRefresh, onTo
   const sweeperState = sweeper?.running ? "ready" : sweeper?.reason === "starting" ? "standby" : "offline";
   const relayState = status.available ? "ready" : status.running ? "standby" : "offline";
   return (
-    <section className="edge-router-infrastructure" aria-label="Router infrastructure">
+    <section className="edge-router-infrastructure" aria-label={t("Router infrastructure")}>
       <header>
         <ShieldCheck size={16} />
-        <span><small>Router infrastructure</small><strong>Automatic services</strong></span>
+        <span><small>{t("Router infrastructure")}</small><strong>{t("Automatic services")}</strong></span>
       </header>
       <div className="edge-router-infrastructure__service">
-        <span className={`edge-router-infrastructure__state is-${sweeperState}`}><i />{sweeper?.running ? "Running" : sweeper?.reason === "starting" ? "Starting" : "Attention"}</span>
-        <strong>Presence Sweeper</strong>
-        <small>{sweeper?.automatic ? `Automatic · every ${sweeper.interval_seconds}s` : "Automatic schedule unavailable"}</small>
-        <em>{sweeper?.last_sweep_at ? `Last sweep ${formatDate(sweeper.last_sweep_at)}` : "Waiting for first sweep"}</em>
+        <span className={`edge-router-infrastructure__state is-${sweeperState}`}><i />{sweeper?.running ? t("Running") : sweeper?.reason === "starting" ? t("Starting") : t("Attention")}</span>
+        <strong>{t("Presence Sweeper")}</strong>
+        <small>{sweeper?.automatic ? t("Automatic · every {{0}}s", { 0: sweeper.interval_seconds }) : t("Automatic schedule unavailable")}</small>
+        <em>{sweeper?.last_sweep_at ? t("Last sweep {{0}}", { 0: formatDate(sweeper.last_sweep_at) }) : t("Waiting for first sweep")}</em>
       </div>
       <div className="edge-router-infrastructure__service is-relay">
-        <span className={`edge-router-infrastructure__state is-${relayState}`}><i />{status.available ? "Enabled" : status.running ? "Standby" : "Unavailable"}</span>
-        <strong>Nexus Relay</strong>
-        <small>Router port <b>{router?.port ?? "--"}</b> · Cloud internal <b>{cloud?.port ?? "--"}</b></small>
+        <span className={`edge-router-infrastructure__state is-${relayState}`}><i />{status.available ? t("Enabled") : status.running ? t("Standby") : t("Unavailable")}</span>
+        <strong>{t("Nexus Relay")}</strong>
+        <small>{t("Router port")}{" "}<b>{router?.port ?? "--"}</b>{" "}{t("· Cloud internal")}{" "}<b>{cloud?.port ?? "--"}</b></small>
         <code title={router ? formatRelayEndpoint(router) : ""}>{router ? formatRelayEndpoint(router) : relayStatusCopy(status)}</code>
       </div>
       <div className="edge-router-infrastructure__actions">
-        <button className="btn btn-sm" type="button" aria-label="Refresh Router infrastructure status" onClick={onRefresh}><RefreshCw size={14} /></button>
+        <button className="btn btn-sm" type="button" aria-label={t("Refresh Router infrastructure status")} onClick={onRefresh}><RefreshCw size={14} /></button>
         {status.can_manage && (
           <button
             className={status.enabled ? "btn btn-sm" : "btn btn-primary btn-sm"}
             type="button"
-            aria-label={status.enabled ? "Disable Relay" : "Enable Relay"}
+            aria-label={status.enabled ? t("Disable Relay") : t("Enable Relay")}
             disabled={busy || (!status.enabled && (!status.configured || !status.running))}
             onClick={() => onToggle(!status.enabled)}
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
-            {status.enabled ? "Disable" : "Enable"}
+            {status.enabled ? t("Disable") : t("Enable")}
           </button>
         )}
       </div>
@@ -519,6 +520,7 @@ function EditRouterDialog({ open, node, projects, onClose, onSave }: {
   onClose: () => void;
   onSave: (body: { display_name: string; project_id: string | null }) => Promise<void>;
 }) {
+  useLocale();
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
   const [error, setError] = useState("");
@@ -538,10 +540,10 @@ function EditRouterDialog({ open, node, projects, onClose, onSave }: {
     finally { setBusy(false); }
   }
   return (
-    <NexilumeDialog open={open} title="Rename or move Router" eyebrow="Router identity" description="A Router with active Agent bindings must be disconnected before its Project can change." busy={busy} initialFocusRef={initialRef} onClose={onClose} footer={<><button className="btn" type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="btn btn-primary" type="button" onClick={() => void submit()} disabled={busy || !name.trim()}>{busy && <Loader2 size={15} className="animate-spin" />}Save Router</button></>}>
+    <NexilumeDialog open={open} title={t("Rename or move Router")} eyebrow={t("Router identity")} description={t("A Router with active Agent bindings must be disconnected before its Project can change.")} busy={busy} initialFocusRef={initialRef} onClose={onClose} footer={<><button className="btn" type="button" onClick={onClose} disabled={busy}>{t("Cancel")}</button><button className="btn btn-primary" type="button" onClick={() => void submit()} disabled={busy || !name.trim()}>{busy && <Loader2 size={15} className="animate-spin" />}{t("Save Router")}</button></>}>
       <div className="edge-router-edit-form">
-        <Field label="Router name"><input ref={initialRef} className="input" value={name} onChange={(event) => setName(event.target.value)} /></Field>
-        <Field label="Project"><select className="select" value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">All Projects · Organization Router</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></Field>
+        <Field label={t("Router name")}><input ref={initialRef} className="input" value={name} onChange={(event) => setName(event.target.value)} /></Field>
+        <Field label={t("Project")}><select className="select" value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">{t("All Projects · Organization Router")}</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></Field>
         {error && <p className="edge-router-field-error">{error}</p>}
       </div>
     </NexilumeDialog>
@@ -549,6 +551,7 @@ function EditRouterDialog({ open, node, projects, onClose, onSave }: {
 }
 
 function RevokeRouterDialog({ open, node, scope, onClose, onRevoke }: { open: boolean; node: EdgeNode | EdgeNodeDetail | null; scope: RouterScope; onClose: () => void; onRevoke: () => Promise<void> }) {
+  useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function revoke() {
@@ -556,32 +559,37 @@ function RevokeRouterDialog({ open, node, scope, onClose, onRevoke }: { open: bo
     try { await onRevoke(); } catch (nextError) { setError(errorMessage(nextError)); } finally { setBusy(false); }
   }
   return (
-    <NexilumeDialog open={open} title="Revoke OpenWrt Router?" eyebrow={scope === "admin" ? "Emergency administrator action" : "Destructive action"} description={`This immediately invalidates ${node?.display_name || "the Router"}'s device credential, withdraws its Agent registrations, and marks bound Runtime deployments failed.`} busy={busy} onClose={onClose} footer={<><button className="btn" type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="btn btn-danger" type="button" onClick={() => void revoke()} disabled={busy}>{busy && <Loader2 size={15} className="animate-spin" />}Revoke Router</button></>}>
-      <div className="edge-router-revoke-warning"><AlertTriangle size={20} /><div><strong>Re-pairing will require a new code</strong><p>The same physical Router ID may enroll again, but its Token, certificate identity, owner, and registrations will be rebuilt.</p></div></div>
+    <NexilumeDialog open={open} title={t("Revoke OpenWrt Router?")} eyebrow={scope === "admin" ? t("Emergency administrator action") : t("Destructive action")} description={t("This immediately invalidates {{0}}'s device credential, withdraws its Agent registrations, and marks bound Runtime deployments failed.", { 0: node?.display_name || "the Router" })} busy={busy} onClose={onClose} footer={<><button className="btn" type="button" onClick={onClose} disabled={busy}>{t("Cancel")}</button><button className="btn btn-danger" type="button" onClick={() => void revoke()} disabled={busy}>{busy && <Loader2 size={15} className="animate-spin" />}{t("Revoke Router")}</button></>}>
+      <div className="edge-router-revoke-warning"><AlertTriangle size={20} /><div><strong>{t("Re-pairing will require a new code")}</strong><p>{t("The same physical Router ID may enroll again, but its Token, certificate identity, owner, and registrations will be rebuilt.")}</p></div></div>
       {error && <p className="edge-router-field-error">{error}</p>}
     </NexilumeDialog>
   );
 }
 
 function RouterMetric({ label, value, detail, tone = "neutral" }: { label: string; value: number; detail: string; tone?: "neutral" | "healthy" | "warning" }) {
+  useLocale();
   return <div className={`edge-router-metric edge-router-metric--${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>;
 }
 
 function RouterGlyph({ status }: { status: string }) {
+  useLocale();
   const online = status === "online";
-  return <span className={`edge-router-glyph is-${status}`} aria-label={`Router ${status}`}><Router size={18} /><i>{online ? <Wifi size={10} /> : <WifiOff size={10} />}</i></span>;
+  return <span className={`edge-router-glyph is-${status}`} aria-label={t("Router {{0}}", { 0: status })}><Router size={18} /><i>{online ? <Wifi size={10} /> : <WifiOff size={10} />}</i></span>;
 }
 
 function DetailFact({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
+  useLocale();
   return <div>{icon && <span>{icon}</span>}<small>{label}</small><strong>{value}</strong></div>;
 }
 
 function InspectorFact({ label, value }: { label: string; value: string }) {
+  useLocale();
   return <div><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
 function RouterError({ title, detail, retry }: { title: string; detail: string; retry: () => void }) {
-  return <div className="edge-router-error"><AlertTriangle size={20} /><div><strong>{title}</strong><p>{detail}</p></div><button className="btn" type="button" onClick={retry}><RefreshCw size={14} />Retry</button></div>;
+  useLocale();
+  return <div className="edge-router-error"><AlertTriangle size={20} /><div><strong>{title}</strong><p>{detail}</p></div><button className="btn" type="button" onClick={retry}><RefreshCw size={14} />{t("Retry")}</button></div>;
 }
 
 function summarizeNodes(nodes: EdgeNode[]) {
@@ -614,9 +622,9 @@ function relayStatusCopy(status: EdgeRelayServiceStatus) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "The request could not be completed.";
+  return error instanceof Error ? error.message : t("The request could not be completed.");
 }
 
 function copyText(value: string) {
-  void navigator.clipboard.writeText(value).then(() => toast.success("Copied"), () => toast.error("Copy failed"));
+  void navigator.clipboard.writeText(value).then(() => toast.success(t("Copied")), () => toast.error(t("Copy failed")));
 }
