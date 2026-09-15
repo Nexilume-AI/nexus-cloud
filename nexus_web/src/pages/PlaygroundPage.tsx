@@ -1251,7 +1251,7 @@ function LegacyToolSetupPanel({
                       <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Recovery")}</div>
                       <p className="mt-1 text-xs leading-5 text-muted">
                         {remoteConfig?.rollback_available
-                          ? t("Latest backup: {{0}}", { 0: remoteConfig.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString(getLocale()) : "available" })
+                          ? t("Latest backup: {{0}}", { 0: remoteConfig.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString(getLocale()) : t("available") })
                           : t("No backup is available for this session yet.")}
                       </p>
                       <button

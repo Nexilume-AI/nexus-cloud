@@ -23,6 +23,11 @@ describe("workspace localization", () => {
     expect(translate("{{missing}}", "zh-CN")).toBe("{{missing}}");
   });
 
+  it("uses letter, not correspondence, in the agent naming instruction", () => {
+    expect(translate("Use English letters, numbers, underscores, or hyphens. Start with a letter.", "zh-CN"))
+      .toBe("仅使用英文字母、数字、下划线或连字符，并以字母开头。");
+  });
+
   it("persists changes and only notifies subscribers when the language changes", () => {
     const storage = { setItem: vi.fn() };
     vi.stubGlobal("localStorage", storage);

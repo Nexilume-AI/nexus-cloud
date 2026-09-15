@@ -55,5 +55,12 @@
   "Finish preparing this Agent": "完成这个智能体的准备",
   "Start a new private Run": "开始新的私有运行",
   "Complete Runtime setup and verify the Agent before its first call.": "完成运行时设置并在首次调用之前验证智能体。",
-  "Nothing currently needs your attention. Start fresh when you are ready.": "目前没有什么需要您注意的。准备好后重新开始。"
+  "Nothing currently needs your attention. Start fresh when you are ready.": "目前没有什么需要您注意的。准备好后重新开始。",
+  "Upload your first Agent": "上传首个智能体",
+  "Start a Run": "开始运行",
+  "Empty file": "空文件",
+  "Previous inputs": "上一页输入文件",
+  "Previous outputs": "上一页输出文件",
+  "Next inputs": "下一页输入文件",
+  "Next outputs": "下一页输出文件"
 }

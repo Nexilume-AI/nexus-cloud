@@ -218,11 +218,11 @@ export function AgentComputerAttachDialog({
                 ) : (
                   <Monitor size={15} />
                 )}
-                {targetRun ? "Use for next turn" : authorized
+                {targetRun ? t("Use for next turn") : authorized
                   ? defaultConnectionId
-                    ? "Change Computer"
-                    : "Attach Computer"
-                  : "Allow and attach"}
+                    ? t("Change Computer")
+                    : t("Attach Computer")
+                  : t("Allow and attach")}
               </button>
             </div>
           </div>

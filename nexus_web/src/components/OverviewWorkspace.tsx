@@ -1,3 +1,4 @@
+import { agentNeedsConfiguration } from "../lib/agentConfigurationState";
 import { t, useLocale } from "../localization";
 import { useMemo, type ReactNode } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -23,15 +24,7 @@ function restricted(error: unknown) {
 }
 
 function nextAgentRoute(agent: Agent) {
-  const configuring =
-    !["archived", "disabled"].includes(
-      agent.lifecycle_status || agent.status,
-    ) &&
-    agent.allowed_actions?.includes("configure_runtime") &&
-    (agent.configuration_drift ||
-      ["not_deployed", "pending", "unknown", ""].includes(
-        agent.runtime_status ?? "",
-      ));
+  const configuring = agentNeedsConfiguration(agent);
   return {
     to: `/agents/${encodeURIComponent(agent.id)}/${configuring ? "runtime" : "overview"}`,
     label: configuring ? t("Continue setup") : t("Open Agent"),
@@ -39,7 +32,7 @@ function nextAgentRoute(agent: Agent) {
 }
 
 function agentIsConfiguring(agent: Agent) {
-  return nextAgentRoute(agent).label === "Continue setup";
+  return agentNeedsConfiguration(agent);
 }
 
 function runAttention(run: AgentPrivateRun) {
@@ -216,7 +209,7 @@ export function OverviewWorkspace() {
               eyebrow={priorityWork.ownership === "role" ? t("Shared role queue") : t("Work Inbox")}
               title={priorityWork.title}
               description={priorityWork.message}
-              note={<span>{priorityWork.project_name ?? "Organization-wide"} · {priorityWork.resource_name || priorityWork.category}</span>}
+              note={<span>{priorityWork.project_name ?? t("Organization-wide")} · {priorityWork.resource_name || priorityWork.category}</span>}
               action={<Link className="btn btn-primary" to={`/inbox?item=${encodeURIComponent(priorityWork.id)}`}>{t("Review first issue")}{" "}<ArrowRight size={17} /></Link>}
             />
           ) : capabilities.isError ? (
@@ -285,7 +278,7 @@ export function OverviewWorkspace() {
                   className="btn btn-primary"
                   to={canCreate ? "/agents?create=1" : discovery!.href}
                 >
-                  {canCreate ? "Upload your first Agent" : discovery!.primaryLabel}
+                  {canCreate ? t("Upload your first Agent") : discovery!.primaryLabel}
                   <ArrowRight size={17} />
                 </Link>
               }
@@ -375,7 +368,7 @@ export function OverviewWorkspace() {
                       : privateDisplayRoute(first.id)
                   }
                 >
-                  {agentIsConfiguring(first) ? "Continue setup" : "Start a Run"}
+                  {agentIsConfiguring(first) ? t("Continue setup") : t("Start a Run")}
                   <ArrowRight size={17} />
                 </Link>
               }

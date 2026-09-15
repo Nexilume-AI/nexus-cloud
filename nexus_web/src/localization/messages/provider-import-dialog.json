@@ -54,5 +54,16 @@
   "Excel template": "Excel 模板",
   "CSV template": "CSV 模板",
   "api_ref name base_url api_key": "api_ref 名称 base_url api_key",
-  "Import / continue valid APIs": "导入/继续有效的 API"
+  "Import / continue valid APIs": "导入/继续有效的 API",
+  "Organization shared": "组织共享",
+  "No Project snapshot": "无项目快照",
+  "Not captured": "未采集",
+  "at Run creation": "运行创建时",
+  "available": "可用",
+  "Import preview": "导入预览",
+  "Import processing": "正在导入",
+  "Import partially completed": "导入部分完成",
+  "Import completed": "导入已完成",
+  "Import expired": "导入已过期",
+  "Import discarded": "导入已放弃"
 }

@@ -52,7 +52,7 @@ export function RunQueueActions({ run, item, token, onRemove, removing }: {
     {change.isError && !editor ? <p role="alert" className="max-w-44 text-red-800">{t("Change not confirmed. Review the refreshed queue before trying again.")}</p> : null}
     <NexilumeDialog open={Boolean(editor)} onClose={() => setEditor(null)} busy={change.isPending} title={t("Edit queued message")} description={t("Only messages that have not started can be changed. Nothing is sent as a new turn.")} footer={<>
       <button type="button" className="btn min-h-11" disabled={change.isPending} onClick={() => setEditor(null)}>{t("Cancel")}</button>
-      <button type="button" className="btn btn-primary min-h-11 min-w-32" disabled={change.isPending || invalid || changed || !editable} onClick={() => editor && change.mutate({ content: editor.text.trim(), expected_revision: editor.revision })}>{change.isPending ? "Saving…" : "Save changes"}</button>
+      <button type="button" className="btn btn-primary min-h-11 min-w-32" disabled={change.isPending || invalid || changed || !editable} onClick={() => editor && change.mutate({ content: editor.text.trim(), expected_revision: editor.revision })}>{change.isPending ? t("Saving…") : t("Save changes")}</button>
     </>}>
       <label className="grid gap-2 text-sm">{t("Queued message")}<textarea rows={6} value={editor?.text || ""} className="w-full resize-y rounded-md border border-black/20 p-3" onChange={event => setEditor(current => current ? { ...current, text: event.target.value } : null)} /></label>
       <p className="mt-2 text-xs text-muted">{Array.from(editor?.text.trim() || "").length.toLocaleString(getLocale())}{" "}{t("/ 8,000 characters")}</p>

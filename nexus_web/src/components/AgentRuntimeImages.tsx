@@ -77,7 +77,7 @@ export function AgentRuntimeImages({ agentId, apiContext, images, currentImageId
       description={t("Remove this image from the Agent’s available versions. This does not stop or redeploy the Agent.")}
       onClose={() => setSelected(null)} footer={<>
         <button className="btn" disabled={remove.isPending} onClick={() => setSelected(null)}>{t("Cancel")}</button>
-        <button className="btn btn-danger" disabled={remove.isPending} onClick={() => selected && remove.mutate(selected)}>{remove.isPending ? "Deleting…" : "Delete image"}</button>
+        <button className="btn btn-danger" disabled={remove.isPending} onClick={() => selected && remove.mutate(selected)}>{remove.isPending ? t("Deleting…") : t("Delete image")}</button>
       </>}>
       <p className="runtime-image-reference">{selected?.image_ref}</p>
       <p>{t("Build, deployment and audit history are retained. Registry images, stored archives and host Docker caches are not erased.")}</p>

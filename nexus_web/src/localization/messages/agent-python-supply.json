@@ -61,5 +61,15 @@
   "Runtime source": "运行时源",
   "Secret {{0}} name": "{{0}} 秘密名称",
   "Secret {{0}} value": "秘密 {{0}} 值",
-  "Remove secret {{0}}": "删除秘密 {{0}}"
+  "Remove secret {{0}}": "删除秘密 {{0}}",
+  "Use for next turn": "用于下一轮",
+  "Allow and attach": "授权并连接",
+  "Deleting…": "正在删除…",
+  "Delete {{0}}": "删除{{0}}",
+  "Delete {{count}} builds": "删除 {{count}} 个构建",
+  "Queuing deployment…": "正在加入部署队列…",
+  "Deploy version": "部署版本",
+  "Uploading…": "正在上传…",
+  "Build image": "构建镜像",
+  "requirements.txt": "requirements.txt"
 }

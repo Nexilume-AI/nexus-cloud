@@ -109,7 +109,7 @@ export function AgentMobileAttachDialog({
             <button type="button" className="btn min-h-11" onClick={onClose} disabled={busy}>{t("Cancel")}</button>
             <button type="button" className="btn btn-primary min-h-11" disabled={busy || !selectedDeviceId || !policyReady} onClick={() => attach.mutate()}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Smartphone size={15} />}
-              {authorized ? "Attach Mobile" : "Allow and attach"}
+              {authorized ? t("Attach Mobile") : t("Allow and attach")}
             </button>
           </div>
         </div>
