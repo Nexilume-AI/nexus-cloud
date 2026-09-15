@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import type { ReactNode } from "react";
 import { statusTone } from "../lib/status";
 
@@ -15,6 +16,7 @@ const tones = {
 };
 
 export function Badge({ children, tone = "muted" }: BadgeProps) {
+  useLocale();
   return (
     <span className={`inline-flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold ${tones[tone]}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden="true" />
@@ -24,5 +26,6 @@ export function Badge({ children, tone = "muted" }: BadgeProps) {
 }
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
-  return <Badge tone={statusTone(status)}>{status || "unknown"}</Badge>;
+  useLocale();
+  return <Badge tone={statusTone(status)}>{t(status || "unknown")}</Badge>;
 }

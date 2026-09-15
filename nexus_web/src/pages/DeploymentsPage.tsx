@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -84,6 +85,7 @@ const STRATEGIES = [
 ] as const;
 
 export function ModelPoolPage() {
+  useLocale();
   const sourceDiscovery=useSourceDiscovery();
   const { apiContext, isContextReady } = useAuth();
   const queryClient = useQueryClient();
@@ -182,18 +184,18 @@ export function ModelPoolPage() {
   const healthCheck = useMutation({
     mutationFn: (id: string) => api.healthCheckDeployment(apiContext, id),
     onSuccess: async () => {
-      toast.success("Health check completed");
+      toast.success(t("Health check completed"));
       await refreshModelPool();
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Health check failed",
+        error instanceof Error ? error.message : t("Health check failed"),
       ),
   });
   const disable = useMutation({
     mutationFn: (id: string) => api.disableDeployment(apiContext, id),
     onSuccess: async () => {
-      toast.success("Model Source disabled");
+      toast.success(t("Model Source disabled"));
       setDangerAction(null);
       await refreshModelPool();
     },
@@ -201,13 +203,13 @@ export function ModelPoolPage() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to disable Model Source",
+          : t("Failed to disable Model Source"),
       ),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteDeployment(apiContext, id),
     onSuccess: async () => {
-      toast.success("Model Source removed");
+      toast.success(t("Model Source removed"));
       setDangerAction(null);
       await refreshModelPool();
     },
@@ -215,7 +217,7 @@ export function ModelPoolPage() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to remove Model Source",
+          : t("Failed to remove Model Source"),
       ),
   });
 
@@ -233,35 +235,32 @@ export function ModelPoolPage() {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <header>
-        <p className="model-pool-eyebrow">BUILD · MODEL FABRIC · 02 COMPOSE</p>
-        <h1 className="mt-2 text-2xl font-semibold text-ink">Model Pool</h1>
-        <p className="mt-1 text-sm text-muted">
-          Compose compatible Provider Sources into safe, observable production
-          capabilities.
-        </p>
+        <p className="model-pool-eyebrow">{t("BUILD · MODEL FABRIC · 02 COMPOSE")}</p>
+        <h1 className="mt-2 text-2xl font-semibold text-ink">{t("Model Pool")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("Compose compatible Provider Sources into safe, observable production capabilities.")}</p>
       </header>
       <div
         className="capability-status-strip model-pool-status"
-        aria-label="Model Pool status"
+        aria-label={t("Model Pool status")}
       >
         <SummaryTile
           icon={<CheckCircle2 size={18} />}
-          label="Callable pools"
+          label={t("Callable pools")}
           value={incomplete ? "—" : callablePools}
         />
         <SummaryTile
           icon={<AlertTriangle size={18} />}
-          label="Needs attention"
+          label={t("Needs attention")}
           value={incomplete ? "—" : needsAttention}
         />
         <SummaryTile
           icon={<ShieldAlert size={18} />}
-          label="Single-source risk"
+          label={t("Single-source risk")}
           value={incomplete ? "—" : singleSource}
         />
         <SummaryTile
           icon={<Activity size={18} />}
-          label="Status evidence"
+          label={t("Status evidence")}
           value={incomplete ? "Incomplete" : "Current"}
         />
       </div>
@@ -269,38 +268,33 @@ export function ModelPoolPage() {
         <div className="model-pool-partial-status" role="status">
           <AlertTriangle size={18} />
           <div>
-            <strong>Status incomplete</strong>
-            <span>
-              Some Model Fabric evidence is unavailable. Existing data is
-              preserved; retry before changing production routing.
-            </span>
+            <strong>{t("Status incomplete")}</strong>
+            <span>{t("Some Model Fabric evidence is unavailable. Existing data is preserved; retry before changing production routing.")}</span>
           </div>
           <button
             className="btn min-h-10"
             onClick={() => void refreshModelPool()}
-          >
-            Retry
-          </button>
+          >{t("Retry")}</button>
         </div>
       )}
       <div className="model-pool-view-switcher">
         <NexilumeTabs
-          label="Model Pool views"
+          label={t("Model Pool views")}
           idBase="model-pool-views"
           value={view}
           onChange={setView}
           options={[
-            { value: "topology", label: "Topology", eyebrow: "Network" },
+            { value: "topology", label: t("Topology"), eyebrow: t("Network") },
             {
               value: "pool",
-              label: "Model Pool",
-              eyebrow: "Compose",
+              label: t("Model Pool"),
+              eyebrow: t("Compose"),
               count: poolRows.length,
             },
             {
               value: "sources",
-              label: "Sources",
-              eyebrow: "Operate",
+              label: t("Sources"),
+              eyebrow: t("Operate"),
               count: sources.length,
             },
           ]}
@@ -317,32 +311,29 @@ export function ModelPoolPage() {
             <div className="topology-empty is-error">
               <AlertTriangle size={22} />
               <div>
-                <h2>Pool topology unavailable</h2>
-                <p>Use Model Pool while the topology evidence recovers.</p>
+                <h2>{t("Pool topology unavailable")}</h2>
+                <p>{t("Use Model Pool while the topology evidence recovers.")}</p>
               </div>
             </div>
           ) : topology.data ? (
             <NexilumeTopology
               data={topology.data}
-              title="Pool topology"
-              description="Runtime → Model Offer → Source → Pool → Router. Pool boundaries own Source selection."
+              title={t("Pool topology")}
+              description={t("Runtime → Model Offer → Source → Pool → Router. Pool boundaries own Source selection.")}
             />
           ) : (
             <div className="topology-empty">
               <Activity className="animate-pulse" size={22} />
               <div>
-                <h2>Loading Pool topology</h2>
-                <p>
-                  Resolving Source strategies, health, price, latency, and
-                  lineage.
-                </p>
+                <h2>{t("Loading Pool topology")}</h2>
+                <p>{t("Resolving Source strategies, health, price, latency, and lineage.")}</p>
               </div>
             </div>
           )
         ) : view === "pool" ? (
           poolRows.length === 0 ? (
             <EmptyState
-              title="No model capabilities"
+              title={t("No model capabilities")}
               description={sourceDiscovery.emptyDescription}
               action={<ProviderEntryActions />}
             />
@@ -358,8 +349,8 @@ export function ModelPoolPage() {
           )
         ) : sources.length === 0 ? (
           <EmptyState
-            title="No model sources"
-            description="Sources are created from their real Runtime origin."
+            title={t("No model sources")}
+            description={t("Sources are created from their real Runtime origin.")}
             action={<ProviderEntryActions />}
           />
         ) : (
@@ -412,6 +403,7 @@ function PoolOperationsDesk({
   onRefresh: () => Promise<void>;
   apiContext: ApiContext;
 }) {
+  useLocale();
   const [strategy, setStrategy] = useState("fallback");
   const [draftSources, setDraftSources] = useState<
     ModelGroupRoutingDraftSource[]
@@ -450,14 +442,14 @@ function PoolOperationsDesk({
     onSuccess: setPreview,
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Policy validation failed",
+        error instanceof Error ? error.message : t("Policy validation failed"),
       ),
   });
   const applyMutation = useMutation({
     mutationFn: () =>
       api.updateModelRouting(apiContext, selected!.id, policyBody()),
     onSuccess: async () => {
-      toast.success("Production routing policy applied");
+      toast.success(t("Production routing policy applied"));
       setPreview(null);
       await onRefresh();
     },
@@ -465,7 +457,7 @@ function PoolOperationsDesk({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Routing policy could not be applied",
+          : t("Routing policy could not be applied"),
       ),
   });
   const rollbackMutation = useMutation({
@@ -477,11 +469,11 @@ function PoolOperationsDesk({
         selected!.modelGroup.routing_revision,
       ),
     onSuccess: async () => {
-      toast.success("Routing policy rolled back as a new revision");
+      toast.success(t("Routing policy rolled back as a new revision"));
       await onRefresh();
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Rollback failed"),
+      toast.error(error instanceof Error ? error.message : t("Rollback failed")),
   });
   function editSource(
     id: string,
@@ -500,21 +492,21 @@ function PoolOperationsDesk({
     STRATEGIES.find((item) => item.value === strategy) ?? STRATEGIES[0];
   const routeFieldLabel =
     strategy === "weighted"
-      ? "Weight"
+      ? t("Weight")
       : strategy === "fallback"
-        ? "Fallback order"
-        : "Tie-break priority";
+        ? t("Fallback order")
+        : t("Tie-break priority");
   const sourceByLink = new Map(
     selected.memberships.map((item) => [item.id, item.deployment]),
   );
   return (
     <div className="model-pool-desk">
-      <aside className="model-pool-track" aria-label="Model Pools">
+      <aside className="model-pool-track" aria-label={t("Model Pools")}>
         <header>
-          <span>Capabilities</span>
+          <span>{t("Capabilities")}</span>
           <strong>{pools.length}</strong>
         </header>
-        <div role="listbox" aria-label="Select a Model Pool">
+        <div role="listbox" aria-label={t("Select a Model Pool")}>
           {pools.map((pool) => {
             const callable = callableSources(pool.memberships).length;
             const active = pool.id === selected.id;
@@ -546,10 +538,10 @@ function PoolOperationsDesk({
       <div className="model-pool-policy">
         <header className="model-pool-policy__header">
           <div>
-            <span>Production routing</span>
+            <span>{t("Production routing")}</span>
             <h2>{selected.displayName || selected.name}</h2>
             <p>
-              {selected.modelGroup.canonical_model_key} · Revision{" "}
+              {selected.modelGroup.canonical_model_key}{" "}{t("· Revision")}{" "}
               {selected.modelGroup.routing_revision}
             </p>
           </div>
@@ -561,41 +553,39 @@ function PoolOperationsDesk({
               onClick={() => onShare(selected)}
               disabled={!canUpdate}
             >
-              <Share2 size={15} />
-              Access
-            </button>
+              <Share2 size={15} />{t("Access")}</button>
             </ResourceSharingAction>
           </div>
         </header>
         <div
           className="model-pool-policy__evidence"
-          aria-label="Selected Pool evidence"
+          aria-label={t("Selected Pool evidence")}
         >
           <div>
-            <span>Callable</span>
+            <span>{t("Callable")}</span>
             <strong>{callableSources(selected.memberships).length}</strong>
           </div>
           <div>
-            <span>Lowest cost</span>
+            <span>{t("Lowest cost")}</span>
             <strong>{poolPrice(selected)}</strong>
           </div>
           <div>
-            <span>Best latency</span>
+            <span>{t("Best latency")}</span>
             <strong>{poolLatency(selected)}</strong>
           </div>
           <div>
-            <span>Scope</span>
+            <span>{t("Scope")}</span>
             <strong>{selected.visibility}</strong>
           </div>
         </div>
         <section className="model-pool-policy__strategy">
           <div>
-            <span className="model-pool-section-label">Routing mode</span>
+            <span className="model-pool-section-label">{t("Routing mode")}</span>
             <strong>{strategyInfo.label}</strong>
             <p>{strategyInfo.help}</p>
           </div>
           <label>
-            <span className="sr-only">Source selection strategy</span>
+            <span className="sr-only">{t("Source selection strategy")}</span>
             <select
               className="select min-h-10"
               value={strategy}
@@ -607,7 +597,7 @@ function PoolOperationsDesk({
             >
               {STRATEGIES.map((item) => (
                 <option key={item.value} value={item.value}>
-                  {item.label}
+                  {t(item.label)}
                 </option>
               ))}
             </select>
@@ -615,15 +605,14 @@ function PoolOperationsDesk({
         </section>
         <section
           className="model-pool-source-editor"
-          aria-label="Source policy draft"
+          aria-label={t("Source policy draft")}
         >
           <header>
             <div>
-              <span className="model-pool-section-label">Source policy</span>
+              <span className="model-pool-section-label">{t("Source policy")}</span>
               <strong>
-                {draftSources.filter((item) => item.enabled).length} of{" "}
-                {draftSources.length} included
-              </strong>
+                {draftSources.filter((item) => item.enabled).length}{" "}{t("of")}{" "}
+                {draftSources.length}{" "}{t("included")}</strong>
             </div>
             <span>{routeFieldLabel}</span>
           </header>
@@ -648,8 +637,8 @@ function PoolOperationsDesk({
                   <small>
                     {formatMoney(source.pricing_rate)} ·{" "}
                     {source.last_latency_ms
-                      ? `${source.last_latency_ms} ms`
-                      : "No latency"}
+                      ? t("{{0}} ms", { 0: source.last_latency_ms })
+                      : t("No latency")}
                   </small>
                 </div>
                 <div className="model-pool-source-editor__controls">
@@ -682,7 +671,7 @@ function PoolOperationsDesk({
                         editSource(draft.id, { enabled: event.target.checked })
                       }
                     />
-                    <span>{draft.enabled ? "Included" : "Excluded"}</span>
+                    <span>{draft.enabled ? t("Included") : t("Excluded")}</span>
                   </label>
                 </div>
               </div>
@@ -691,9 +680,7 @@ function PoolOperationsDesk({
         </section>
         <footer className="model-pool-policy__actions">
           <p>
-            <strong>Draft changes are not live until applied.</strong> Review
-            impact before changing traffic.
-          </p>
+            <strong>{t("Draft changes are not live until applied.")}</strong>{" "}{t("Review impact before changing traffic.")}</p>
           <button
             className="btn min-h-10"
             disabled={
@@ -701,9 +688,7 @@ function PoolOperationsDesk({
             }
             onClick={() => previewMutation.mutate()}
           >
-            <FlaskConical size={16} />
-            Review impact
-          </button>
+            <FlaskConical size={16} />{t("Review impact")}</button>
           <button
             className="btn btn-primary min-h-10"
             disabled={
@@ -714,27 +699,24 @@ function PoolOperationsDesk({
             }
             onClick={() => applyMutation.mutate()}
           >
-            <CheckCircle2 size={16} />
-            Apply policy
-          </button>
+            <CheckCircle2 size={16} />{t("Apply policy")}</button>
         </footer>
         {preview && <PolicyPreview preview={preview} />}
         <details className="model-pool-history">
           <summary>
             <span>
-              <History size={15} /> Change history
-            </span>
-            <small>{history.data?.length ?? 0} revisions</small>
+              <History size={15} />{" "}{t("Change history")}</span>
+            <small>{history.data?.length ?? 0}{" "}{t("revisions")}</small>
           </summary>
           {history.isLoading ? (
-            <p>Loading revisions…</p>
+            <p>{t("Loading revisions…")}</p>
           ) : history.isError ? (
-            <p>History unavailable.</p>
+            <p>{t("History unavailable.")}</p>
           ) : (
             (history.data ?? []).slice(0, 5).map((item) => (
               <div key={item.revision}>
                 <span>
-                  <strong>Revision {item.revision}</strong>
+                  <strong>{t("Revision")}{" "}{item.revision}</strong>
                   <small>
                     {humanStrategy(item.routing_strategy)} ·{" "}
                     {formatDate(item.created_at)}
@@ -743,7 +725,7 @@ function PoolOperationsDesk({
                 {!item.is_current && canUpdate && (
                   <button
                     type="button"
-                    aria-label={`Rollback to revision ${item.revision}`}
+                    aria-label={t("Rollback to revision {{0}}", { 0: item.revision })}
                     disabled={rollbackMutation.isPending}
                     onClick={() => rollbackMutation.mutate(item.revision)}
                   >
@@ -760,15 +742,15 @@ function PoolOperationsDesk({
 }
 
 function PolicyPreview({ preview }: { preview: ModelGroupRoutingPreview }) {
+  useLocale();
   return (
     <section className="model-pool-preview" aria-live="polite">
       <header>
         <div>
-          <span>Validated draft</span>
+          <span>{t("Validated draft")}</span>
           <h3>
-            {preview.candidate_count} callable candidates ·{" "}
-            {preview.affected_router_count} affected Routers
-          </h3>
+            {preview.candidate_count}{" "}{t("callable candidates ·")}{" "}
+            {preview.affected_router_count}{" "}{t("affected Routers")}</h3>
         </div>
         <StatusBadge
           status={
@@ -797,7 +779,7 @@ function PolicyPreview({ preview }: { preview: ModelGroupRoutingPreview }) {
             <span>
               {candidate.provider} · {candidate.health_status}
               {candidate.traffic_share_percent != null
-                ? ` · ${candidate.traffic_share_percent}% target traffic`
+                ? t("· {{0}}% target traffic", { 0: candidate.traffic_share_percent })
                 : ""}
             </span>
           </div>
@@ -829,21 +811,22 @@ function SourceOperationsSurface({
   onDanger: (action: SourceDangerAction) => void;
   checking: boolean;
 }) {
+  useLocale();
   const sourceDiscovery=useSourceDiscovery();
   if (!selected) return null;
   const selectedMemberships = memberships.get(selected.id) ?? [];
   const canEdit = selected.access?.can_edit !== false;
   return (
     <div className="model-source-surface">
-      <aside className="model-source-track" aria-label="Model Sources">
+      <aside className="model-source-track" aria-label={t("Model Sources")}>
         <header>
           <div>
-            <span className="model-pool-section-label">Existing Sources</span>
-            <h2>{sources.length} managed origins</h2>
+            <span className="model-pool-section-label">{t("Existing Sources")}</span>
+            <h2>{sources.length}{" "}{t("managed origins")}</h2>
           </div>
           <p>{sourceDiscovery.sourceDescription}</p>
         </header>
-        <div role="listbox" aria-label="Select a Model Source">
+        <div role="listbox" aria-label={t("Select a Model Source")}>
           {sources.map((source) => (
             <button
               type="button"
@@ -869,11 +852,11 @@ function SourceOperationsSurface({
       </aside>
       <section
         className="model-source-detail"
-        aria-label="Selected Source details"
+        aria-label={t("Selected Source details")}
       >
         <header>
           <div>
-            <span className="model-pool-section-label">Immutable Source</span>
+            <span className="model-pool-section-label">{t("Immutable Source")}</span>
             <h2>{selected.deployment_id}</h2>
             <p>
               {selected.provider} · {selected.canonical_model_key}
@@ -883,33 +866,33 @@ function SourceOperationsSurface({
         </header>
         <div className="model-source-evidence">
           <div>
-            <span>Price</span>
+            <span>{t("Price")}</span>
             <strong>{formatMoney(selected.pricing_rate)}</strong>
           </div>
           <div>
-            <span>Latency</span>
+            <span>{t("Latency")}</span>
             <strong>
               {selected.last_latency_ms
-                ? `${selected.last_latency_ms} ms`
-                : "Not measured"}
+                ? t("{{0}} ms", { 0: selected.last_latency_ms })
+                : t("Not measured")}
             </strong>
           </div>
           <div>
-            <span>Last check</span>
+            <span>{t("Last check")}</span>
             <strong>
               {selected.last_checked_at
                 ? formatDate(selected.last_checked_at)
-                : "Never"}
+                : t("Never")}
             </strong>
           </div>
         </div>
         <section className="model-source-memberships">
           <div>
-            <span className="model-pool-section-label">Pool membership</span>
+            <span className="model-pool-section-label">{t("Pool membership")}</span>
             <h3>
               {selectedMemberships.length
-                ? `${selectedMemberships.length} connected Pools`
-                : "Not connected"}
+                ? t("{{0}} connected Pools", { 0: selectedMemberships.length })
+                : t("Not connected")}
             </h3>
           </div>
           {selectedMemberships.length ? (
@@ -923,19 +906,16 @@ function SourceOperationsSurface({
                   <span>
                     <strong>{model.display_name || model.name}</strong>
                     <small>
-                      {humanStrategy(model.routing_strategy)} · Priority{" "}
+                      {humanStrategy(model.routing_strategy)}{" "}{t("· Priority")}{" "}
                       {link.priority}
                     </small>
                   </span>
-                  <span>Open policy</span>
+                  <span>{t("Open policy")}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <p>
-              Choose this Model Offer from its Provider Runtime to create a new
-              Pool membership.
-            </p>
+            <p>{t("Choose this Model Offer from its Provider Runtime to create a new Pool membership.")}</p>
           )}
         </section>
         {canEdit && (
@@ -945,20 +925,18 @@ function SourceOperationsSurface({
               onClick={() => onCheck(selected)}
               disabled={checking}
             >
-              <Activity size={15} /> {checking ? "Checking…" : "Check health"}
+              <Activity size={15} /> {checking ? t("Checking…") : t("Check health")}
             </button>
             <button
               className="btn min-h-10"
               onClick={() => onDanger({ kind: "disable", source: selected })}
             >
-              <PowerOff size={15} /> Disable
-            </button>
+              <PowerOff size={15} />{" "}{t("Disable")}</button>
             <button
               className="btn btn-danger min-h-10"
               onClick={() => onDanger({ kind: "remove", source: selected })}
             >
-              <Trash2 size={15} /> Remove
-            </button>
+              <Trash2 size={15} />{" "}{t("Remove")}</button>
           </footer>
         )}
       </section>
@@ -979,6 +957,7 @@ function SourceDangerDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  useLocale();
   if (!action) return null;
   const lastSourcePools = memberships.filter(
     ({ model }) => callableSources(model.deployments).length <= 1,
@@ -987,15 +966,13 @@ function SourceDangerDialog({
     <NexilumeDialog
       open
       title={`${action.kind === "remove" ? "Remove" : "Disable"} ${action.source.deployment_id}`}
-      eyebrow="Production impact"
-      description="Review Pool dependencies before changing this immutable Source."
+      eyebrow={t("Production impact")}
+      description={t("Review Pool dependencies before changing this immutable Source.")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
-          <button className="btn min-h-10" onClick={onClose} disabled={busy}>
-            Keep Source
-          </button>
+          <button className="btn min-h-10" onClick={onClose} disabled={busy}>{t("Keep Source")}</button>
           <button
             className="btn btn-danger min-h-10"
             onClick={onConfirm}
@@ -1007,33 +984,25 @@ function SourceDangerDialog({
       }
     >
       <div className="grid gap-4 p-1 text-sm">
-        <p>
-          This Source belongs to {memberships.length} Model Pool
-          {memberships.length === 1 ? "" : "s"}:{" "}
+        <p>{t("This Source belongs to")}{" "}{memberships.length}{" "}{t("Model Pool")}{getLocale() === "zh-CN" ? "" : memberships.length === 1 ? "" : "s"}:{" "}
           {memberships
             .map(({ model }) => model.display_name || model.name)
-            .join(", ") || "none"}
+            .join(", ") || t("none")}
           .
         </p>
         {lastSourcePools.length > 0 && (
           <div className="model-pool-danger">
             <ShieldAlert size={18} />
             <span>
-              <strong>Traffic interruption risk</strong>
+              <strong>{t("Traffic interruption risk")}</strong>
               <small>
                 {lastSourcePools
                   .map(({ model }) => model.display_name || model.name)
-                  .join(", ")}{" "}
-                will have no callable replacement.
-              </small>
+                  .join(", ")}{" "}{t("will have no callable replacement.")}</small>
             </span>
           </div>
         )}
-        <p className="text-muted">
-          Disable is operationally reversible only through the Provider
-          lifecycle. Removal preserves historical usage but detaches this Source
-          from every Pool.
-        </p>
+        <p className="text-muted">{t("Disable is operationally reversible only through the Provider lifecycle. Removal preserves historical usage but detaches this Source from every Pool.")}</p>
       </div>
     </NexilumeDialog>
   );
@@ -1055,6 +1024,7 @@ function SummaryTile({
   label: string;
   value: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="capability-status-strip__item">
       <div className="capability-status-strip__icon">{icon}</div>

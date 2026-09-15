@@ -1,0 +1,12 @@
+{
+  "Agent run panels": "智能体运行面板",
+  "Resize Run history": "调整运行历史记录的大小",
+  "Drag to resize. Arrow keys adjust width; Home resets it.": "拖动以调整大小。方向键调整宽度；主页将其重置。",
+  "Resize Run context": "调整运行上下文的大小",
+  "Viewing": "查看",
+  "Message composer": "消息编辑器",
+  "Message actions": "消息操作",
+  "Message length": "消息长度",
+  "Keep this message within {{0}} characters. Your full draft is kept.": "将此消息保留在 {{0}} 个字符内。您的完整草稿将被保留。",
+  "Reply to this Agent": "回复此智能体"
+}

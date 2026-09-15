@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +33,7 @@ export type SourceComposerOrigin = {
 export type RuntimeSourceComposerOrigin = SourceComposerOrigin & { kind: "provider_runtime" };
 
 export function RuntimeSourceComposer(props: { origin: RuntimeSourceComposerOrigin | null; initialOfferIds?: string[]; onClose: () => void }) {
+  useLocale();
   return <SourceComposer {...props} createSources={createRuntimeSources} />;
 }
 
@@ -49,6 +51,7 @@ export function SourceComposer({
   createSources: SourceCreator;
   lineagePrefix?: ReactNode;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const newPoolVisibility = useApplicationDistribution().resourceOwnership?.newPoolVisibility ?? "private";
   const navigate = useNavigate();
@@ -101,7 +104,7 @@ export function SourceComposer({
       setCreated(sources);
       setStep(3);
       setError("");
-      toast.success(sources.length === 1 ? "Source connected" : `${sources.length} Sources connected atomically`);
+      toast.success(sources.length === 1 ? t("Source connected") : t("{{0}} Sources connected atomically", { 0: sources.length }));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["deployments"] }),
         queryClient.invalidateQueries({ queryKey: ["models"] }),
@@ -127,19 +130,19 @@ export function SourceComposer({
       onClose={close}
       busy={create.isPending}
       size="large"
-      eyebrow={`Source composer · ${String(step).padStart(2, "0")}/03`}
-      title={step === 3 ? "Sources connected" : "Use Model Offers in Sources"}
+      eyebrow={t("Source composer · {{0}}/03", { 0: String(step).padStart(2, "0") })}
+      title={step === 3 ? t("Sources connected") : t("Use Model Offers in Sources")}
       description={
         step === 1
-          ? "Choose mapped, healthy Offers from this Runtime. Each Offer becomes one immutable Source."
+          ? t("Choose mapped, healthy Offers from this Runtime. Each Offer becomes one immutable Source.")
           : step === 2
-            ? "Place every single-model Source into an existing compatible Pool or a new Pool."
-            : "Source identity is fixed; Pool membership policy now controls selection and fallback."
+            ? t("Place every single-model Source into an existing compatible Pool or a new Pool.")
+            : t("Source identity is fixed; Pool membership policy now controls selection and fallback.")
       }
       footer={
         step === 1 ? (
           <>
-            <button className="btn" onClick={close}>Cancel</button>
+            <button className="btn" onClick={close}>{t("Cancel")}</button>
             <button
               className="btn btn-primary"
               disabled={!selectedOffers.length}
@@ -147,32 +150,26 @@ export function SourceComposer({
                 setError("");
                 setStep(2);
               }}
-            >
-              Choose Pools <ArrowRight size={15} />
+            >{t("Choose Pools")}<ArrowRight size={15} />
             </button>
           </>
         ) : step === 2 ? (
           <>
-            <button className="btn" onClick={() => setStep(1)} disabled={create.isPending}>Back</button>
+            <button className="btn" onClick={() => setStep(1)} disabled={create.isPending}>{t("Back")}</button>
             <button className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
-              {create.isPending && <Loader2 size={15} className="animate-spin" />}
-              Create Sources
-            </button>
+              {create.isPending && <Loader2 size={15} className="animate-spin" />}{t("Create Sources")}</button>
           </>
         ) : (
           <>
-            <button className="btn" onClick={close}>Done</button>
-            <button className="btn" onClick={() => { close(); navigate("/model-pool?view=sources"); }}>
-              View Sources
-            </button>
-            <button className="btn btn-primary" onClick={() => { close(); navigate("/model-pool?view=pool"); }}>
-              Open Pool <ArrowRight size={15} />
+            <button className="btn" onClick={close}>{t("Done")}</button>
+            <button className="btn" onClick={() => { close(); navigate("/model-pool?view=sources"); }}>{t("View Sources")}</button>
+            <button className="btn btn-primary" onClick={() => { close(); navigate("/model-pool?view=pool"); }}>{t("Open Pool")}<ArrowRight size={15} />
             </button>
           </>
         )
       }
     >
-      <div className="source-task-steps" aria-label="Source creation progress">
+      <div className="source-task-steps" aria-label={t("Source creation progress")}>
         {["Select Offers", "Choose Pools", "Connected"].map((label, index) => (
           <div key={label} className={step >= index + 1 ? "is-active" : ""}>
             <span>{String(index + 1).padStart(2, "0")}</span>{label}
@@ -191,22 +188,22 @@ export function SourceComposer({
                   checked={Boolean(selected[offer.id])}
                   disabled={!available}
                   onChange={(event) => setSelected((current) => ({ ...current, [offer.id]: event.target.checked }))}
-                  aria-label={`Use ${offer.canonicalModelName} in Source`}
+                  aria-label={t("Use {{0}} in Source", { 0: offer.canonicalModelName })}
                 />
                 <span className="min-w-0">
                   <strong className="block">{offer.canonicalModelName}</strong>
-                  <small className="block truncate text-muted">{offer.canonicalModelKey} · upstream {offer.upstreamModelId}</small>
+                  <small className="block truncate text-muted">{offer.canonicalModelKey}{" "}{t("· upstream")}{" "}{offer.upstreamModelId}</small>
                   {!available && (
                     <small className="mt-1 block text-amber-800">
                       {offer.existingSourceIds?.length
-                        ? "Source already exists"
+                        ? t("Source already exists")
                         : origin.status !== "active"
-                          ? "Runtime is not active"
+                          ? t("Runtime is not active")
                           : offer.canonicalMapped === false
-                            ? "Canonical model mapping is pending"
+                            ? t("Canonical model mapping is pending")
                             : !["detected", "confirmed"].includes(offer.status)
-                              ? "Offer is not currently advertised"
-                            : `Health is ${offer.healthStatus}`}
+                              ? t("Offer is not currently advertised")
+                            : t("Health is {{0}}", { 0: offer.healthStatus })}
                     </small>
                   )}
                 </span>
@@ -215,10 +212,10 @@ export function SourceComposer({
             );
           })}
           {!origin.offers.length && (
-            <div className="source-task-empty"><TriangleAlert size={18} /><div><strong>No Model Offers</strong><p>Refresh the Runtime model catalog before creating Sources.</p></div></div>
+            <div className="source-task-empty"><TriangleAlert size={18} /><div><strong>{t("No Model Offers")}</strong><p>{t("Refresh the Runtime model catalog before creating Sources.")}</p></div></div>
           )}
           {origin.offers.length > 0 && !eligibleOffers.length && (
-            <div className="source-task-empty"><TriangleAlert size={18} /><div><strong>No available Offers</strong><p>Start the Runtime, refresh model health and mapping, or review its existing Source lineage.</p></div></div>
+            <div className="source-task-empty"><TriangleAlert size={18} /><div><strong>{t("No available Offers")}</strong><p>{t("Start the Runtime, refresh model health and mapping, or review its existing Source lineage.")}</p></div></div>
           )}
         </div>
       )}
@@ -231,16 +228,16 @@ export function SourceComposer({
             );
             return (
               <div key={offer.id} className="grid gap-3 border border-border p-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,1fr)] md:items-center">
-                <div><strong>{offer.canonicalModelName}</strong><small className="block text-muted">Immutable Source · {offer.canonicalModelKey}</small></div>
+                <div><strong>{offer.canonicalModelName}</strong><small className="block text-muted">{t("Immutable Source ·")}{" "}{offer.canonicalModelKey}</small></div>
                 <select
                   className="select"
                   value={targets[offer.id] ?? "new"}
                   onChange={(event) => setTargets((current) => ({ ...current, [offer.id]: event.target.value }))}
-                  aria-label={`Target Pool for ${offer.canonicalModelName}`}
+                  aria-label={t("Target Pool for {{0}}", { 0: offer.canonicalModelName })}
                 >
-                  <option value="new">Create Pool: {offer.canonicalModelKey}</option>
+                  <option value="new">{t("Create Pool:")}{" "}{offer.canonicalModelKey}</option>
                   {compatible.map((pool) => (
-                    <option key={pool.id} value={`pool:${pool.id}`}>Existing: {pool.display_name || pool.name}</option>
+                    <option key={pool.id} value={`pool:${pool.id}`}>{t("Existing:")}{" "}{pool.display_name || pool.name}</option>
                   ))}
                 </select>
               </div>
@@ -253,12 +250,12 @@ export function SourceComposer({
         <div className="source-lineage-success">
           <div className="source-lineage-success__mark"><Check size={24} /></div>
           {created.map((source) => (
-            <div key={source.id} className={`source-lineage-success__track ${lineagePrefix ? "is-five-stage" : ""}`} aria-label="Created Source lineage">
+            <div key={source.id} className={`source-lineage-success__track ${lineagePrefix ? "is-five-stage" : ""}`} aria-label={t("Created Source lineage")}>
               {lineagePrefix}
-              <span><small>Runtime</small><strong>{origin.name}</strong></span><i aria-hidden="true" />
-              <span><small>Model Offer</small><strong>{source.canonical_model_key}</strong></span><i aria-hidden="true" />
-              <span><small>Source</small><strong>{source.deployment_id}</strong></span><i aria-hidden="true" />
-              <span><small>Pool</small><strong>{source.canonical_model_key}</strong></span>
+              <span><small>{t("Runtime")}</small><strong>{origin.name}</strong></span><i aria-hidden="true" />
+              <span><small>{t("Model Offer")}</small><strong>{source.canonical_model_key}</strong></span><i aria-hidden="true" />
+              <span><small>{t("Source")}</small><strong>{source.deployment_id}</strong></span><i aria-hidden="true" />
+              <span><small>{t("Pool")}</small><strong>{source.canonical_model_key}</strong></span>
             </div>
           ))}
         </div>

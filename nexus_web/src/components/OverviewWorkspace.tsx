@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useMemo, type ReactNode } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
@@ -33,7 +34,7 @@ function nextAgentRoute(agent: Agent) {
       ));
   return {
     to: `/agents/${encodeURIComponent(agent.id)}/${configuring ? "runtime" : "overview"}`,
-    label: configuring ? "Continue setup" : "Open Agent",
+    label: configuring ? t("Continue setup") : t("Open Agent"),
   };
 }
 
@@ -52,19 +53,19 @@ function runAttention(run: AgentPrivateRun) {
 
 function runStatusLabel(run: AgentPrivateRun) {
   const priority = runAttention(run);
-  if (priority === 0) return "Waiting for your reply";
-  if (priority === 1) return "Run in progress";
-  if (priority === 2) return "Run needs attention";
-  if (priority === 3) return "Result ready";
+  if (priority === 0) return t("Waiting for your reply");
+  if (priority === 1) return t("Run in progress");
+  if (priority === 2) return t("Run needs attention");
+  if (priority === 3) return t("Result ready");
   return String(run.status || "Run available").replace(/_/g, " ");
 }
 
 function runActionLabel(run: AgentPrivateRun) {
   const priority = runAttention(run);
-  if (priority === 0) return "Reply and continue";
-  if (priority === 1) return "Open live Run";
-  if (priority === 2) return "Review and retry";
-  return "View result";
+  if (priority === 0) return t("Reply and continue");
+  if (priority === 1) return t("Open live Run");
+  if (priority === 2) return t("Review and retry");
+  return t("View result");
 }
 
 function privateDisplayRoute(agentId: string, runId?: string) {
@@ -73,6 +74,7 @@ function privateDisplayRoute(agentId: string, runId?: string) {
 }
 
 export function OverviewWorkspace() {
+  useLocale();
   const discovery = useApplicationDistribution().agentDiscovery;
   const { apiContext, isContextReady } = useAuth();
   const organizationContext = { ...apiContext, projectId: null };
@@ -179,14 +181,12 @@ export function OverviewWorkspace() {
     <div className="overview-page overview-home">
       <header className="overview-home__header">
         <div>
-          <p className="tech-label">NEXILUME AI / OVERVIEW</p>
-          <h1>Your Agent workspace</h1>
-          <p>Continue a private Run or bring a new Agent online.</p>
+          <p className="tech-label">{t("NEXILUME AI / OVERVIEW")}</p>
+          <h1>{t("Your Agent workspace")}</h1>
+          <p>{t("Continue a private Run or bring a new Agent online.")}</p>
         </div>
         {canCreate && (
-          <Link className="btn overview-home__upload" to="/agents?create=1">
-            New Agent
-            <ArrowRight size={17} />
+          <Link className="btn overview-home__upload" to="/agents?create=1">{t("New Agent")}<ArrowRight size={17} />
           </Link>
         )}
       </header>
@@ -199,7 +199,7 @@ export function OverviewWorkspace() {
           <span />
         </div>
         <div className="overview-focus__heading">
-          <p className="tech-label">CONTINUE YOUR WORK</p>
+          <p className="tech-label">{t("CONTINUE YOUR WORK")}</p>
           <span className="overview-focus__status"><i aria-hidden="true" />{focusStatus}</span>
         </div>
 
@@ -207,38 +207,38 @@ export function OverviewWorkspace() {
           {!isContextReady ? (
             <FocusMessage
               icon={<Bot size={25} />}
-              title="Choose an Organization"
-              description="Select a workspace scope to see your private Agent work."
+              title={t("Choose an Organization")}
+              description={t("Select a workspace scope to see your private Agent work.")}
             />
           ) : priorityWork ? (
             <FocusMessage
               icon={<Inbox size={25} />}
-              eyebrow={priorityWork.ownership === "role" ? "Shared role queue" : "Work Inbox"}
+              eyebrow={priorityWork.ownership === "role" ? t("Shared role queue") : t("Work Inbox")}
               title={priorityWork.title}
               description={priorityWork.message}
               note={<span>{priorityWork.project_name ?? "Organization-wide"} · {priorityWork.resource_name || priorityWork.category}</span>}
-              action={<Link className="btn btn-primary" to={`/inbox?item=${encodeURIComponent(priorityWork.id)}`}>Review first issue <ArrowRight size={17} /></Link>}
+              action={<Link className="btn btn-primary" to={`/inbox?item=${encodeURIComponent(priorityWork.id)}`}>{t("Review first issue")}{" "}<ArrowRight size={17} /></Link>}
             />
           ) : capabilities.isError ? (
             <FocusError
               label={
                 restricted(capabilities.error)
-                  ? "Agent access is restricted."
-                  : "Agent access could not be checked."
+                  ? t("Agent access is restricted.")
+                  : t("Agent access could not be checked.")
               }
               retry={() => void capabilities.refetch()}
             />
           ) : capabilities.isPending ? (
             <FocusMessage
               icon={<Bot size={25} />}
-              title="Opening your workspace…"
-              description="Nexus is checking the Agent work available to you."
+              title={t("Opening your workspace…")}
+              description={t("Nexus is checking the Agent work available to you.")}
             />
           ) : !canView ? (
             <FocusMessage
               icon={<Bot size={25} />}
-              title={discovery?.restricted.title ?? "Agent access unavailable"}
-              description={discovery?.restricted.description ?? "Sign in as the configured owner to access this personal instance's Agents."}
+              title={discovery?.restricted.title ?? t("Agent access unavailable")}
+              description={discovery?.restricted.description ?? t("Sign in as the configured owner to access this personal instance's Agents.")}
               action={
                 discovery && <Link className="btn btn-primary" to={discovery.href}>
                   {discovery.primaryLabel}
@@ -250,29 +250,29 @@ export function OverviewWorkspace() {
             <FocusError
               label={
                 restricted(agents.error)
-                  ? "Agent management is restricted."
-                  : "Your Agents could not be loaded."
+                  ? t("Agent management is restricted.")
+                  : t("Your Agents could not be loaded.")
               }
               retry={() => void agents.refetch()}
             />
           ) : agents.isPending ? (
             <FocusMessage
               icon={<Bot size={25} />}
-              title="Finding your latest work…"
-              description="Loading the Agents available in this scope."
+              title={t("Finding your latest work…")}
+              description={t("Loading the Agents available in this scope.")}
             />
           ) : empty ? (
             <FocusMessage
               icon={<Bot size={25} />}
               title={
                 canCreate
-                  ? "Bring your first Agent online"
-                  : "No Agents are visible in this scope"
+                  ? t("Bring your first Agent online")
+                  : t("No Agents are visible in this scope")
               }
               description={
                 canCreate
-                  ? "Upload a Python Agent, keep it private, and open its first Run when it is ready."
-                  : discovery?.emptyDescription ?? "Bring an Agent online using the configured owner account."
+                  ? t("Upload a Python Agent, keep it private, and open its first Run when it is ready.")
+                  : discovery?.emptyDescription ?? t("Bring an Agent online using the configured owner account.")
               }
               note={
                 canCreate ? <FirstAgentPath /> : discovery &&
@@ -294,25 +294,23 @@ export function OverviewWorkspace() {
           ) : runHistoryUnavailable ? (
             <FocusMessage
               icon={<MessageSquareText size={25} />}
-              title="Recent Run status is unavailable"
-              description="Nexus will not guess which private task needs your attention while part of your Run history is unavailable."
+              title={t("Recent Run status is unavailable")}
+              description={t("Nexus will not guess which private task needs your attention while part of your Run history is unavailable.")}
               action={
                 <button
                   className="btn btn-primary"
                   onClick={() =>
                     runQueries.forEach((query) => void query.refetch())
                   }
-                >
-                  Retry recent Runs
-                  <RefreshCw size={17} />
+                >{t("Retry recent Runs")}<RefreshCw size={17} />
                 </button>
               }
             />
           ) : checkingRuns ? (
             <FocusMessage
               icon={<MessageSquareText size={25} />}
-              title="Finding your latest work…"
-              description="Checking private Runs that belong to you in this scope."
+              title={t("Finding your latest work…")}
+              description={t("Checking private Runs that belong to you in this scope.")}
             />
           ) : continuation ? (
             <FocusMessage
@@ -321,15 +319,15 @@ export function OverviewWorkspace() {
               title={
                 continuation.run.title ||
                 continuation.run.tool_name ||
-                "Private Run"
+                t("Private Run")
               }
               description={
                 continuation.run.preview ||
-                "Open the private Run to continue from its current state."
+                t("Open the private Run to continue from its current state.")
               }
               note={
                 <span>
-                  {runStatusLabel(continuation.run)} · Updated{" "}
+                  {runStatusLabel(continuation.run)}{" "}{t("· Updated")}{" "}
                   {formatDate(
                     continuation.run.updated_at || continuation.run.started_at,
                   )}
@@ -360,13 +358,13 @@ export function OverviewWorkspace() {
               eyebrow={first.name}
               title={
                 agentIsConfiguring(first)
-                  ? "Finish preparing this Agent"
-                  : "Start a new private Run"
+                  ? t("Finish preparing this Agent")
+                  : t("Start a new private Run")
               }
               description={
                 agentIsConfiguring(first)
-                  ? "Complete Runtime setup and verify the Agent before its first call."
-                  : "Nothing currently needs your attention. Start fresh when you are ready."
+                  ? t("Complete Runtime setup and verify the Agent before its first call.")
+                  : t("Nothing currently needs your attention. Start fresh when you are ready.")
               }
               action={
                 <Link
@@ -390,11 +388,10 @@ export function OverviewWorkspace() {
         <section className="overview-home-agents" aria-labelledby="agents-title">
           <div className="overview-home-agents__heading">
             <div>
-              <p className="tech-label">YOUR AGENTS</p>
-              <h2 id="agents-title">Ready when you are</h2>
+              <p className="tech-label">{t("YOUR AGENTS")}</p>
+              <h2 id="agents-title">{t("Ready when you are")}</h2>
             </div>
-            <Link to="/agents">
-              View all <ArrowRight size={15} />
+            <Link to="/agents">{t("View all")}{" "}<ArrowRight size={15} />
             </Link>
           </div>
           <ul className="overview-home-agents__list">
@@ -410,7 +407,7 @@ export function OverviewWorkspace() {
                   </span>
                   <div className="overview-home-agents__identity">
                     <Link to={target.to}>{agent.name}</Link>
-                    <span>Updated {formatDate(agent.updated_at)}</span>
+                    <span>{t("Updated")}{" "}{formatDate(agent.updated_at)}</span>
                   </div>
                   <Badge tone={statusTone(agent.runtime_status)}>{state}</Badge>
                   <Link
@@ -429,11 +426,11 @@ export function OverviewWorkspace() {
       )}
 
       <footer className="overview-legal">
-        <span>© 2026 Nexilume AI LLC. All rights reserved.</span>
-        <nav aria-label="Legal">
-          <a href="https://nexilume.com/privacy">Privacy Policy</a>
-          <a href="https://nexilume.com/terms">Terms of Service</a>
-          <a href="mailto:feedback@nexilume.com">Contact us</a>
+        <span>{t("© 2026 Nexilume AI LLC. All rights reserved.")}</span>
+        <nav aria-label={t("Legal")}>
+          <a href="https://nexilume.com/privacy">{t("Privacy Policy")}</a>
+          <a href="https://nexilume.com/terms">{t("Terms of Service")}</a>
+          <a href="mailto:feedback@nexilume.com">{t("Contact us")}</a>
         </nav>
       </footer>
     </div>
@@ -457,6 +454,7 @@ function FocusMessage({
   action?: ReactNode;
   afterAction?: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="overview-focus__message">
       <span className="overview-agent-mark" aria-hidden="true">
@@ -475,6 +473,7 @@ function FocusMessage({
 }
 
 function SignalConnector() {
+  useLocale();
   return <svg className="overview-focus__signal" viewBox="0 0 180 58" preserveAspectRatio="none" aria-hidden="true">
     <path d="M4 52H72L114 8H176" />
     <circle cx="4" cy="52" r="3" /><circle className="is-hit" cx="176" cy="8" r="5" />
@@ -482,23 +481,23 @@ function SignalConnector() {
 }
 
 function FirstAgentPath() {
-  return <ol className="overview-first-path" aria-label="First Agent launch path">
-    <li className="is-current"><span>01</span><div><strong>Upload Python</strong><small>Choose a tool file and requirements.</small></div></li>
-    <li><span>02</span><div><strong>Validate build</strong><small>Available after the source is uploaded.</small></div></li>
-    <li><span>03</span><div><strong>Start private Run</strong><small>Available after the Runtime is ready.</small></div></li>
+  useLocale();
+  return <ol className="overview-first-path" aria-label={t("First Agent launch path")}>
+    <li className="is-current"><span>01</span><div><strong>{t("Upload Python")}</strong><small>{t("Choose a tool file and requirements.")}</small></div></li>
+    <li><span>02</span><div><strong>{t("Validate build")}</strong><small>{t("Available after the source is uploaded.")}</small></div></li>
+    <li><span>03</span><div><strong>{t("Start private Run")}</strong><small>{t("Available after the Runtime is ready.")}</small></div></li>
   </ol>;
 }
 
 function FocusError({ label, retry }: { label: string; retry: () => void }) {
+  useLocale();
   return (
     <FocusMessage
       icon={<Bot size={25} />}
       title={label}
-      description="The workspace summary has been left unchanged. Retry when the service is available."
+      description={t("The workspace summary has been left unchanged. Retry when the service is available.")}
       action={
-        <button className="btn btn-primary" onClick={retry}>
-          Retry
-          <RefreshCw size={17} />
+        <button className="btn btn-primary" onClick={retry}>{t("Retry")}<RefreshCw size={17} />
         </button>
       }
     />

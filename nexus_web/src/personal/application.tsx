@@ -15,7 +15,7 @@ export const personalDistribution = validateApplicationDistribution({
         { to: "/settings", label: "Settings", description: "Profile and account security", icon: Settings },
       ] }] },
   ],
-  guestOverview: <ProtectedRoute reason="Sign in with the owner account configured for this personal installation.">{null}</ProtectedRoute>,
+  guestOverview: <ProtectedRoute reason={"Sign in with the owner account configured for this personal installation."}>{null}</ProtectedRoute>,
   workspaceRoutes: [],
   standaloneRoutes: [],
 });

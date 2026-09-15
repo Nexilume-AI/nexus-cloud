@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useContext, useEffect, useState } from "react";
 import { ApplicationDistributionContext } from "../app/distribution";
 import { Image as ImageIcon, Loader2 } from "lucide-react";
@@ -11,6 +12,7 @@ export function DatasetImagePreview({
   context: ApiContext;
   file: { file_name: string; content_type?: string; download_url: string };
 }) {
+  useLocale();
   const loader = useContext(ApplicationDistributionContext)?.datasetImagePreview ?? api.previewDatasetImage;
   const [open, setOpen] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -57,8 +59,8 @@ export function DatasetImagePreview({
       <button
         type="button"
         className="btn min-h-11"
-        aria-label={`Preview ${file.file_name}`}
-        title={`Preview ${file.file_name}`}
+        aria-label={t("Preview {{0}}", { 0: file.file_name })}
+        title={t("Preview {{0}}", { 0: file.file_name })}
         onClick={() => setOpen(true)}
       >
         <ImageIcon size={16} />
@@ -66,15 +68,13 @@ export function DatasetImagePreview({
       <NexilumeDialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Image preview"
+        title={t("Image preview")}
         description={file.file_name}
         size="large"
       >
         {!current ? (
           <p role="status" className="flex items-center gap-2">
-            <Loader2 size={16} className="animate-spin" />
-            Loading protected preview…
-          </p>
+            <Loader2 size={16} className="animate-spin" />{t("Loading protected preview…")}</p>
         ) : current.error ? (
           <div>
             <p role="alert" className="break-words text-sm text-red-700">
@@ -83,9 +83,7 @@ export function DatasetImagePreview({
             <button
               className="btn mt-3 min-h-11"
               onClick={() => setAttempt((value) => value + 1)}
-            >
-              Retry preview
-            </button>
+            >{t("Retry preview")}</button>
           </div>
         ) : (
           <img
@@ -101,10 +99,7 @@ export function DatasetImagePreview({
             }
           />
         )}
-        <p className="mt-4 text-xs text-muted">
-          Protected preview · Metadata removed · Download retains the original
-          file.
-        </p>
+        <p className="mt-4 text-xs text-muted">{t("Protected preview · Metadata removed · Download retains the original file.")}</p>
       </NexilumeDialog>
     </>
   );

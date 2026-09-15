@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useAgentQueryRefresh } from "../components/AgentQueryRefresh";
 import { useApplicationDistribution } from "../app/distribution";
 import { useRunObservabilityPresentation } from "../components/RunPresentation";
@@ -145,6 +146,7 @@ const mobileScopeLabels: Record<string, string> = {
 };
 
 export function AgentControlPage() {
+  useLocale();
   const agentSections = getAgentSections(useApplicationDistribution().resourcePublishing?.agentPolicy);
   const { agentId = "", section } = useParams();
   const { apiContext, isContextReady, projects } = useAuth();
@@ -174,17 +176,12 @@ export function AgentControlPage() {
   if (agentQuery.isError || !agentQuery.data) {
     return (
       <section className="agent-control-unavailable">
-        <AgentHexNode label="Unavailable" tone="muted" />
-        <p className="agent-control-eyebrow">Agent control</p>
-        <h1>Agent unavailable</h1>
-        <p>
-          This Agent could not be found in the selected Organization, or you do not
-          have permission to manage it.
-        </p>
+        <AgentHexNode label={t("Unavailable")} tone="muted" />
+        <p className="agent-control-eyebrow">{t("Agent control")}</p>
+        <h1>{t("Agent unavailable")}</h1>
+        <p>{t("This Agent could not be found in the selected Organization, or you do not have permission to manage it.")}</p>
         <Link className="btn btn-primary" to="/agents">
-          <ArrowLeft size={15} />
-          Back to Agents
-        </Link>
+          <ArrowLeft size={15} />{t("Back to Agents")}</Link>
       </section>
     );
   }
@@ -196,7 +193,7 @@ export function AgentControlPage() {
     : "All projects";
   const activeSectionLabel =
     agentSections.find((item) => item.value === activeSection)?.label ??
-    "Overview";
+    t("Overview");
 
   return (
     <div className="agent-control-shell">
@@ -205,7 +202,7 @@ export function AgentControlPage() {
           <Link
             className="agent-control-back"
             to="/agents"
-            aria-label="Back to Agents"
+            aria-label={t("Back to Agents")}
           >
             <ArrowLeft size={16} />
           </Link>
@@ -214,8 +211,8 @@ export function AgentControlPage() {
             tone={isAgentRunning(agent) ? "active" : "muted"}
           />
           <div className="min-w-0">
-            <p className="agent-control-eyebrow">Agent command surface</p>
-            <h1 id="agent-control-title">{agent.name || "Unnamed agent"}</h1>
+            <p className="agent-control-eyebrow">{t("Agent command surface")}</p>
+            <h1 id="agent-control-title">{agent.name || t("Unnamed agent")}</h1>
             <p className="agent-control-meta">
               <span>{projectName}</span>
               <span>{compactId(agent.id)}</span>
@@ -235,7 +232,7 @@ export function AgentControlPage() {
         aria-labelledby="agent-control-section-title"
       >
         <h2 id="agent-control-section-title" className="sr-only">
-          {agent.name || "Agent"} · {activeSectionLabel}
+          {agent.name || t("Agent")} · {activeSectionLabel}
         </h2>
         {activeSection === "overview" && (
           <AgentOverview agent={agent} apiContext={apiContext} />
@@ -283,14 +280,15 @@ function AgentSectionNav({
   agentId: string;
   activeSection: AgentSection;
 }) {
+  useLocale();
   const agentSections = getAgentSections(useApplicationDistribution().resourcePublishing?.agentPolicy);
   const [pickerOpen, setPickerOpen] = useState(false);
   const activeLabel =
     agentSections.find((item) => item.value === activeSection)?.label ??
-    "Overview";
+    t("Overview");
   return (
     <>
-      <nav className="agent-section-nav" aria-label="Agent sections">
+      <nav className="agent-section-nav" aria-label={t("Agent sections")}>
         <div className="agent-section-nav__rail">
           {agentSections
             .filter((item) => item.value !== "settings")
@@ -300,7 +298,7 @@ function AgentSectionNav({
                 to={`/agents/${agentId}/${item.value}`}
                 className={({ isActive }) => (isActive ? "is-active" : "")}
               >
-                {item.label}
+                {t(item.label)}
               </NavLink>
             ))}
         </div>
@@ -310,9 +308,7 @@ function AgentSectionNav({
           }
           to={`/agents/${agentId}/settings`}
         >
-          <Settings size={15} />
-          Settings
-        </NavLink>
+          <Settings size={15} />{t("Settings")}</NavLink>
       </nav>
       <div className="agent-section-picker">
         <button
@@ -322,7 +318,7 @@ function AgentSectionNav({
           onClick={() => setPickerOpen(true)}
         >
           <span>
-            <small>Agent section</small>
+            <small>{t("Agent section")}</small>
             <strong>{activeLabel}</strong>
           </span>
           <ChevronDown size={17} aria-hidden="true" />
@@ -330,14 +326,14 @@ function AgentSectionNav({
       </div>
       <NexilumeDialog
         open={pickerOpen}
-        eyebrow="Agent command surface"
-        title="Choose a section"
-        description="Move between stable Agent management areas without losing this Agent context."
+        eyebrow={t("Agent command surface")}
+        title={t("Choose a section")}
+        description={t("Move between stable Agent management areas without losing this Agent context.")}
         onClose={() => setPickerOpen(false)}
       >
         <nav
           className="agent-section-picker__options"
-          aria-label="Choose Agent section"
+          aria-label={t("Choose Agent section")}
         >
           {agentSections.map((item, index) => (
             <NavLink
@@ -347,9 +343,9 @@ function AgentSectionNav({
               onClick={() => setPickerOpen(false)}
             >
               <span>0{index + 1}</span>
-              <strong>{item.label}</strong>
+              <strong>{t(item.label)}</strong>
               {item.value === activeSection ? (
-                <em>Current</em>
+                <em>{t("Current")}</em>
               ) : (
                 <ChevronRight size={16} />
               )}
@@ -362,22 +358,23 @@ function AgentSectionNav({
 }
 
 function AgentStatusRail({ agent }: { agent: Agent }) {
+  useLocale();
   const publication = useApplicationDistribution().resourcePublishing?.agentPolicy.status(agent);
   const lifecycle = agentLifecycle(agent);
   const statuses = [
-    { label: "Lifecycle", value: lifecycle.label, tone: lifecycle.tone },
+    { label: t("Lifecycle"), value: lifecycle.label, tone: lifecycle.tone },
     {
-      label: "Runtime",
+      label: t("Runtime"),
       value: runtimeLabel(agent),
       tone: isAgentRunning(agent) ? "success" : "muted",
     },
     {
-      label: "Health",
+      label: t("Health"),
       value: humanize(agent.runtime_health_status || "Not checked"),
       tone: healthTone(agent.runtime_health_status),
     },
     {
-      label: "Ownership",
+      label: t("Ownership"),
       value: agentOwnershipLabel(agent),
       tone: "info",
     },
@@ -385,7 +382,7 @@ function AgentStatusRail({ agent }: { agent: Agent }) {
   ] as const;
   return (
     <>
-      <div className="agent-status-rail" aria-label="Agent status summary">
+      <div className="agent-status-rail" aria-label={t("Agent status summary")}>
         {statuses.map((status, index) => (
           <div className="agent-status-rail__item" key={status.label}>
             <span className="agent-status-rail__index">0{index + 1}</span>
@@ -403,14 +400,13 @@ function AgentStatusRail({ agent }: { agent: Agent }) {
       <details className="agent-status-mobile">
         <summary>
           <span>
-            <small>Status summary</small>
+            <small>{t("Status summary")}</small>
             <strong>
               {lifecycle.label} ·{" "}
               {humanize(agent.runtime_health_status || "Not checked")}
             </strong>
           </span>
-          <span>
-            View all <ChevronDown size={15} aria-hidden="true" />
+          <span>{t("View all")}{" "}<ChevronDown size={15} aria-hidden="true" />
           </span>
         </summary>
         <div>
@@ -437,6 +433,7 @@ function AgentOverview({
   agent: Agent;
   apiContext: ApiContextValue;
 }) {
+  useLocale();
   const [contextOpen, setContextOpen] = useState(false);
   const runs = useQuery({
     queryKey: [
@@ -456,7 +453,7 @@ function AgentOverview({
         <section className="agent-workspace-primary">
           <div className="agent-overview-priority">
             <span>
-              <small>Current priority</small>
+              <small>{t("Current priority")}</small>
               <strong>{nextAction.label}</strong>
               <p>{nextAction.description}</p>
             </span>
@@ -464,51 +461,47 @@ function AgentOverview({
               <Link
                 className="btn btn-primary"
                 to={`/agents/${agent.id}/${nextAction.section}`}
-              >
-                Continue
-                <ChevronRight size={15} />
+              >{t("Continue")}<ChevronRight size={15} />
               </Link>
               <button
                 className="btn"
                 type="button"
                 onClick={() => setContextOpen(true)}
-              >
-                View context
-              </button>
+              >{t("View context")}</button>
             </div>
           </div>
           <SectionHeading
-            eyebrow="Control overview"
-            title="Operational context"
-            description="Open the runtime, access, observability, or distribution object that needs work."
+            eyebrow={t("Control overview")}
+            title={t("Operational context")}
+            description={t("Open the runtime, access, observability, or distribution object that needs work.")}
           />
           <div className="agent-overview-rows">
             <OverviewRow
               icon={<Server size={17} />}
-              title="Runtime"
+              title={t("Runtime")}
               value={runtimeLabel(agent)}
               detail={
                 agent.current_image_ref ||
                 agent.edge_router_id ||
-                "No runtime target"
+                t("No runtime target")
               }
               to={`/agents/${agent.id}/runtime`}
             />
             <OverviewRow
               icon={<KeyRound size={17} />}
-              title="Ownership"
+              title={t("Ownership")}
               value={agentOwnershipLabel(agent)}
-              detail="Roles and explicit grants control who can use this Agent"
+              detail={t("Roles and explicit grants control who can use this Agent")}
               to={`/agents/${agent.id}/access`}
             />
             <OverviewRow
               icon={<Activity size={17} />}
-              title="Latest invocation"
+              title={t("Latest invocation")}
               value={latestRun ? humanize(latestRun.status) : "No Runs yet"}
               detail={
                 latestRun
                   ? `${latestRun.caller} · ${formatDate(latestRun.started_at)}`
-                  : "Run history will appear after the first tools/call."
+                  : t("Run history will appear after the first tools/call.")
               }
               to={`/agents/${agent.id}/observability`}
             />
@@ -526,9 +519,9 @@ function AgentOverview({
       <NexilumeDialog
         open={contextOpen}
         variant="drawer"
-        eyebrow="Agent command surface"
-        title="Agent context"
-        description="Current priority and complete operational identity."
+        eyebrow={t("Agent command surface")}
+        title={t("Agent context")}
+        description={t("Current priority and complete operational identity.")}
         onClose={() => setContextOpen(false)}
       >
         <AgentPriorityInspector
@@ -556,6 +549,7 @@ function AgentPriorityInspector({
   calls: number;
   mode: "desktop" | "drawer";
 }) {
+  useLocale();
   const runtimeReference =
     agent.deployed_image_ref ||
     agent.current_image_ref ||
@@ -564,9 +558,9 @@ function AgentPriorityInspector({
   return (
     <aside
       className={`agent-inspector agent-inspector--${mode}`}
-      aria-label="Current Agent priority"
+      aria-label={t("Current Agent priority")}
     >
-      <p className="agent-inspector__eyebrow">Inspector · Current priority</p>
+      <p className="agent-inspector__eyebrow">{t("Inspector · Current priority")}</p>
       <h2>{nextAction.label}</h2>
       <p>{nextAction.description}</p>
       <Link
@@ -578,24 +572,24 @@ function AgentPriorityInspector({
       </Link>
       <dl>
         <InspectorValue
-          label="Runtime target"
+          label={t("Runtime target")}
           value={
             agent.runtime_kind ? humanize(agent.runtime_kind) : "Not selected"
           }
         />
         <InspectorValue
-          label="Health"
+          label={t("Health")}
           value={humanize(agent.runtime_health_status || "Not checked")}
         />
         <InspectorValue
-          label="Calls recorded"
+          label={t("Calls recorded")}
           value={callsLoading ? "Loading" : formatNumber(calls)}
         />
-        <InspectorValue label="Updated" value={formatDate(agent.updated_at)} />
+        <InspectorValue label={t("Updated")} value={formatDate(agent.updated_at)} />
       </dl>
-      <InspectorCopyValue label="Agent ID" value={agent.id} />
+      <InspectorCopyValue label={t("Agent ID")} value={agent.id} />
       <InspectorCopyValue
-        label="Runtime reference"
+        label={t("Runtime reference")}
         value={runtimeReference}
         disabled={runtimeReference === "Not configured"}
       />
@@ -612,6 +606,7 @@ function InspectorCopyValue({
   value: string;
   disabled?: boolean;
 }) {
+  useLocale();
   return (
     <div className="agent-inspector__copy">
       <span>
@@ -620,7 +615,7 @@ function InspectorCopyValue({
       </span>
       <button
         type="button"
-        aria-label={`Copy ${label}`}
+        aria-label={t("Copy {{0}}", { 0: label })}
         disabled={disabled}
         onClick={() => void copyText(value)}
       >
@@ -640,6 +635,7 @@ function AgentRuntime({
   apiContext: ApiContextValue;
   queryClient: QueryClient;
 }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const location = useLocation();
   const [target, setTarget] = useState<"docker" | "openwrt">(
@@ -710,7 +706,7 @@ function AgentRuntime({
       api.deployAgentRuntime(apiContext, agent.id, { env: "prod" }),
     onSuccess: async (result) => {
       setActiveJobId(result.job_id || "");
-      toast.success("Runtime deployment queued");
+      toast.success(t("Runtime deployment queued"));
       await refreshAgentData(queryClient, agent.id);
     },
     onError: mutationError("Failed to deploy runtime"),
@@ -720,7 +716,7 @@ function AgentRuntime({
       api.healthCheckAgentRuntime(apiContext, agent.id, { env: "prod" }),
     onSuccess: async (result) => {
       setActiveJobId(result.job_id || "");
-      toast.success("Health check queued");
+      toast.success(t("Health check queued"));
       await refreshAgentData(queryClient, agent.id);
     },
     onError: mutationError("Failed to run health check"),
@@ -735,8 +731,8 @@ function AgentRuntime({
       setShowStopConfirm(false);
       toast.success(
         isOpenWrtRuntime(result.runtime_kind)
-          ? "OpenWrt runtime disconnected"
-          : "Runtime stop queued",
+          ? t("OpenWrt runtime disconnected")
+          : t("Runtime stop queued"),
       );
       await refreshAgentData(queryClient, agent.id);
     },
@@ -744,7 +740,7 @@ function AgentRuntime({
   });
   const saveResources = useMutation({
     mutationFn: () => api.setAgentResources(apiContext, agent.id, resources),
-    onSuccess: () => toast.success("Runtime limits saved"),
+    onSuccess: () => toast.success(t("Runtime limits saved")),
     onError: mutationError("Failed to save runtime limits"),
   });
 
@@ -752,15 +748,15 @@ function AgentRuntime({
     <div className="agent-workspace-layout">
       <section className="agent-workspace-primary">
         <SectionHeading
-          eyebrow="Runtime"
-          title="Choose where this Agent runs"
-          description="Nexus Container and OpenWrt are separate runtime strategies. Only the selected strategy is shown."
+          eyebrow={t("Runtime")}
+          title={t("Choose where this Agent runs")}
+          description={t("Nexus Container and OpenWrt are separate runtime strategies. Only the selected strategy is shown.")}
         />
         {location.search.includes("setup=1") && (
           <InlineNotice
             tone="lume"
-            title="Agent created — choose a runtime"
-            detail="Configure a runtime target now, or return later while the Agent remains a draft."
+            title={t("Agent created — choose a runtime")}
+            detail={t("Configure a runtime target now, or return later while the Agent remains a draft.")}
           />
         )}
         {job.data && <JobBanner job={job.data} />}
@@ -768,7 +764,7 @@ function AgentRuntime({
         <div
           className="agent-choice-switch"
           role="group"
-          aria-label="Runtime strategy"
+          aria-label={t("Runtime strategy")}
         >
           <button
             type="button"
@@ -777,8 +773,8 @@ function AgentRuntime({
           >
             <Boxes size={18} />
             <span>
-              <strong>Nexus Container</strong>
-              <small>Python file, registry image or Docker archive</small>
+              <strong>{t("Nexus Container")}</strong>
+              <small>{t("Python file, registry image or Docker archive")}</small>
             </span>
           </button>
           <button
@@ -788,8 +784,8 @@ function AgentRuntime({
           >
             <Server size={18} />
             <span>
-              <strong>OpenWrt Agent</strong>
-              <small>Direct IPv6 or outbound Relay</small>
+              <strong>{t("OpenWrt Agent")}</strong>
+              <small>{t("Direct IPv6 or outbound Relay")}</small>
             </span>
           </button>
         </div>
@@ -801,37 +797,30 @@ function AgentRuntime({
               onChanged={() => refreshAgentData(queryClient, agent.id)} onDeployment={setActiveJobId} />}
             <div className="agent-control-section__header">
               <div>
-                <p className="agent-control-eyebrow">Container supply</p>
-                <h2>Runtime images</h2>
-                <p>
-                  Register a tagged image or upload an archive produced by
-                  Docker save.
-                </p>
+                <p className="agent-control-eyebrow">{t("Container supply")}</p>
+                <h2>{t("Runtime images")}</h2>
+                <p>{t("Register a tagged image or upload an archive produced by Docker save.")}</p>
               </div>
               {canAgent(agent, "configure_runtime") && (
                 <button
                   className="btn"
                   onClick={() => setShowImageTask(true)}
                 >
-                  <PackagePlus size={15} />
-                  Add image
-                </button>
+                  <PackagePlus size={15} />{t("Add image")}</button>
               )}
             </div>
             {runtime.isLoading ? (
-              <InlineLoading label="Loading runtime images" />
+              <InlineLoading label={t("Loading runtime images")} />
             ) : images.length === 0 ? (
               <EmptyState
-                title="No runtime image"
-                description="Add a registry reference or upload a Docker image archive to continue."
+                title={t("No runtime image")}
+                description={t("Add a registry reference or upload a Docker image archive to continue.")}
                 action={
                   canAgent(agent, "configure_runtime") ? (
                     <button
                       className="btn"
                       onClick={() => setShowImageTask(true)}
-                    >
-                      Add image
-                    </button>
+                    >{t("Add image")}</button>
                   ) : undefined
                 }
               />
@@ -845,12 +834,9 @@ function AgentRuntime({
           <div className="agent-control-section">
             <div className="agent-control-section__header">
               <div>
-                <p className="agent-control-eyebrow">User-hosted runtime</p>
-                <h2>OpenWrt connection</h2>
-                <p>
-                  The router owns the process. Nexus verifies the authenticated
-                  IPv6 or Relay path.
-                </p>
+                <p className="agent-control-eyebrow">{t("User-hosted runtime")}</p>
+                <h2>{t("OpenWrt connection")}</h2>
+                <p>{t("The router owns the process. Nexus verifies the authenticated IPv6 or Relay path.")}</p>
               </div>
               {isOpenWrtRuntime(agent.runtime_kind) && (
                 <StatusBadge
@@ -861,11 +847,11 @@ function AgentRuntime({
             {isOpenWrtRuntime(agent.runtime_kind) ? (
               <div className="agent-detail-grid">
                 <InspectorValue
-                  label="Router"
+                  label={t("Router")}
                   value={agent.edge_router_id || "OpenWrt"}
                 />
                 <InspectorValue
-                  label="Transport"
+                  label={t("Transport")}
                   value={
                     agent.runtime_kind === "openwrt_relay"
                       ? "Outbound Relay"
@@ -873,7 +859,7 @@ function AgentRuntime({
                   }
                 />
                 <InspectorValue
-                  label="Health"
+                  label={t("Health")}
                   value={humanize(agent.runtime_health_status || "Unknown")}
                 />
               </div>
@@ -881,20 +867,15 @@ function AgentRuntime({
               <div className="agent-edge-setup">
                 <InlineNotice
                   tone="lume"
-                  title="OpenWrt managed provisioning"
-                  detail="Eligible Agents are created and connected automatically when the current Nexus Connector publishes its managed manifest. Manual binding from an older connector is no longer part of this workflow."
+                  title={t("OpenWrt managed provisioning")}
+                  detail={t("Eligible Agents are created and connected automatically when the current Nexus Connector publishes its managed manifest. Manual binding from an older connector is no longer part of this workflow.")}
                 />
                 <div className="agent-pairing-code">
                   <div>
-                    <strong>OpenWrt Router inventory</strong>
-                    <small>
-                      Connect or upgrade the Router, then refresh Agents after
-                      its next sync.
-                    </small>
+                    <strong>{t("OpenWrt Router inventory")}</strong>
+                    <small>{t("Connect or upgrade the Router, then refresh Agents after its next sync.")}</small>
                   </div>
-                  <Link className="btn" to="/openwrt-routers">
-                    Manage OpenWrt Routers
-                    <ChevronRight size={14} />
+                  <Link className="btn" to="/openwrt-routers">{t("Manage OpenWrt Routers")}<ChevronRight size={14} />
                   </Link>
                 </div>
               </div>
@@ -905,20 +886,17 @@ function AgentRuntime({
         {strategyConflict && (
           <InlineNotice
             tone="warning"
-            title={`${currentStrategy === "openwrt" ? "OpenWrt Agent" : "Nexus Container"} is currently active`}
-            detail={`Stop or disconnect the current production Runtime before switching to ${target === "openwrt" ? "OpenWrt Agent" : "Nexus Container"}.`}
+            title={t("{{0}} is currently active", { 0: currentStrategy === "openwrt" ? "OpenWrt Agent" : "Nexus Container" })}
+            detail={t("Stop or disconnect the current production Runtime before switching to {{0}}.", { 0: target === "openwrt" ? "OpenWrt Agent" : "Nexus Container" })}
           />
         )}
 
         <div className="agent-control-section">
           <div className="agent-control-section__header">
             <div>
-              <p className="agent-control-eyebrow">Production operation</p>
-              <h2>Deployment control</h2>
-              <p>
-                Runtime operations remain visible here while Nexus tracks their
-                job state.
-              </p>
+              <p className="agent-control-eyebrow">{t("Production operation")}</p>
+              <h2>{t("Deployment control")}</h2>
+              <p>{t("Runtime operations remain visible here while Nexus tracks their job state.")}</p>
             </div>
             <div className="agent-action-cluster">
               {target === "docker" && canAgent(agent, "deploy") && (
@@ -934,10 +912,10 @@ function AgentRuntime({
                 >
                   <Rocket size={15} />
                   {agent.configuration_drift
-                    ? "Deploy update"
+                    ? t("Deploy update")
                     : currentDeployment?.status === "active"
-                      ? "Redeploy"
-                      : "Deploy"}
+                      ? t("Redeploy")
+                      : t("Deploy")}
                 </button>
               )}
               {canAgent(agent, "health_check") && (
@@ -948,9 +926,7 @@ function AgentRuntime({
                     !currentDeployment || health.isPending || operationBusy
                   }
                 >
-                  <RefreshCw size={15} />
-                  Health check
-                </button>
+                  <RefreshCw size={15} />{t("Health check")}</button>
               )}
               {canAgent(agent, "stop") && (
                 <button
@@ -966,8 +942,8 @@ function AgentRuntime({
                 >
                   <Square size={14} />
                   {isOpenWrtRuntime(currentDeployment?.runtime_kind)
-                    ? "Disconnect"
-                    : "Stop"}
+                    ? t("Disconnect")
+                    : t("Stop")}
                 </button>
               )}
             </div>
@@ -976,8 +952,8 @@ function AgentRuntime({
             <DeploymentRow deployment={currentDeployment} />
           ) : (
             <InlineNotice
-              title="No production deployment"
-              detail="Configure a runtime target, then deploy it to production."
+              title={t("No production deployment")}
+              detail={t("Configure a runtime target, then deploy it to production.")}
             />
           )}
         </div>
@@ -986,16 +962,13 @@ function AgentRuntime({
           <div className="agent-control-section">
             <div className="agent-control-section__header">
               <div>
-                <p className="agent-control-eyebrow">Compute profile</p>
-                <h2>Runtime limits</h2>
-                <p>
-                  Set the CPU and memory requested by the Nexus container
-                  runtime.
-                </p>
+                <p className="agent-control-eyebrow">{t("Compute profile")}</p>
+                <h2>{t("Runtime limits")}</h2>
+                <p>{t("Set the CPU and memory requested by the Nexus container runtime.")}</p>
               </div>
             </div>
             <div className="agent-inline-form">
-              <Field label="CPU">
+              <Field label={t("CPU")}>
                 <input
                   className="input"
                   value={resources.cpu}
@@ -1008,7 +981,7 @@ function AgentRuntime({
                   }
                 />
               </Field>
-              <Field label="Memory">
+              <Field label={t("Memory")}>
                 <input
                   className="input"
                   value={resources.memory}
@@ -1027,9 +1000,7 @@ function AgentRuntime({
                   onClick={() => saveResources.mutate()}
                   disabled={saveResources.isPending}
                 >
-                  <Save size={15} />
-                  Save limits
-                </button>
+                  <Save size={15} />{t("Save limits")}</button>
               )}
             </div>
           </div>
@@ -1037,22 +1008,20 @@ function AgentRuntime({
       </section>
 
       <ResponsiveAgentInspector
-        eyebrow="Runtime"
-        title={target === "docker" ? "Nexus Container" : "OpenWrt Agent"}
+        eyebrow={t("Runtime")}
+        title={target === "docker" ? t("Nexus Container") : t("OpenWrt Agent")}
         description={
           target === "docker"
-            ? "Nexus manages deployment without receiving a caller Computer or SSH credentials."
-            : "The user-hosted router remains the runtime authority."
+            ? t("Nexus manages deployment without receiving a caller Computer or SSH credentials.")
+            : t("The user-hosted router remains the runtime authority.")
         }
         action={
           <Link className="btn" to="/remote-workspaces">
-            <Terminal size={15} />
-            My Computers
-          </Link>
+            <Terminal size={15} />{t("My Computers")}</Link>
         }
       >
         <InspectorValue
-          label="Current target"
+          label={t("Current target")}
           value={
             target === "docker"
               ? agent.current_image_ref || "Not configured"
@@ -1060,14 +1029,14 @@ function AgentRuntime({
           }
         />
         <InspectorValue
-          label="Deployment"
+          label={t("Deployment")}
           value={humanize(currentDeployment?.status || "Not deployed")}
         />
         <InspectorValue
-          label="Health"
+          label={t("Health")}
           value={humanize(currentDeployment?.health_status || "Not checked")}
         />
-        <InspectorValue label="Computer" value="Caller scoped" />
+        <InspectorValue label={t("Computer")} value="Caller scoped" />
       </ResponsiveAgentInspector>
 
       <RuntimeImageDialog
@@ -1081,14 +1050,14 @@ function AgentRuntime({
         open={showStopConfirm}
         title={
           isOpenWrtRuntime(currentDeployment?.runtime_kind)
-            ? "Disconnect OpenWrt runtime?"
-            : "Stop production runtime?"
+            ? t("Disconnect OpenWrt runtime?")
+            : t("Stop production runtime?")
         }
-        description="This interrupts new Agent calls. Existing Run records and outputs remain available."
+        description={t("This interrupts new Agent calls. Existing Run records and outputs remain available.")}
         confirmLabel={
           isOpenWrtRuntime(currentDeployment?.runtime_kind)
-            ? "Disconnect"
-            : "Stop runtime"
+            ? t("Disconnect")
+            : t("Stop runtime")
         }
         busy={stop.isPending}
         destructive
@@ -1112,6 +1081,7 @@ function RuntimeImageDialog({
   queryClient: QueryClient;
   onClose: () => void;
 }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const [mode, setMode] = useState<"reference" | "upload">("reference");
   const [imageRef, setImageRef] = useState("");
@@ -1141,7 +1111,7 @@ function RuntimeImageDialog({
       return image;
     },
     onSuccess: async () => {
-      toast.success("Runtime image added");
+      toast.success(t("Runtime image added"));
       await refreshAgentData(queryClient, agent.id);
       onClose();
     },
@@ -1151,49 +1121,45 @@ function RuntimeImageDialog({
   return (
     <NexilumeDialog
       open={open}
-      title="Add runtime image"
-      eyebrow="Runtime task"
-      description="Choose one image source. The result becomes the current runtime image."
+      title={t("Add runtime image")}
+      eyebrow={t("Runtime task")}
+      description={t("Choose one image source. The result becomes the current runtime image.")}
       busy={submit.isPending}
       onClose={onClose}
       initialFocusRef={inputRef}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={submit.isPending}>
-            Cancel
-          </button>
+          <button className="btn" onClick={onClose} disabled={submit.isPending}>{t("Cancel")}</button>
           <button
             className="btn btn-primary"
             onClick={() => submit.mutate()}
             disabled={!valid || submit.isPending}
           >
-            {submit.isPending && <Loader2 size={15} className="animate-spin" />}
-            Add image
-          </button>
+            {submit.isPending && <Loader2 size={15} className="animate-spin" />}{t("Add image")}</button>
         </>
       }
     >
       <NexilumeTabs
-        label="Image source"
+        label={t("Image source")}
         value={mode}
         onChange={setMode}
         variant="compact"
         options={[
-          { value: "reference", label: "Registry reference" },
-          { value: "upload", label: "Docker archive" },
+          { value: "reference", label: t("Registry reference") },
+          { value: "upload", label: t("Docker archive") },
         ]}
       />
       <div className="mt-5 grid gap-4" role="tabpanel">
         <Field
           label={
             mode === "reference"
-              ? "Image reference"
-              : "Optional image reference"
+              ? t("Image reference")
+              : t("Optional image reference")
           }
           hint={
             mode === "reference"
-              ? "Use an explicit tag or digest, for example registry.example/agent:1.2.0."
-              : "Nexus can infer this from the loaded archive."
+              ? t("Use an explicit tag or digest, for example registry.example/agent:1.2.0.")
+              : t("Nexus can infer this from the loaded archive.")
           }
         >
           <input
@@ -1201,13 +1167,13 @@ function RuntimeImageDialog({
             className="input"
             value={imageRef}
             onChange={(event) => setImageRef(event.target.value)}
-            placeholder="registry.example/agent:1.2.0"
+            placeholder={t("registry.example/agent:1.2.0")}
           />
         </Field>
         {mode === "upload" && (
           <Field
-            label="Docker image tar"
-            hint="Select an archive produced by docker save."
+            label={t("Docker image tar")}
+            hint={t("Select an archive produced by docker save.")}
           >
             <input
               className="input h-auto py-2"
@@ -1231,23 +1197,24 @@ function AgentAccess({
   apiContext: ApiContextValue;
   queryClient: QueryClient;
 }) {
+  useLocale();
   const [tab, setTab] = useState<"api" | "computer" | "mobile">("api");
   return (
     <div className="agent-workspace-layout">
       <section className="agent-workspace-primary">
         <SectionHeading
-          eyebrow="Access"
-          title="Choose how callers reach this Agent"
-          description="API credentials, caller-owned Computer permissions, and Mobile bindings are managed separately."
+          eyebrow={t("Access")}
+          title={t("Choose how callers reach this Agent")}
+          description={t("API credentials, caller-owned Computer permissions, and Mobile bindings are managed separately.")}
         />
         <NexilumeTabs
-          label="Agent access channels"
+          label={t("Agent access channels")}
           value={tab}
           onChange={setTab}
           options={[
-            { value: "api", label: "API & MCP", eyebrow: "01" },
-            { value: "computer", label: "Caller Computer", eyebrow: "02" },
-            { value: "mobile", label: "Mobile", eyebrow: "03" },
+            { value: "api", label: t("API & MCP"), eyebrow: "01" },
+            { value: "computer", label: t("Caller Computer"), eyebrow: "02" },
+            { value: "mobile", label: t("Mobile"), eyebrow: "03" },
           ]}
         />
         <div className="agent-tab-panel" role="tabpanel">
@@ -1271,35 +1238,35 @@ function AgentAccess({
         </div>
       </section>
       <ResponsiveAgentInspector
-        eyebrow="Access"
+        eyebrow={t("Access")}
         title={
           tab === "api"
-            ? "API & MCP"
+            ? t("API & MCP")
             : tab === "computer"
-              ? "Caller Computer"
-              : "Mobile"
+              ? t("Caller Computer")
+              : t("Mobile")
         }
         description={
           tab === "api"
-            ? "Create narrowly scoped client credentials without mixing in runtime logs."
+            ? t("Create narrowly scoped client credentials without mixing in runtime logs.")
             : tab === "computer"
-              ? "The caller grants a subset of the Agent declaration for each private invocation."
-              : "Connected devices are included in the Agent MCP export."
+              ? t("The caller grants a subset of the Agent declaration for each private invocation.")
+              : t("Connected devices are included in the Agent MCP export.")
         }
       >
         <InspectorValue
-          label="Ownership"
+          label={t("Ownership")}
           value={agentOwnershipLabel(agent)}
         />
         <InspectorValue
-          label="Computer requirement"
+          label={t("Computer requirement")}
           value={humanize(agent.computer_requirement || "Optional")}
         />
         <InspectorValue
-          label="Requested capabilities"
+          label={t("Requested capabilities")}
           value={formatNumber(agent.workspace_capabilities?.length || 0)}
         />
-        <InspectorValue label="Credential storage" value="Nexus scoped" />
+        <InspectorValue label={t("Credential storage")} value="Nexus scoped" />
       </ResponsiveAgentInspector>
     </div>
   );
@@ -1312,6 +1279,7 @@ function AgentApiAccess({
   agent: Agent;
   apiContext: ApiContextValue;
 }) {
+  useLocale();
   const { tenants, projects } = useAuth();
   const [showKeyDialog, setShowKeyDialog] = useState(false);
   const [plaintextKey, setPlaintextKey] = useState("");
@@ -1321,7 +1289,7 @@ function AgentApiAccess({
     onSuccess: (key) => {
       setPlaintextKey(key.plaintext_key);
       exportMcp.mutate();
-      toast.success("Scoped API key created");
+      toast.success(t("Scoped API key created"));
     },
     onError: mutationError("Failed to create scoped API key"),
   });
@@ -1344,21 +1312,16 @@ function AgentApiAccess({
       <div className="agent-control-section">
         <div className="agent-control-section__header">
           <div>
-            <p className="agent-control-eyebrow">Credential task</p>
-            <h2>Scoped API key</h2>
-            <p>
-              The plaintext value is shown once and is never added to Agent logs
-              or Display events.
-            </p>
+            <p className="agent-control-eyebrow">{t("Credential task")}</p>
+            <h2>{t("Scoped API key")}</h2>
+            <p>{t("The plaintext value is shown once and is never added to Agent logs or Display events.")}</p>
           </div>
           {canAgent(agent, "manage_access") && (
             <button
               className="btn btn-primary"
               onClick={() => setShowKeyDialog(true)}
             >
-              <KeyRound size={15} />
-              Create key
-            </button>
+              <KeyRound size={15} />{t("Create key")}</button>
           )}
         </div>
       </div>
@@ -1377,25 +1340,21 @@ function AgentApiAccess({
       />
       <NexilumeDialog
         open={showKeyDialog}
-        title={plaintextKey ? "Store this key now" : "Create scoped API key"}
-        eyebrow="Access task"
+        title={plaintextKey ? t("Store this key now") : t("Create scoped API key")}
+        eyebrow={t("Access task")}
         description={
           plaintextKey
-            ? "This is the only time Nexilume AI will show the plaintext key."
-            : "The new credential will be limited to this Agent."
+            ? t("This is the only time Nexilume AI will show the plaintext key.")
+            : t("The new credential will be limited to this Agent.")
         }
         busy={createKey.isPending}
         onClose={closeKeyDialog}
         footer={
           plaintextKey ? (
-            <button className="btn btn-primary" onClick={closeKeyDialog}>
-              I have stored the key
-            </button>
+            <button className="btn btn-primary" onClick={closeKeyDialog}>{t("I have stored the key")}</button>
           ) : (
             <>
-              <button className="btn" onClick={closeKeyDialog}>
-                Cancel
-              </button>
+              <button className="btn" onClick={closeKeyDialog}>{t("Cancel")}</button>
               <button
                 className="btn btn-primary"
                 onClick={() => createKey.mutate()}
@@ -1403,9 +1362,7 @@ function AgentApiAccess({
               >
                 {createKey.isPending && (
                   <Loader2 size={15} className="animate-spin" />
-                )}
-                Create key
-              </button>
+                )}{t("Create key")}</button>
             </>
           )
         }
@@ -1417,14 +1374,12 @@ function AgentApiAccess({
               className="btn w-fit"
               onClick={() => copyText(plaintextKey)}
             >
-              <Copy size={14} />
-              Copy key
-            </button>
+              <Copy size={14} />{t("Copy key")}</button>
           </div>
         ) : (
           <InlineNotice
-            title="One-time secret"
-            detail="Creating a new key does not revoke previously issued credentials."
+            title={t("One-time secret")}
+            detail={t("Creating a new key does not revoke previously issued credentials.")}
           />
         )}
       </NexilumeDialog>
@@ -1441,6 +1396,7 @@ function AgentComputerAccess({
   apiContext: ApiContextValue;
   queryClient: QueryClient;
 }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const [requirement, setRequirement] = useState(
     agent.computer_requirement || "optional",
@@ -1462,7 +1418,7 @@ function AgentComputerAccess({
         workspace_capabilities: requirement === "disabled" ? [] : scopes,
       }),
     onSuccess: async () => {
-      toast.success("Caller Computer policy saved");
+      toast.success(t("Caller Computer policy saved"));
       await refreshAgentData(queryClient, agent.id);
     },
     onError: mutationError("Failed to save Caller Computer policy"),
@@ -1487,19 +1443,19 @@ function AgentComputerAccess({
       <div className="agent-control-section">
         <div className="agent-control-section__header">
           <div>
-            <p className="agent-control-eyebrow">Invocation requirement</p>
-            <h2>Caller-owned Computer</h2>
+            <p className="agent-control-eyebrow">{t("Invocation requirement")}</p>
+            <h2>{t("Caller-owned Computer")}</h2>
             <p>
               {declaredBySdk
-                ? "Declared by SDK. Update the Python Agent manifest and restart it to change this contract."
-                : "Nexus represents the Agent on the caller's Computer. Developers never receive SSH details or terminal transcripts."}
+                ? t("Declared by SDK. Update the Python Agent manifest and restart it to change this contract.")
+                : t("Nexus represents the Agent on the caller's Computer. Developers never receive SSH details or terminal transcripts.")}
             </p>
           </div>
         </div>
         <div
           className="agent-choice-switch agent-choice-switch--three"
           role="group"
-          aria-label="Computer requirement"
+          aria-label={t("Computer requirement")}
         >
           {(["required", "optional", "disabled"] as const).map((value) => (
             <button
@@ -1514,10 +1470,10 @@ function AgentComputerAccess({
                 <strong>{humanize(value)}</strong>
                 <small>
                   {value === "required"
-                    ? "Block calls without a binding"
+                    ? t("Block calls without a binding")
                     : value === "optional"
-                      ? "Use a binding when available"
-                      : "Never request Computer access"}
+                      ? t("Use a binding when available")
+                      : t("Never request Computer access")}
                 </small>
               </span>
             </button>
@@ -1529,12 +1485,9 @@ function AgentComputerAccess({
       >
         <div className="agent-control-section__header">
           <div>
-            <p className="agent-control-eyebrow">Maximum declaration</p>
-            <h2>Requested capabilities</h2>
-            <p>
-              Each caller still approves a subset before a short-lived delegate
-              is issued.
-            </p>
+            <p className="agent-control-eyebrow">{t("Maximum declaration")}</p>
+            <h2>{t("Requested capabilities")}</h2>
+            <p>{t("Each caller still approves a subset before a short-lived delegate is issued.")}</p>
           </div>
         </div>
         <fieldset
@@ -1562,7 +1515,7 @@ function AgentComputerAccess({
                   </em>
                 </label>
                 <details>
-                  <summary>Advanced permissions</summary>
+                  <summary>{t("Advanced permissions")}</summary>
                   <div>
                     {group.scopes.map((scope) => (
                       <label key={scope}>
@@ -1583,10 +1536,10 @@ function AgentComputerAccess({
         <div className="agent-section-footer">
           <span>
             {declaredBySdk
-              ? "Declared by SDK; Cloud keeps this read-only and syncs scope reductions immediately."
+              ? t("Declared by SDK; Cloud keeps this read-only and syncs scope reductions immediately.")
               : canManage
-              ? "Changing the declaration never expands an existing caller grant."
-              : "This policy is read-only for your current role."}
+              ? t("Changing the declaration never expands an existing caller grant.")
+              : t("This policy is read-only for your current role.")}
           </span>
           {canManage && (
             <button
@@ -1594,9 +1547,7 @@ function AgentComputerAccess({
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
-              {save.isPending && <Loader2 size={15} className="animate-spin" />}
-              Save policy
-            </button>
+              {save.isPending && <Loader2 size={15} className="animate-spin" />}{t("Save policy")}</button>
           )}
         </div>
       </div>
@@ -1613,6 +1564,7 @@ function AgentMobileAccess({
   apiContext: ApiContextValue;
   queryClient: QueryClient;
 }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const [requirement, setRequirement] = useState(
     agent.mobile_requirement || "disabled",
@@ -1640,7 +1592,7 @@ function AgentMobileAccess({
         mobile_capabilities: requirement === "disabled" ? [] : scopes,
       }),
     onSuccess: async () => {
-      toast.success("Caller Mobile contract saved");
+      toast.success(t("Caller Mobile contract saved"));
       await refreshAgentData(queryClient, agent.id);
     },
     onError: mutationError("Failed to save Caller Mobile contract"),
@@ -1649,7 +1601,7 @@ function AgentMobileAccess({
     mutationFn: () =>
       api.updateAgent(apiContext, agent.id, { mobile_policy_source: "sdk" }),
     onSuccess: async () => {
-      toast.success("Latest SDK Mobile defaults restored");
+      toast.success(t("Latest SDK Mobile defaults restored"));
       await refreshAgentData(queryClient, agent.id);
     },
     onError: mutationError("Failed to restore SDK Mobile defaults"),
@@ -1667,48 +1619,41 @@ function AgentMobileAccess({
         tone={agent.mobile_policy_source === "sdk" ? "lume" : "neutral"}
         title={
           agent.mobile_policy_source === "sdk"
-            ? "Following SDK defaults"
-            : "Cloud override active"
+            ? t("Following SDK defaults")
+            : t("Cloud override active")
         }
         detail={
           agent.mobile_can_restore_sdk
             ? sdkDiffers
-              ? `Latest SDK default is ${humanize(sdkRequirement)} with ${sdkScopes.length} ${sdkScopes.length === 1 ? "capability" : "capabilities"}; the current Cloud policy remains authoritative.`
-              : "The current policy matches the latest SDK declaration. Saving a change here creates a persistent Cloud override."
-            : "This Agent's Mobile policy is managed in Nexus Cloud. New Runs snapshot the current effective declaration."
+              ? t("Latest SDK default is {{0}} with {{1}} {{2}}; the current Cloud policy remains authoritative.", { 0: humanize(sdkRequirement), 1: sdkScopes.length, 2: sdkScopes.length === 1 ? "capability" : "capabilities" })
+              : t("The current policy matches the latest SDK declaration. Saving a change here creates a persistent Cloud override.")
+            : t("This Agent's Mobile policy is managed in Nexus Cloud. New Runs snapshot the current effective declaration.")
         }
       />
       {canManage && agent.mobile_can_restore_sdk && agent.mobile_policy_source === "cloud" ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
-          <span className="text-sm text-muted">
-            Restore the latest OpenWrt SDK declaration and follow future SDK updates.
-          </span>
+          <span className="text-sm text-muted">{t("Restore the latest OpenWrt SDK declaration and follow future SDK updates.")}</span>
           <button
             type="button"
             className="btn"
             onClick={() => restoreSdk.mutate()}
             disabled={save.isPending || restoreSdk.isPending}
           >
-            {restoreSdk.isPending && <Loader2 size={15} className="animate-spin" />}
-            Restore SDK defaults
-          </button>
+            {restoreSdk.isPending && <Loader2 size={15} className="animate-spin" />}{t("Restore SDK defaults")}</button>
         </div>
       ) : null}
       <div className="agent-control-section">
         <div className="agent-control-section__header">
           <div>
-            <p className="agent-control-eyebrow">Invocation requirement</p>
-            <h2>Caller-owned Mobile</h2>
-            <p>
-              Declare what the Agent needs. Every caller pairs and authorizes
-              their own phone; no developer device is attached here.
-            </p>
+            <p className="agent-control-eyebrow">{t("Invocation requirement")}</p>
+            <h2>{t("Caller-owned Mobile")}</h2>
+            <p>{t("Declare what the Agent needs. Every caller pairs and authorizes their own phone; no developer device is attached here.")}</p>
           </div>
         </div>
         <div
           className="agent-choice-switch agent-choice-switch--three"
           role="group"
-          aria-label="Mobile requirement"
+          aria-label={t("Mobile requirement")}
         >
           {(["required", "optional", "disabled"] as const).map((value) => (
             <button
@@ -1723,10 +1668,10 @@ function AgentMobileAccess({
                 <strong>{humanize(value)}</strong>
                 <small>
                   {value === "required"
-                    ? "Block calls without an authorized phone"
+                    ? t("Block calls without an authorized phone")
                     : value === "optional"
-                      ? "Use the caller's phone when available"
-                      : "Never request Mobile access"}
+                      ? t("Use the caller's phone when available")
+                      : t("Never request Mobile access")}
                 </small>
               </span>
             </button>
@@ -1738,12 +1683,9 @@ function AgentMobileAccess({
       >
         <div className="agent-control-section__header">
           <div>
-            <p className="agent-control-eyebrow">Maximum declaration</p>
-            <h2>Requested Mobile capabilities</h2>
-            <p>
-              Callers approve a subset before Nexus issues a Run-scoped
-              delegate. High-risk actions always require confirmation.
-            </p>
+            <p className="agent-control-eyebrow">{t("Maximum declaration")}</p>
+            <h2>{t("Requested Mobile capabilities")}</h2>
+            <p>{t("Callers approve a subset before Nexus issues a Run-scoped delegate. High-risk actions always require confirmation.")}</p>
           </div>
         </div>
         <fieldset
@@ -1769,8 +1711,8 @@ function AgentMobileAccess({
         <div className="agent-section-footer">
           <span>
             {requirement === "required" && scopes.length === 0
-              ? "Select at least one capability before requiring Caller Mobile."
-              : "Device identity, screen content, and commands remain private to each caller and Run."}
+              ? t("Select at least one capability before requiring Caller Mobile.")
+              : t("Device identity, screen content, and commands remain private to each caller and Run.")}
           </span>
           {canManage && (
             <button
@@ -1778,9 +1720,7 @@ function AgentMobileAccess({
               onClick={() => save.mutate()}
               disabled={save.isPending || restoreSdk.isPending || (requirement === "required" && scopes.length === 0)}
             >
-              {save.isPending && <Loader2 size={15} className="animate-spin" />}
-              Save Mobile contract
-            </button>
+              {save.isPending && <Loader2 size={15} className="animate-spin" />}{t("Save Mobile contract")}</button>
           )}
         </div>
       </div>
@@ -1795,6 +1735,7 @@ function AgentObservability({
   agent: Agent;
   apiContext: ApiContextValue;
 }) {
+  useLocale();
   const [params, setParams] = useSearchParams();
   const tab = (["runs", "memory", "events"].includes(params.get("obs_tab") || "") ? params.get("obs_tab") : "runs") as "runs" | "memory" | "events";
   const change = (key: string, value: string) => setParams(previous => {
@@ -1818,32 +1759,31 @@ function AgentObservability({
     <div className="agent-workspace-layout">
       <section className="agent-workspace-primary">
         <SectionHeading
-          eyebrow="Observability"
-          title="Runs, Memory, and runtime events"
-          description="Operational data stays attached to its Run and caller lineage. Caller Terminal and SSH details are never exposed here."
+          eyebrow={t("Observability")}
+          title={t("Runs, Memory, and runtime events")}
+          description={t("Operational data stays attached to its Run and caller lineage. Caller Terminal and SSH details are never exposed here.")}
         />
         <NexilumeTabs
-          label="Agent observability"
+          label={t("Agent observability")}
           value={tab}
           onChange={(value) => change("obs_tab", value)}
           options={[
-            { value: "runs", label: "Runs" },
-            { value: "memory", label: "Memory" },
-            { value: "events", label: "Runtime events" },
+            { value: "runs", label: t("Runs") },
+            { value: "memory", label: t("Memory") },
+            { value: "events", label: t("Runtime events") },
           ]}
         />
         <form className="grid min-w-0 grid-cols-1 gap-3 py-4 sm:grid-cols-2" onSubmit={event => event.preventDefault()}>
-          <label className="text-sm">Search
-            <input type="search" aria-label="Search observability" className="w-full min-w-0 min-h-11 rounded border p-2" placeholder={tab === "runs" ? "Title or exact Run ID" : "Search metadata"} value={filters.q} maxLength={160} onChange={event => change("obs_q", event.target.value)} />
+          <label className="text-sm">{t("Search")}<input type="search" aria-label={t("Search observability")} className="w-full min-w-0 min-h-11 rounded border p-2" placeholder={tab === "runs" ? t("Title or exact Run ID") : t("Search metadata")} value={filters.q} maxLength={160} onChange={event => change("obs_q", event.target.value)} />
           </label>
-          {tab === "runs" && <label className="text-sm">Status<select aria-label="Run status" className="w-full min-h-11 rounded border p-2" value={params.get("obs_status") || ""} onChange={event => change("obs_status", event.target.value)}>
-            <option value="">All statuses</option>{["running", "completed", "failed", "cancelled", "expired"].map(value => <option key={value} value={value}>{humanize(value)}</option>)}
+          {tab === "runs" && <label className="text-sm">{t("Status")}<select aria-label={t("Run status")} className="w-full min-h-11 rounded border p-2" value={params.get("obs_status") || ""} onChange={event => change("obs_status", event.target.value)}>
+            <option value="">{t("All statuses")}</option>{["running", "completed", "failed", "cancelled", "expired"].map(value => <option key={value} value={value}>{humanize(value)}</option>)}
           </select></label>}
-          <label className="text-sm">From<input aria-label="From date" type="date" className="w-full min-w-0 min-h-11 rounded border p-2" value={filters.since} onChange={event => change("obs_since", event.target.value)} /></label>
-          <label className="text-sm">Before<input aria-label="Before date" type="date" className="w-full min-w-0 min-h-11 rounded border p-2" value={filters.until} onChange={event => change("obs_until", event.target.value)} /></label>
+          <label className="text-sm">{t("From")}<input aria-label={t("From date")} type="date" className="w-full min-w-0 min-h-11 rounded border p-2" value={filters.since} onChange={event => change("obs_since", event.target.value)} /></label>
+          <label className="text-sm">{t("Before")}<input aria-label={t("Before date")} type="date" className="w-full min-w-0 min-h-11 rounded border p-2" value={filters.until} onChange={event => change("obs_until", event.target.value)} /></label>
           {tab === "runs" && <>
-            <label className="text-sm">Tool<input aria-label="Tool name" className="w-full min-h-11 rounded border p-2" value={params.get("obs_tool") || ""} onChange={event => change("obs_tool", event.target.value)} /></label>
-            <label className="text-sm">Runtime ID<input aria-label="Runtime ID" className="w-full min-w-0 min-h-11 rounded border p-2" value={params.get("obs_runtime") || ""} onChange={event => change("obs_runtime", event.target.value)} /></label>
+            <label className="text-sm">{t("Tool")}<input aria-label={t("Tool name")} className="w-full min-h-11 rounded border p-2" value={params.get("obs_tool") || ""} onChange={event => change("obs_tool", event.target.value)} /></label>
+            <label className="text-sm">{t("Runtime ID")}<input aria-label={t("Runtime ID")} className="w-full min-w-0 min-h-11 rounded border p-2" value={params.get("obs_runtime") || ""} onChange={event => change("obs_runtime", event.target.value)} /></label>
           </>}
         </form>
         <div className="agent-tab-panel" role="tabpanel">
@@ -1882,35 +1822,35 @@ function AgentObservability({
         }} />
       </section>
       <ResponsiveAgentInspector
-        eyebrow="Observability"
+        eyebrow={t("Observability")}
         title={
           selectedRun
-            ? selectedRun.title || `Run ${compactId(selectedRun.id)}`
-            : "No Run selected"
+            ? selectedRun.title || t("Run {{0}}", { 0: compactId(selectedRun.id) })
+            : t("No Run selected")
         }
         description={
           selectedRun
-            ? "This view contains sanitized developer observability only."
-            : "Invocation data will appear after the Agent receives a tools/call."
+            ? t("This view contains sanitized developer observability only.")
+            : t("Invocation data will appear after the Agent receives a tools/call.")
         }
       >
         <InspectorValue
-          label="Runs on this page"
+          label={t("Runs on this page")}
           value={
             runs.isLoading ? "Loading" : formatNumber(runs.items.length)
           }
         />
         <InspectorValue
-          label="Selected status"
+          label={t("Selected status")}
           value={selectedRun ? humanize(selectedRun.status) : "—"}
         />
-        <InspectorValue label="Caller" value={selectedRun?.caller || "—"} />
+        <InspectorValue label={t("Caller")} value={selectedRun?.caller || "—"} />
         <InspectorValue
-          label="Computer"
+          label={t("Computer")}
           value={selectedRun ? humanize(selectedRun.computer_status) : "—"}
         />
         <InspectorValue
-          label="Mobile"
+          label={t("Mobile")}
           value={selectedRun ? humanize(selectedRun.mobile_status) : "—"}
         />
       </ResponsiveAgentInspector>
@@ -1937,26 +1877,27 @@ function AgentRunsPanel({
   onSelect: (id: string) => void;
   retry: () => void;
 }) {
-  if (loading) return <InlineLoading label="Loading invocation Runs" />;
+  useLocale();
+  if (loading) return <InlineLoading label={t("Loading invocation Runs")} />;
   if (error && !runs.length)
     return (
       <InlineError
-        title="Runs unavailable"
-        detail="Nexilume AI could not load invocation history."
+        title={t("Runs unavailable")}
+        detail={t("Nexilume AI could not load invocation history.")}
         retry={retry}
       />
     );
   if (!runs.length)
     return (
       <EmptyState
-        title="No invocation Runs"
-        description="Each tools/call creates an independent Run with its own Trace and Output lineage."
+        title={t("No invocation Runs")}
+        description={t("Each tools/call creates an independent Run with its own Trace and Output lineage.")}
       />
     );
   return (
     <div className="agent-runs-workspace">
-      {error && <p role="alert">Refresh failed. Showing the last loaded page. <button onClick={retry}>Retry</button></p>}
-      <div className="agent-run-list" aria-label="Invocation Runs">
+      {error && <p role="alert">{t("Refresh failed. Showing the last loaded page.")}{" "}<button onClick={retry}>{t("Retry")}</button></p>}
+      <div className="agent-run-list" aria-label={t("Invocation Runs")}>
         {runs.map((run) => (
           <button
             className={run.id === selectedRun?.id ? "is-active" : ""}
@@ -1964,7 +1905,7 @@ function AgentRunsPanel({
             key={run.id}
           >
             <span>
-              <strong>{run.title || `Run ${compactId(run.id)}`}</strong>
+              <strong>{run.title || t("Run {{0}}", { 0: compactId(run.id) })}</strong>
               <small>
                 {run.caller} · {formatDate(run.started_at)}
               </small>
@@ -1994,6 +1935,7 @@ function AgentRunDetail({
   apiContext: ApiContextValue;
   run: AgentDisplayRun;
 }) {
+  useLocale();
   const [live, setLive] = useState(false);
   const events = useObservabilityPage<AgentDisplayEvent>(apiContext, agent.id, `runs/${run.id}/events`, {}, true, live);
   const outputs = useObservabilityPage<AgentOutputArtifact>(apiContext, agent.id, `runs/${run.id}/outputs`);
@@ -2002,8 +1944,8 @@ function AgentRunDetail({
     <div className="agent-run-detail">
       <div className="agent-run-detail__header">
         <div>
-          <p className="agent-control-eyebrow">Selected Run</p>
-          <h2>{run.title || `Run ${compactId(run.id)}`}</h2>
+          <p className="agent-control-eyebrow">{t("Selected Run")}</p>
+          <h2>{run.title || t("Run {{0}}", { 0: compactId(run.id) })}</h2>
           <p>
             {run.caller} · {formatDate(run.started_at)}
           </p>
@@ -2015,14 +1957,14 @@ function AgentRunDetail({
         </div>
       </div>
       <div className="agent-run-summary">
-        <InspectorValue label="Run kind" value={humanize(run.run_kind)} />
-        <InspectorValue label="Tool" value={run.tool_name || "Not recorded"} />
-        <InspectorValue label="Turn" value={presentation.turn} />
-        <InspectorValue label="Invocation duration" value={run.latency_ms == null ? "Not recorded" : `${run.latency_ms} ms`} />
-        {presentation.details.map(item => <InspectorValue key={item.label} {...item} />)}
-        <InspectorValue label="Failure code" value={run.error_code || "—"} />
+        <InspectorValue label={t("Run kind")} value={humanize(run.run_kind)} />
+        <InspectorValue label={t("Tool")} value={run.tool_name || "Not recorded"} />
+        <InspectorValue label={t("Turn")} value={presentation.turn} />
+        <InspectorValue label={t("Invocation duration")} value={run.latency_ms == null ? "Not recorded" : `${run.latency_ms} ms`} />
+        {presentation.details.map(item => <InspectorValue key={t(item.label)} {...item} />)}
+        <InspectorValue label={t("Failure code")} value={run.error_code || "—"} />
         <InspectorValue
-          label="Trace events loaded"
+          label={t("Trace events loaded")}
           value={
             events.isLoading
               ? "Loading"
@@ -2030,7 +1972,7 @@ function AgentRunDetail({
           }
         />
         <InspectorValue
-          label="Outputs loaded"
+          label={t("Outputs loaded")}
           value={
             outputs.isLoading
               ? "Loading"
@@ -2038,27 +1980,25 @@ function AgentRunDetail({
           }
         />
         <InspectorValue
-          label="Completed"
+          label={t("Completed")}
           value={
             run.completed_at ? formatDate(run.completed_at) : "In progress"
           }
         />
       </div>
       <section className="agent-run-block">
-        <h3>Trace</h3>
-        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={live} onChange={event => setLive(event.target.checked)} />Live latest events (pauses in background)</label>
+        <h3>{t("Trace")}</h3>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={live} onChange={event => setLive(event.target.checked)} />{t("Live latest events (pauses in background)")}</label>
         {events.isLoading ? (
-          <InlineLoading label="Loading Trace" />
+          <InlineLoading label={t("Loading Trace")} />
         ) : events.isError && !events.items.length ? (
           <InlineNotice
             tone="warning"
-            title="Trace unavailable"
-            detail="Historical routing or AG-UI details could not be loaded. Nexilume AI will not infer missing events."
+            title={t("Trace unavailable")}
+            detail={t("Historical routing or AG-UI details could not be loaded. Nexilume AI will not infer missing events.")}
           />
         ) : !events.items.length ? (
-          <p className="agent-inline-help">
-            Historical route details unavailable.
-          </p>
+          <p className="agent-inline-help">{t("Historical route details unavailable.")}</p>
         ) : (
           <div className="agent-trace-list">
             {events.items.map((event) => (
@@ -2066,23 +2006,21 @@ function AgentRunDetail({
             ))}
           </div>
         )}
-        {events.isError && <button onClick={() => void events.refetch()}>Retry Trace</button>}
-        <ObservabilityPaging paging={events.paging} label="Trace" />
+        {events.isError && <button onClick={() => void events.refetch()}>{t("Retry Trace")}</button>}
+        <ObservabilityPaging paging={events.paging} label={t("Trace")} />
       </section>
       <section className="agent-run-block">
-        <h3>Output</h3>
+        <h3>{t("Output")}</h3>
         {outputs.isLoading ? (
-          <InlineLoading label="Loading Output" />
+          <InlineLoading label={t("Loading Output")} />
         ) : outputs.isError && !outputs.items.length ? (
           <InlineNotice
             tone="warning"
-            title="Output unavailable"
-            detail="The immutable Output snapshot could not be loaded."
+            title={t("Output unavailable")}
+            detail={t("The immutable Output snapshot could not be loaded.")}
           />
         ) : !outputs.items.length ? (
-          <p className="agent-inline-help">
-            No Output metadata was reported for this Run.
-          </p>
+          <p className="agent-inline-help">{t("No Output metadata was reported for this Run.")}</p>
         ) : (
           <div className="agent-output-list">
             {outputs.items.map((artifact) => (
@@ -2090,14 +2028,15 @@ function AgentRunDetail({
             ))}
           </div>
         )}
-        {outputs.isError && <button onClick={() => void outputs.refetch()}>Retry Output</button>}
-        <ObservabilityPaging paging={outputs.paging} label="Output" />
+        {outputs.isError && <button onClick={() => void outputs.refetch()}>{t("Retry Output")}</button>}
+        <ObservabilityPaging paging={outputs.paging} label={t("Output")} />
       </section>
     </div>
   );
 }
 
 function TraceEventRow({ event }: { event: AgentDisplayEvent }) {
+  useLocale();
   const eventType = String(event.type || event.event_type || "EVENT");
   const label = String(
     event.stepName ||
@@ -2120,6 +2059,7 @@ function TraceEventRow({ event }: { event: AgentDisplayEvent }) {
 }
 
 function OutputArtifactRow({ artifact }: { artifact: AgentOutputArtifact }) {
+  useLocale();
   return (
     <div>
       <span className="agent-output-node">
@@ -2130,9 +2070,9 @@ function OutputArtifactRow({ artifact }: { artifact: AgentOutputArtifact }) {
           {artifact.original_file_name || artifact.workspace_path}
         </strong>
         <small>
-          {artifact.content_type || "Unknown type"} ·{" "}
+          {artifact.content_type || t("Unknown type")} ·{" "}
           {formatBytes(artifact.size_bytes)} ·{" "}
-          {artifact.snapshot_status || "snapshot unknown"}
+          {artifact.snapshot_status || t("snapshot unknown")}
         </small>
       </span>
       <StatusBadge status={artifact.scan_status || artifact.status} />
@@ -2151,26 +2091,27 @@ function AgentMemoryPanel({
   error: boolean;
   retry: () => void;
 }) {
-  if (loading) return <InlineLoading label="Loading Memory lineage" />;
+  useLocale();
+  if (loading) return <InlineLoading label={t("Loading Memory lineage")} />;
   if (error && !memories.length)
     return (
       <InlineError
-        title="Memory unavailable"
-        detail="Nexilume AI could not load Agent Memory."
+        title={t("Memory unavailable")}
+        detail={t("Nexilume AI could not load Agent Memory.")}
         retry={retry}
       />
     );
   if (!memories.length)
     return (
       <EmptyState
-        title="No Memory lineage"
-        description="Caller, Agent-global, and developer-only Memory will retain their source Run and consent state here."
+        title={t("No Memory lineage")}
+        description={t("Caller, Agent-global, and developer-only Memory will retain their source Run and consent state here.")}
       />
     );
   return (
     <div className="agent-memory-list">
-      <p className="agent-inline-help">Lineage metadata only. Caller memory content stays private.</p>
-      {error && <p role="alert">Refresh failed. Previous data is retained. <button onClick={retry}>Retry</button></p>}
+      <p className="agent-inline-help">{t("Lineage metadata only. Caller memory content stays private.")}</p>
+      {error && <p role="alert">{t("Refresh failed. Previous data is retained.")}{" "}<button onClick={retry}>{t("Retry")}</button></p>}
       {memories.map((memory) => (
         <article key={memory.id}>
           <span className="agent-memory-node">
@@ -2184,11 +2125,10 @@ function AgentMemoryPanel({
               {memory.scope} · {memory.consent_status} ·{" "}
               {memory.sensitivity_level}
             </p>
-            <small>
-              Source Run:{" "}
+            <small>{t("Source Run:")}{" "}
               {memory.source_run_id
                 ? compactId(memory.source_run_id)
-                : "Not linked"}
+                : t("Not linked")}
             </small>
           </div>
           <StatusBadge status={memory.status} />
@@ -2209,25 +2149,26 @@ function AgentRuntimeEventsPanel({
   error: boolean;
   retry: () => void;
 }) {
-  if (loading) return <InlineLoading label="Loading runtime events" />;
+  useLocale();
+  if (loading) return <InlineLoading label={t("Loading runtime events")} />;
   if (error && !events.length)
     return (
       <InlineError
-        title="Runtime events unavailable"
-        detail="Other observability data remains available."
+        title={t("Runtime events unavailable")}
+        detail={t("Other observability data remains available.")}
         retry={retry}
       />
     );
   if (!events.length)
     return (
       <EmptyState
-        title="No runtime events"
-        description="Deployment, health, access, and configuration events will appear here."
+        title={t("No runtime events")}
+        description={t("Deployment, health, access, and configuration events will appear here.")}
       />
     );
   return (
     <div className="agent-runtime-event-list">
-      {error && <p role="alert">Refresh failed. Previous data is retained. <button onClick={retry}>Retry</button></p>}
+      {error && <p role="alert">{t("Refresh failed. Previous data is retained.")}{" "}<button onClick={retry}>{t("Retry")}</button></p>}
       {events.map((event) => (
         <div key={event.id}>
           <span
@@ -2245,6 +2186,7 @@ function AgentRuntimeEventsPanel({
 }
 
 function AgentPublish({ agent, apiContext, queryClient }: { agent: Agent; apiContext: ApiContextValue; queryClient: QueryClient }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const [attachmentDialog, setAttachmentDialog] = useState<
     "computer" | "mobile" | null
@@ -2335,13 +2277,9 @@ function AgentPublish({ agent, apiContext, queryClient }: { agent: Agent; apiCon
                 to={`/agents/${agent.id}/private-display`}
                 state={{ returnTo: agentDisplayEntryUrl(location) }}
               >
-                <LockKeyhole size={14} />
-                Private Display (test)
-              </Link>
+                <LockKeyhole size={14} />{t("Private Display (test)")}</Link>
               {agent.computer_requirement === "disabled" ? (
-                <div className="flex min-h-10 items-center border border-line bg-paper px-3 text-xs font-medium text-muted">
-                  Computer: Not requested
-                </div>
+                <div className="flex min-h-10 items-center border border-line bg-paper px-3 text-xs font-medium text-muted">{t("Computer: Not requested")}</div>
               ) : (
                 <div className="min-w-0">
                   <button
@@ -2356,25 +2294,23 @@ function AgentPublish({ agent, apiContext, queryClient }: { agent: Agent; apiCon
                       <Terminal size={14} />
                     )}
                     {activeComputerBinding
-                      ? "Change Computer"
-                      : "Attach Computer"}
+                      ? t("Change Computer")
+                      : t("Attach Computer")}
                   </button>
                   <div
                     className="mt-1 max-w-44 truncate text-center text-[11px] text-muted"
                     title={
                       activeComputerBinding?.connection_name ||
-                      "No Computer attached"
+                      t("No Computer attached")
                     }
                   >
                     {activeComputerBinding?.connection_name ||
-                      "No Computer attached"}
+                      t("No Computer attached")}
                   </div>
                 </div>
               )}
               {agent.mobile_requirement === "disabled" ? (
-                <div className="flex min-h-10 items-center border border-line bg-paper px-3 text-xs font-medium text-muted">
-                  Mobile: Not requested
-                </div>
+                <div className="flex min-h-10 items-center border border-line bg-paper px-3 text-xs font-medium text-muted">{t("Mobile: Not requested")}</div>
               ) : (
                 <div className="min-w-0">
                   <button
@@ -2388,15 +2324,15 @@ function AgentPublish({ agent, apiContext, queryClient }: { agent: Agent; apiCon
                     ) : (
                       <Smartphone size={14} />
                     )}
-                    {activeMobileBinding ? "Change Mobile" : "Attach Mobile"}
+                    {activeMobileBinding ? t("Change Mobile") : t("Attach Mobile")}
                   </button>
                   <div
                     className="mt-1 max-w-44 truncate text-center text-[11px] text-muted"
                     title={
-                      activeMobileBinding?.device_name || "No Mobile attached"
+                      activeMobileBinding?.device_name || t("No Mobile attached")
                     }
                   >
-                    {activeMobileBinding?.device_name || "No Mobile attached"}
+                    {activeMobileBinding?.device_name || t("No Mobile attached")}
                   </div>
                 </div>
               )}
@@ -2435,6 +2371,7 @@ function AgentSettings({
   apiContext: ApiContextValue;
   queryClient: QueryClient;
 }) {
+  useLocale();
   const refreshAgentData = useAgentQueryRefresh("control");
   const { projects } = useAuth();
   const navigate = useNavigate();
@@ -2462,7 +2399,7 @@ function AgentSettings({
     mutationFn: () =>
       api.updateAgent(apiContext, agent.id, { name: name.trim() }),
     onSuccess: async () => {
-      toast.success("Agent name saved");
+      toast.success(t("Agent name saved"));
       await refresh();
     },
     onError: mutationError("Failed to save Agent name"),
@@ -2475,7 +2412,7 @@ function AgentSettings({
       }),
     onSuccess: async () => {
       setConfirm(null);
-      toast.success("Agent transferred");
+      toast.success(t("Agent transferred"));
       await refresh();
     },
     onError: mutationError("Failed to transfer Agent"),
@@ -2485,7 +2422,7 @@ function AgentSettings({
       api.updateAgent(apiContext, agent.id, { status }),
     onSuccess: async () => {
       setConfirm(null);
-      toast.success("Agent lifecycle updated");
+      toast.success(t("Agent lifecycle updated"));
       await refresh();
     },
     onError: mutationError("Failed to update lifecycle"),
@@ -2493,7 +2430,7 @@ function AgentSettings({
   const clone = useMutation({
     mutationFn: () => api.cloneAgent(apiContext, agent.id),
     onSuccess: async (copy) => {
-      toast.success(`${copy.name} created as a draft`);
+      toast.success(t("{{0}} created as a draft", { 0: copy.name }));
       await queryClient.invalidateQueries({ queryKey: ["agents"] });
       navigate(`/agents/${copy.id}/runtime?setup=1`);
     },
@@ -2502,7 +2439,7 @@ function AgentSettings({
   const remove = useMutation({
     mutationFn: () => api.deleteAgent(apiContext, agent.id),
     onSuccess: async () => {
-      toast.success("Agent deleted");
+      toast.success(t("Agent deleted"));
       await queryClient.invalidateQueries({ queryKey: ["agents"] });
       navigate("/agents");
     },
@@ -2513,7 +2450,7 @@ function AgentSettings({
       api.publishAgentVersion(apiContext, agent.id, releaseNotes),
     onSuccess: async (version) => {
       setReleaseNotes("");
-      toast.success(`${version.version} published`);
+      toast.success(t("{{0}} published", { 0: version.version }));
       await queryClient.invalidateQueries({ queryKey: ["agent-versions"] });
       await refresh();
     },
@@ -2523,7 +2460,7 @@ function AgentSettings({
     mutationFn: (version: string) =>
       api.rollbackAgentVersion(apiContext, agent.id, version),
     onSuccess: async (version) => {
-      toast.success(`Current version changed to ${version.version}`);
+      toast.success(t("Current version changed to {{0}}", { 0: version.version }));
       await queryClient.invalidateQueries({ queryKey: ["agent-versions"] });
       await refresh();
     },
@@ -2538,23 +2475,20 @@ function AgentSettings({
     <div className="agent-workspace-layout">
       <section className="agent-workspace-primary">
         <SectionHeading
-          eyebrow="Settings"
-          title="Identity and lifecycle"
-          description="Runtime, access and resource settings are managed in their own sections."
+          eyebrow={t("Settings")}
+          title={t("Identity and lifecycle")}
+          description={t("Runtime, access and resource settings are managed in their own sections.")}
         />
         <div className="agent-control-section">
           <div className="agent-control-section__header">
             <div>
-              <p className="agent-control-eyebrow">Identity</p>
-              <h2>Agent name</h2>
-              <p>
-                The technical ID remains unchanged when the display name
-                changes.
-              </p>
+              <p className="agent-control-eyebrow">{t("Identity")}</p>
+              <h2>{t("Agent name")}</h2>
+              <p>{t("The technical ID remains unchanged when the display name changes.")}</p>
             </div>
           </div>
           <div className="agent-inline-form agent-inline-form--wide">
-            <Field label="Agent name">
+            <Field label={t("Agent name")}>
               <input
                 className="input"
                 value={name}
@@ -2572,21 +2506,16 @@ function AgentSettings({
                   saveName.isPending
                 }
               >
-                <Save size={15} />
-                Save name
-              </button>
+                <Save size={15} />{t("Save name")}</button>
             )}
           </div>
         </div>
         <div className="agent-control-section">
           <div className="agent-control-section__header">
             <div>
-              <p className="agent-control-eyebrow">Version settings</p>
-              <h2>Published version</h2>
-              <p>
-                Publish a new immutable version or choose a previous published
-                version as current.
-              </p>
+              <p className="agent-control-eyebrow">{t("Version settings")}</p>
+              <h2>{t("Published version")}</h2>
+              <p>{t("Publish a new immutable version or choose a previous published version as current.")}</p>
             </div>
             <StatusBadge
               status={agent.current_version ? "published" : "not published"}
@@ -2594,23 +2523,23 @@ function AgentSettings({
           </div>
           <div className="agent-detail-grid">
             <InspectorValue
-              label="Current version"
+              label={t("Current version")}
               value={agent.current_version || "Not published"}
             />
             <InspectorValue
-              label="Published versions"
+              label={t("Published versions")}
               value={formatNumber(agent.version_count || 0)}
             />
           </div>
           {versions.isLoading ? (
-            <InlineLoading label="Loading Agent versions" />
+            <InlineLoading label={t("Loading Agent versions")} />
           ) : versions.isError ? (
             <InlineError
-              title="Versions unavailable"
+              title={t("Versions unavailable")}
               detail={
                 versions.error instanceof Error
                   ? versions.error.message
-                  : "Version history could not be loaded."
+                  : t("Version history could not be loaded.")
               }
               retry={() => void versions.refetch()}
             />
@@ -2626,7 +2555,7 @@ function AgentSettings({
                   </span>
                   <span>
                     <strong>{version.version}</strong>
-                    <small>Published {formatDate(version.created_at)}</small>
+                    <small>{t("Published")}{" "}{formatDate(version.created_at)}</small>
                   </span>
                   <StatusBadge
                     status={
@@ -2641,35 +2570,28 @@ function AgentSettings({
                         className="btn"
                         onClick={() => rollbackVersion.mutate(version.version)}
                         disabled={rollbackVersion.isPending}
-                      >
-                        Set current
-                      </button>
+                      >{t("Set current")}</button>
                     )}
                 </div>
               ))}
               {!versions.data?.length && (
-                <p className="agent-inline-help">
-                  No version has been published yet.
-                </p>
+                <p className="agent-inline-help">{t("No version has been published yet.")}</p>
               )}
             </div>
           )}
           {canAgent(agent, "settings") && (
             <div className="grid gap-3 border-t border-line p-4">
-              <Field label="Release notes (optional)">
+              <Field label={t("Release notes (optional)")}>
                 <textarea
                   className="textarea min-h-28"
                   maxLength={20000}
                   value={releaseNotes}
                   onChange={(event) => setReleaseNotes(event.target.value)}
-                  placeholder="Summarize version-specific changes using Markdown."
+                  placeholder={t("Summarize version-specific changes using Markdown.")}
                 />
               </Field>
               <div className="agent-section-footer !border-0 !p-0">
-                <span>
-                  Publishing captures the current Agent configuration and these
-                  immutable version notes.
-                </span>
+                <span>{t("Publishing captures the current Agent configuration and these immutable version notes.")}</span>
                 <button
                   className="btn btn-primary"
                   onClick={() => publishVersion.mutate()}
@@ -2677,9 +2599,7 @@ function AgentSettings({
                 >
                   {publishVersion.isPending && (
                     <Loader2 size={15} className="animate-spin" />
-                  )}
-                  Publish new version
-                </button>
+                  )}{t("Publish new version")}</button>
               </div>
             </div>
           )}
@@ -2687,22 +2607,20 @@ function AgentSettings({
         <div className="agent-control-section">
           <div className="agent-control-section__header">
             <div>
-              <p className="agent-control-eyebrow">Ownership scope</p>
-              <h2>Project</h2>
-              <p>
-                Stop the Runtime before moving the Agent to another project.
-              </p>
+              <p className="agent-control-eyebrow">{t("Ownership scope")}</p>
+              <h2>{t("Project")}</h2>
+              <p>{t("Stop the Runtime before moving the Agent to another project.")}</p>
             </div>
           </div>
           <div className="agent-inline-form agent-inline-form--wide">
-            <Field label="Project">
+            <Field label={t("Project")}>
               <select
                 className="select"
                 value={projectId}
                 disabled={!canTransfer}
                 onChange={(event) => setProjectId(event.target.value)}
               >
-                <option value="">All projects</option>
+                <option value="">{t("All projects")}</option>
                 {projects.map((project) => (
                   <option value={project.id} key={project.id}>
                     {project.name}
@@ -2715,26 +2633,19 @@ function AgentSettings({
                 className="btn"
                 onClick={() => setConfirm("transfer")}
                 disabled={running || projectId === (agent.project_id || "")}
-              >
-                Transfer
-              </button>
+              >{t("Transfer")}</button>
             )}
           </div>
           {canTransfer && running && (
-            <p className="agent-inline-help">
-              Transfer is unavailable while the production Runtime is active.
-            </p>
+            <p className="agent-inline-help">{t("Transfer is unavailable while the production Runtime is active.")}</p>
           )}
         </div>
         <div className="agent-control-section">
           <div className="agent-control-section__header">
             <div>
-              <p className="agent-control-eyebrow">Lifecycle</p>
-              <h2>Availability</h2>
-              <p>
-                Disable access temporarily, archive completed work, or create a
-                clean draft copy.
-              </p>
+              <p className="agent-control-eyebrow">{t("Lifecycle")}</p>
+              <h2>{t("Availability")}</h2>
+              <p>{t("Disable access temporarily, archive completed work, or create a clean draft copy.")}</p>
             </div>
             <StatusBadge status={agent.lifecycle_status || agent.status} />
           </div>
@@ -2745,51 +2656,39 @@ function AgentSettings({
                     className="btn btn-primary"
                     onClick={() => lifecycle.mutate("active")}
                     disabled={lifecycle.isPending}
-                  >
-                    Enable Agent
-                  </button>
+                  >{t("Enable Agent")}</button>
                 )
               : canAgent(agent, "disable") && (
                   <button
                     className="btn"
                     onClick={() => lifecycle.mutate("disabled")}
                     disabled={lifecycle.isPending}
-                  >
-                    Disable Agent
-                  </button>
+                  >{t("Disable Agent")}</button>
                 )}
             {canAgent(agent, "archive") && (
               <button
                 className="btn"
                 onClick={() => setConfirm("archive")}
                 disabled={lifecycle.isPending || agent.status === "archived"}
-              >
-                Archive
-              </button>
+              >{t("Archive")}</button>
             )}
             {canClone && (
               <button
                 className="btn"
                 onClick={() => clone.mutate()}
                 disabled={clone.isPending}
-              >
-                Clone as draft
-              </button>
+              >{t("Clone as draft")}</button>
             )}
             {!canAgent(agent, "settings") && (
-              <span className="agent-inline-help">
-                Lifecycle controls are read-only for your current role.
-              </span>
+              <span className="agent-inline-help">{t("Lifecycle controls are read-only for your current role.")}</span>
             )}
           </div>
         </div>
         <div className="agent-danger-zone">
           <div>
-            <p className="agent-control-eyebrow">Danger zone</p>
-            <h2>Delete Agent</h2>
-            <p>
-              Deletion is only allowed after Runtime operations are stopped.
-            </p>
+            <p className="agent-control-eyebrow">{t("Danger zone")}</p>
+            <h2>{t("Delete Agent")}</h2>
+            <p>{t("Deletion is only allowed after Runtime operations are stopped.")}</p>
           </div>
           {canDelete && (
             <button
@@ -2797,53 +2696,51 @@ function AgentSettings({
               onClick={() => setConfirm("delete")}
               disabled={running}
             >
-              <Trash2 size={15} />
-              Delete Agent
-            </button>
+              <Trash2 size={15} />{t("Delete Agent")}</button>
           )}
         </div>
       </section>
       <ResponsiveAgentInspector
-        eyebrow="Settings"
+        eyebrow={t("Settings")}
         title={agent.name}
-        description="These controls change Agent identity and lifecycle only."
+        description={t("These controls change Agent identity and lifecycle only.")}
       >
-        <InspectorValue label="Agent ID" value={compactId(agent.id)} />
+        <InspectorValue label={t("Agent ID")} value={compactId(agent.id)} />
         <InspectorValue
-          label="Lifecycle"
+          label={t("Lifecycle")}
           value={humanize(agent.lifecycle_status || agent.status)}
         />
         <InspectorValue
-          label="Project"
+          label={t("Project")}
           value={
             agent.project_id ? compactId(agent.project_id) : "All projects"
           }
         />
-        <InspectorValue label="Runtime active" value={running ? "Yes" : "No"} />
+        <InspectorValue label={t("Runtime active")} value={running ? "Yes" : "No"} />
       </ResponsiveAgentInspector>
       <ConfirmDialog
         open={confirm === "transfer"}
-        title="Transfer Agent?"
-        description="The Agent will move to the selected project. Existing project-scoped access may no longer apply."
-        confirmLabel="Transfer Agent"
+        title={t("Transfer Agent?")}
+        description={t("The Agent will move to the selected project. Existing project-scoped access may no longer apply.")}
+        confirmLabel={t("Transfer Agent")}
         busy={transfer.isPending}
         onConfirm={() => transfer.mutate()}
         onClose={() => setConfirm(null)}
       />
       <ConfirmDialog
         open={confirm === "archive"}
-        title="Archive Agent?"
-        description="The Agent leaves active Organization views until it is enabled again."
-        confirmLabel="Archive Agent"
+        title={t("Archive Agent?")}
+        description={t("The Agent leaves active Organization views until it is enabled again.")}
+        confirmLabel={t("Archive Agent")}
         busy={lifecycle.isPending}
         onConfirm={() => lifecycle.mutate("archived")}
         onClose={() => setConfirm(null)}
       />
       <ConfirmDialog
         open={confirm === "delete"}
-        title="Delete Agent?"
-        description={`Delete ${agent.name} from normal Organization views. This action requires all Runtime operations to be stopped.`}
-        confirmLabel="Delete Agent"
+        title={t("Delete Agent?")}
+        description={t("Delete {{0}} from normal Organization views. This action requires all Runtime operations to be stopped.", { 0: agent.name })}
+        confirmLabel={t("Delete Agent")}
         busy={remove.isPending}
         destructive
         onConfirm={() => remove.mutate()}
@@ -2860,10 +2757,11 @@ function AgentHexNode({
   label: string;
   tone: "active" | "muted";
 }) {
+  useLocale();
   return (
     <span
       className={`agent-hex-node agent-hex-node--${tone}`}
-      aria-label={`${label} Agent node`}
+      aria-label={t("{{0}} Agent node", { 0: label })}
     >
       <span>{label.slice(0, 1).toUpperCase() || "A"}</span>
     </span>
@@ -2871,10 +2769,11 @@ function AgentHexNode({
 }
 
 function AgentControlSkeleton() {
+  useLocale();
   return (
     <div
       className="agent-control-shell animate-pulse"
-      aria-label="Loading Agent control"
+      aria-label={t("Loading Agent control")}
     >
       <div className="h-24 border-b border-line bg-white" />
       <div className="mt-5 h-16 border border-line bg-white" />
@@ -2887,6 +2786,7 @@ function AgentControlSkeleton() {
 }
 
 function InlineLoading({ label }: { label: string }) {
+  useLocale();
   return (
     <div className="agent-inline-state">
       <Loader2 size={17} className="animate-spin" />
@@ -2904,6 +2804,7 @@ function InlineError({
   detail: string;
   retry: () => void;
 }) {
+  useLocale();
   return (
     <div className="agent-inline-error">
       <AlertCircle size={18} />
@@ -2912,9 +2813,7 @@ function InlineError({
         <p>{detail}</p>
       </div>
       <button className="btn" onClick={retry}>
-        <RefreshCw size={14} />
-        Retry
-      </button>
+        <RefreshCw size={14} />{t("Retry")}</button>
     </div>
   );
 }
@@ -2928,6 +2827,7 @@ function InlineNotice({
   detail: string;
   tone?: "neutral" | "lume" | "warning";
 }) {
+  useLocale();
   return (
     <div className={`agent-inline-notice agent-inline-notice--${tone}`}>
       <ShieldCheck size={17} />
@@ -2940,6 +2840,7 @@ function InlineNotice({
 }
 
 function DeploymentRow({ deployment }: { deployment: AgentRuntimeDeployment }) {
+  useLocale();
   return (
     <div className="agent-deployment-row">
       <span className="agent-runtime-capsule">
@@ -2948,10 +2849,10 @@ function DeploymentRow({ deployment }: { deployment: AgentRuntimeDeployment }) {
       <span>
         <strong>
           {deployment.runtime_kind === "docker"
-            ? deployment.image_ref || "Nexus Container"
-            : `OpenWrt ${deployment.edge_transport === "relay" ? "Relay" : "IPv6"}`}
+            ? deployment.image_ref || t("Nexus Container")
+            : t("OpenWrt {{0}}", { 0: deployment.edge_transport === "relay" ? "Relay" : "IPv6" })}
         </strong>
-        <small>Production · updated {formatDate(deployment.updated_at)}</small>
+        <small>{t("Production · updated")}{" "}{formatDate(deployment.updated_at)}</small>
       </span>
       <StatusBadge status={deployment.status} />
       <StatusBadge status={deployment.health_status} />
@@ -2960,6 +2861,7 @@ function DeploymentRow({ deployment }: { deployment: AgentRuntimeDeployment }) {
 }
 
 function JobBanner({ job }: { job: Job }) {
+  useLocale();
   const terminal = ["succeeded", "failed", "canceled"].includes(job.status);
   const failed = ["failed", "canceled"].includes(job.status);
   return (
@@ -2982,10 +2884,10 @@ function JobBanner({ job }: { job: Job }) {
         </strong>
         <p>
           {failed
-            ? job.error_message || "The operation did not complete."
+            ? job.error_message || t("The operation did not complete.")
             : terminal
-              ? "Runtime state refreshed."
-              : "Nexus is tracking this operation. You may leave and return to this page."}
+              ? t("Runtime state refreshed.")
+              : t("Nexus is tracking this operation. You may leave and return to this page.")}
         </p>
       </div>
     </div>
@@ -3011,19 +2913,18 @@ function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  useLocale();
   return (
     <NexilumeDialog
       open={open}
       title={title}
-      eyebrow={destructive ? "Destructive action" : "Confirm action"}
+      eyebrow={destructive ? t("Destructive action") : t("Confirm action")}
       description={description}
       busy={busy}
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
+          <button className="btn" onClick={onClose} disabled={busy}>{t("Cancel")}</button>
           <button
             className={`btn ${destructive ? "agent-danger-button" : "btn-primary"}`}
             onClick={onConfirm}
@@ -3037,7 +2938,7 @@ function ConfirmDialog({
     >
       <InlineNotice
         tone={destructive ? "warning" : "neutral"}
-        title="Review before continuing"
+        title={t("Review before continuing")}
         detail={description}
       />
     </NexilumeDialog>
@@ -3050,9 +2951,9 @@ function ConfirmDialog({
 
 function runtimeLabel(agent: Agent) {
   if (isOpenWrtRuntime(agent.runtime_kind))
-    return `OpenWrt ${agent.runtime_kind === "openwrt_relay" ? "Relay" : "IPv6"} · ${humanize(agent.runtime_status || "Configured")}`;
-  if (!agent.current_image_id) return "Not configured";
-  if (!agent.runtime_status) return "Not deployed";
+    return t("OpenWrt {{0}} · {{1}}", { 0: agent.runtime_kind === "openwrt_relay" ? "Relay" : "IPv6", 1: humanize(agent.runtime_status || "Configured") });
+  if (!agent.current_image_id) return t("Not configured");
+  if (!agent.runtime_status) return t("Not deployed");
   return humanize(agent.runtime_status);
 }
 
@@ -3061,13 +2962,13 @@ function agentLifecycle(agent: Agent): {
   tone: "success" | "warn" | "danger" | "muted";
 } {
   const lifecycle = agent.lifecycle_status || agent.status;
-  if (lifecycle === "archived") return { label: "Archived", tone: "muted" };
-  if (lifecycle === "disabled") return { label: "Disabled", tone: "muted" };
+  if (lifecycle === "archived") return { label: t("Archived"), tone: "muted" };
+  if (lifecycle === "disabled") return { label: t("Disabled"), tone: "muted" };
   if (lifecycle === "draft" || !hasRuntimeTarget(agent))
-    return { label: "Setup required", tone: "warn" };
+    return { label: t("Setup required"), tone: "warn" };
   if (agent.status === "failed" || agent.status === "error")
-    return { label: "Action required", tone: "danger" };
-  return { label: "Configured", tone: "success" };
+    return { label: t("Action required"), tone: "danger" };
+  return { label: t("Configured"), tone: "success" };
 }
 
 
@@ -3088,5 +2989,5 @@ function formatBytes(value: number) {
 
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
-  toast.success("Copied");
+  toast.success(t("Copied"));
 }

@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import { forwardRef, useImperativeHandle, useRef, useState, type ComponentProps } from "react";
 import { RunImageAttachments, type AttachmentIntake } from "./RunImageAttachments";
 import { RunFileAttachments } from "./RunFileAttachments";
@@ -30,12 +31,12 @@ export const RunAttachmentPicker = forwardRef<RunAttachmentIntake, {
     if (otherFiles.length) fileIntake.current?.add(otherFiles);
   }
   useImperativeHandle(ref, () => ({ add, choose: () => { if (!disabled) input.current?.click(); } }));
-  return <section aria-label="Message attachments" className="min-w-0">
+  return <section aria-label={t("Message attachments")} className="min-w-0">
     {images || files ? <>
-      <input ref={input} type="file" multiple aria-label="Choose attachments" className="sr-only" disabled={disabled} accept={files ? undefined : "image/png,image/jpeg,image/webp"} onChange={event => { add(Array.from(event.target.files || [])); event.target.value = ""; }} />
+      <input ref={input} type="file" multiple aria-label={t("Choose attachments")} className="sr-only" disabled={disabled} accept={files ? undefined : "image/png,image/jpeg,image/webp"} onChange={event => { add(Array.from(event.target.files || [])); event.target.value = ""; }} />
       {images ? <RunImageAttachments {...images} ref={imageIntake} /> : null}
       {files ? <RunFileAttachments {...files} ref={fileIntake} /> : null}
     </> : null}
-    {error ? <div role="alert" className="whitespace-pre-wrap text-sm text-red-700">{error}<button type="button" className="block min-h-11 underline" onClick={() => setError("")}>Dismiss attachment notice</button></div> : null}
+    {error ? <div role="alert" className="whitespace-pre-wrap text-sm text-red-700">{error}<button type="button" className="block min-h-11 underline" onClick={() => setError("")}>{t("Dismiss attachment notice")}</button></div> : null}
   </section>;
 });

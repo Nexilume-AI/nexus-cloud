@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useApplicationDistribution } from '../app/distribution';
 import type { RunPresentationSummaryProps, RunObservabilityRecord, RunObservabilityPresentation } from '../app/runPresentation';
 
@@ -11,13 +12,14 @@ export function useRunObservabilityPresentation(run: RunObservabilityRecord): Ru
 }
 
 export function RunPresentationSummary(props: RunPresentationSummaryProps) {
+  useLocale();
   const Summary = useApplicationDistribution().runPresentation?.Summary;
   return Summary ? <Summary {...props} /> : null;
 }
 
 export function useRunHistoryRemovalDescription() {
   return useApplicationDistribution().runPresentation?.historyRemovalDescription
-    ?? 'Trace, Outputs and security audit records remain available under their retention policies.';
+    ?? t("Trace, Outputs and security audit records remain available under their retention policies.");
 }
 
 const followUpReasons: Record<string, string> = {

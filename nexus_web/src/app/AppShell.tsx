@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -35,6 +36,7 @@ function useWideDesktop() {
 }
 
 export function AppShell({ children, navigationDomains }: { children: ReactNode; navigationDomains: NavigationDomain[] }) {
+  useLocale();
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
   const currentDomain = domainForPath(location.pathname, navigationDomains);
   const commandSections = useMemo<CommandSection[]>(
     () => [
-      { id: "overview", label: "Network", verb: "Overview", items: [homeItem] },
+      { id: "overview", label: t("Network"), verb: t("Overview"), items: [homeItem] },
       ...visibleDomains.map((domain) => ({
         id: domain.id,
         label: domain.label,
@@ -64,7 +66,7 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
         items: itemsForDomain(domain)
       }))
     ],
-    [visibleDomains]
+    [visibleDomains, getLocale()]
   );
 
   useEffect(() => {
@@ -97,7 +99,7 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
     if (!mobileOpen) return;
     const dialog = document.querySelector<HTMLElement>('.nexilume-mobile-navigation[role="dialog"]');
     const focusable = () => dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
-    window.requestAnimationFrame(() => dialog?.querySelector<HTMLElement>('[aria-label="Close navigation"]')?.focus());
+    window.requestAnimationFrame(() => dialog?.querySelector<HTMLElement>('[data-close-navigation]')?.focus());
     function trapFocus(event: KeyboardEvent) {
       if (event.key !== "Tab") return;
       const elements = focusable();
@@ -175,8 +177,8 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
       </div>
 
       {mobileOpen ? (
-        <div className="nexilume-mobile-navigation" role="dialog" aria-modal="true" aria-label="Navigation">
-          <button className="nexilume-mobile-navigation__backdrop" onClick={closeMobileNavigation} aria-label="Dismiss navigation" type="button" />
+        <div className="nexilume-mobile-navigation" role="dialog" aria-modal="true" aria-label={t("Navigation")}>
+          <button className="nexilume-mobile-navigation__backdrop" onClick={closeMobileNavigation} aria-label={t("Dismiss navigation")} type="button" />
           <ShellNavigation
             domains={visibleDomains}
             currentPath={location.pathname}

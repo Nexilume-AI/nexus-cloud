@@ -1,3 +1,4 @@
+import { getLocale } from "../localization";
 import { api, type ApiContext } from "./api";
 
 const deviceKey = (userId: string) => `nexus.inbox.push-device.${userId}`;
@@ -26,7 +27,7 @@ export async function enableDesktopNotifications(ctx: ApiContext, userId: string
   if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("The browser returned an incomplete push subscription.");
   const device = await api.subscribePush(ctx, {
     endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-    device_name: `${navigator.platform || "Browser"} · ${new Date().toLocaleDateString()}`
+    device_name: `${navigator.platform || "Browser"} · ${new Date().toLocaleDateString(getLocale())}`
   });
   localStorage.setItem(deviceKey(userId), device.id);
   return device;

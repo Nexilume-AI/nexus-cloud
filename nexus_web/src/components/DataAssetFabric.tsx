@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import type { ReactNode } from "react";
 
 import type { Dataset } from "../lib/types";
@@ -16,10 +17,12 @@ export function DataStatus({
   detail: string;
   tone?: "neutral" | "healthy" | "warning";
 }) {
+  useLocale();
   return <div className={`data-status data-status--${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>;
 }
 
 export function DataAssetShape({ state }: { state?: string }) {
+  useLocale();
   return <span className="data-asset-shape" data-state={state || "unknown"} aria-hidden="true"><i /><i /><i /><b /></span>;
 }
 
@@ -34,6 +37,7 @@ export function StageHeading({
   description: string;
   action?: ReactNode;
 }) {
+  useLocale();
   return <header className="data-stage-heading"><div><span>{eyebrow}</span><h3>{title}</h3><p>{description}</p></div>{action}</header>;
 }
 
@@ -46,14 +50,15 @@ export function AcquisitionLineage({
   release: string;
   onOpen?: () => void;
 }) {
+  useLocale();
   return (
-    <div className="data-acquisition-lineage" aria-label="Acquisition lineage">
-      <span><small>PUBLISHER</small><strong>{publisher}</strong></span>
+    <div className="data-acquisition-lineage" aria-label={t("Acquisition lineage")}>
+      <span><small>{t("PUBLISHER")}</small><strong>{publisher}</strong></span>
       <i aria-hidden="true" />
-      <span><small>IMMUTABLE RELEASE</small><strong>{release}</strong></span>
+      <span><small>{t("IMMUTABLE RELEASE")}</small><strong>{release}</strong></span>
       <i aria-hidden="true" />
-      <span className="is-hit"><small>DESTINATION</small><strong>Acquired library</strong></span>
-      {onOpen && <button type="button" className="btn" onClick={onOpen}>Open in Data Assets</button>}
+      <span className="is-hit"><small>{t("DESTINATION")}</small><strong>{t("Acquired library")}</strong></span>
+      {onOpen && <button type="button" className="btn" onClick={onOpen}>{t("Open in Data Assets")}</button>}
     </div>
   );
 }

@@ -1,0 +1,20 @@
+{
+  "Private file attachments": "私人文件附件",
+  "Loading file limit…": "加载文件限制...",
+  "· Uploading does not mean the Agent has read the file.": "· 上传并不意味着智能体已读取该文件。",
+  "File service unavailable.": "文件服务不可用。",
+  "Retry file service": "重试文件服务",
+  "Verifying file…": "正在验证文件...",
+  "Retry upload": "重试上传",
+  "Dismiss rejected files": "忽略被拒绝的文件",
+  "Run input files": "运行输入文件",
+  "Input files": "输入文件",
+  "Loading files…": "正在加载文件...",
+  "Retry input files": "重试输入文件",
+  "No input files for this Run.": "本次运行没有输入文件。",
+  "MiB · private input": "MiB·私人输入",
+  "Download unavailable. Retry to renew access.": "下载不可用。重试更新访问权限。",
+  "{{0}} per file": "每个文件 {{0}}",
+  "Upload {{0}}": "上传 {{0}}",
+  "{{0}}% uploaded": "{{0}}% 已上传"
+}

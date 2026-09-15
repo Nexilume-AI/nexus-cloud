@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import { FileArchive, Upload } from "lucide-react";
 import type { Dataset } from "../lib/types";
 import type { DatasetRecommendedAction, DatasetPublicationPolicy } from "../app/resourcePublishing";
@@ -17,20 +18,20 @@ export function datasetNextAction(dataset: Dataset | undefined, policy?: Dataset
   if (!dataset || dataset.file_count === 0) {
     return {
       key: "import",
-      label: "Import assets",
+      label: t("Import assets"),
       description:
-        "Choose an Agent and add an approved trace, memory selection, or output file.",
+        t("Choose an Agent and add an approved trace, memory selection, or output file."),
       icon: <Upload size={16} />,
     };
   }
   if (!dataset.current_version) {
     return {
       key: "release",
-      label: "Create first release",
+      label: t("Create first release"),
       description:
-        "Review policy checks and freeze the current assets into an immutable release.",
+        t("Review policy checks and freeze the current assets into an immutable release."),
       icon: <FileArchive size={16} />,
     };
   }
-  return policy?.recommend(dataset) ?? { key: "release", label: "Review release", description: "View the current immutable release and its files.", icon: <FileArchive size={16} /> };
+  return policy?.recommend(dataset) ?? { key: "release", label: t("Review release"), description: t("View the current immutable release and its files."), icon: <FileArchive size={16} /> };
 }

@@ -1,0 +1,17 @@
+{
+  "Check saved result": "检查保存的结果",
+  "Check the Computer's saved receipt without repeating the original change.": "检查电脑保存的收据，而不重复原始更改。",
+  "Restore previous settings": "恢复以前的设置",
+  "Restore the settings saved before this change. Newer local edits and invalid credentials prevent restoration; they will not be overwritten.": "恢复此更改之前保存的设置。较新的本地编辑和无效的凭据会阻止恢复；它们不会被覆盖。",
+  "Keep current settings": "保留当前设置",
+  "Tool setup needs attention": "工具设置需要注意",
+  "Choose an action": "选择一个操作",
+  "I understand and want to": "我理解并且想要",
+  "Reload status": "重新加载状态",
+  "Keep the current Computer configuration and cancel the unconfirmed change. Credentials may still need repair.": "保留当前电脑配置并取消未确认的更改。凭证可能仍需要修复。",
+  "A previous change needs checking": "需要检查之前的更改",
+  "Tool setup is read-only": "工具设置是只读的",
+  "keep current settings": "保留当前设置",
+  "restore previous settings": "恢复以前的设置",
+  "Checking…": "正在检查……"
+}

@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { Download, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +23,7 @@ export function AgentChatMessageContent({
   role,
   onDownloadFile,
 }: Props) {
+  useLocale();
   const visible = blocks?.length
     ? blocks
     : [{ type: "markdown", text: fallback } as AgentChatContentBlock];
@@ -119,7 +121,7 @@ export function AgentChatMessageContent({
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{block.name}</div>
                 <div className="mt-0.5 text-xs opacity-55">
-                  {[block.content_type, block.size_bytes != null ? formatAttachmentSize(block.size_bytes) : "", block.status === "attached" ? "Attached to this turn" : block.status].filter(Boolean).join(" · ") || "Agent output"}
+                  {[block.content_type, block.size_bytes != null ? formatAttachmentSize(block.size_bytes) : "", block.status === "attached" ? "Attached to this turn" : block.status].filter(Boolean).join(" · ") || t("Agent output")}
                 </div>
               </div>
               {onDownloadFile ? (
@@ -127,7 +129,7 @@ export function AgentChatMessageContent({
                   type="button"
                   onClick={() => onDownloadFile(block)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-current/10"
-                  aria-label={`Download ${block.name}`}
+                  aria-label={t("Download {{0}}", { 0: block.name })}
                 >
                   <Download size={15} />
                 </button>
@@ -135,7 +137,7 @@ export function AgentChatMessageContent({
                 <a
                   href={block.url}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-current/10"
-                  aria-label={`Download ${block.name}`}
+                  aria-label={t("Download {{0}}", { 0: block.name })}
                 >
                   <Download size={15} />
                 </a>
@@ -156,9 +158,10 @@ function formatAttachmentSize(bytes: number) {
 }
 
 function ChatCodeBlock({ children }: { children?: ReactNode }) {
+  useLocale();
   const code = useRef<HTMLPreElement>(null);
   return <div className="my-2 min-w-0 max-w-full overflow-hidden rounded-md border border-black/10 bg-[#f0f0ed] text-[#34322d]">
-    <div className="flex justify-end border-b border-black/10 px-2"><ChatCopyButton text={() => code.current?.textContent || ""} label="Copy code" caption="Copy code" /></div>
+    <div className="flex justify-end border-b border-black/10 px-2"><ChatCopyButton text={() => code.current?.textContent || ""} label={t("Copy code")} caption="Copy code" /></div>
     <pre ref={code} className="max-w-full overflow-x-auto p-3 text-xs">{children}</pre>
   </div>;
 }

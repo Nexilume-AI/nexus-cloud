@@ -1,0 +1,6 @@
+{
+  "Pair Nexus Computer Runtime with this installation, then use its terminal, Workspace and Agent tools. The Runtime connects outward; no inbound SSH connection is needed.": "将 Nexus 电脑运行时与此安装配对，然后使用其终端、工作区和智能体工具。运行时向外连接；不需要入站 SSH 连接。",
+  "Computer details, credentials and sessions are not loaded before sign-in.": "登录前不会加载电脑详细信息、凭据和会话。",
+  "Open and resume terminal sessions on your paired Computer.": "在配对的电脑上打开并恢复终端会话。",
+  "Authentication presentation is incomplete.": "身份验证呈现不完整。"
+}

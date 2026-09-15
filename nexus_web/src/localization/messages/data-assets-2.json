@@ -1,0 +1,10 @@
+{
+  "run not completed": "运行未完成",
+  "redaction not passed": "编辑未通过",
+  "no events": "没有事件",
+  "not ready": "未准备好",
+  "system scan not passed": "系统扫描未通过",
+  "policy not approved": "政策未获批准",
+  "license not approved or internal": "许可证未批准或内部",
+  "missing scanned hash": "缺少扫描的哈希值"
+}

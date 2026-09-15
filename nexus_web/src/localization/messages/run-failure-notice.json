@@ -1,0 +1,15 @@
+{
+  "Recovery decision needed": "需要恢复决策",
+  "The Agent process stopped while an external operation may have been in flight.": "智能体进程停止，而外部操作可能正在进行中。",
+  "Failure source not confirmed": "故障源未确认",
+  "This turn failed without structured failure details.": "此回合失败，没有结构化失败详细信息。",
+  "Run failure recovery": "运行失败恢复",
+  "Outcome unconfirmed. Check results before repeating an action.": "结果未经确认。重复操作之前检查结果。",
+  "Recovery guidance": "恢复指南",
+  "Unknown external effects are never replayed without your decision.": "未经您的决定，永远不会重播未知的外部效果。",
+  "Checking": "检查",
+  "Start a fresh Run": "开始新的运行",
+  "Copy unavailable. Select this reference manually:": "复制不可用。手动选择此参考：",
+  "Waiting for Agent and device readiness. Your chat history is preserved.": "等待智能体和设备准备就绪。您的聊天记录将被保留。",
+  "Copy failure reference": "复制失败参考"
+}

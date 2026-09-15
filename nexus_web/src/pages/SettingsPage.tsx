@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Loader2, Save } from "lucide-react";
@@ -19,6 +20,7 @@ type ProfileForm = { display_name: string; phone: string; company: string };
 const emptyProfile: ProfileForm = { display_name: "", phone: "", company: "" };
 
 export function SettingsPage() {
+  useLocale();
   const auth = useAuth();
   const organizationSettings = useApplicationDistribution().organizationSettings;
   const queryClient = useQueryClient();
@@ -78,7 +80,7 @@ export function SettingsPage() {
       };
       setProfileForm(next);
       setSavedProfile(next);
-      toast.success("Profile updated");
+      toast.success(t("Profile updated"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["account-profile"] }),
         queryClient.invalidateQueries({ queryKey: ["whoami"] }),
@@ -86,7 +88,7 @@ export function SettingsPage() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to update profile",
+        error instanceof Error ? error.message : t("Failed to update profile"),
       ),
   });
 
@@ -94,7 +96,7 @@ export function SettingsPage() {
     if (section === activeSection) return;
     if (
       profileDirty &&
-      !window.confirm("Discard your unsaved profile changes?")
+      !window.confirm(t("Discard your unsaved profile changes?"))
     )
       return;
     const next = new URLSearchParams(searchParams);
@@ -106,21 +108,21 @@ export function SettingsPage() {
   return (
     <div className="grid gap-5">
       <header>
-        <p className="tech-label">{organizationSettings ? "ACCOUNT AND STRUCTURE" : "ACCOUNT"}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">Settings</h1>
+        <p className="tech-label">{organizationSettings ? t("ACCOUNT AND STRUCTURE") : t("ACCOUNT")}</p>
+        <h1 className="mt-1 text-2xl font-semibold text-ink">{t("Settings")}</h1>
         <p className="mt-1 text-sm text-muted">
-          {organizationSettings ? "Keep your personal identity separate from Organization and Project administration." : "Manage your personal profile and account security."}
+          {organizationSettings ? t("Keep your personal identity separate from Organization and Project administration.") : t("Manage your personal profile and account security.")}
         </p>
       </header>
 
       <NexilumeTabs
-        label="Settings sections"
+        label={t("Settings sections")}
         idBase="settings-section"
         value={activeSection}
         onChange={selectSection}
         options={[
-          { value: "personal", label: "Personal" },
-          ...(organizationSettings ? [{ value: "organization" as const, label: "Organization" }] : []),
+          { value: "personal", label: t("Personal") },
+          ...(organizationSettings ? [{ value: "organization" as const, label: t("Organization") }] : []),
         ]}
       />
 
@@ -185,11 +187,12 @@ function PersonalSection({
   onSave: () => void;
   onChangePassword: () => void;
 }) {
-  if (loading) return <LoadingState label="Loading personal settings" />;
+  useLocale();
+  if (loading) return <LoadingState label={t("Loading personal settings")} />;
   if (error && !profile) {
     return (
       <ErrorState
-        title="Personal settings could not be loaded"
+        title={t("Personal settings could not be loaded")}
         error={error}
         onRetry={onRetry}
       />
@@ -199,7 +202,7 @@ function PersonalSection({
     <div className="grid gap-5">
       {error ? (
         <InlineIssue
-          title="Profile status may be out of date"
+          title={t("Profile status may be out of date")}
           error={error}
           onRetry={onRetry}
         />
@@ -210,20 +213,16 @@ function PersonalSection({
       >
         <div className="flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 id="personal-identity-title" className="font-semibold text-ink">
-              Personal identity
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Information shown to collaborators across Nexilume AI.
-            </p>
+            <h2 id="personal-identity-title" className="font-semibold text-ink">{t("Personal identity")}</h2>
+            <p className="mt-1 text-sm text-muted">{t("Information shown to collaborators across Nexilume AI.")}</p>
           </div>
           <StatusBadge status={profile?.status || "active"} />
         </div>
         <dl className="grid gap-3 border-b border-line py-4 text-sm sm:grid-cols-3">
-          <ReadOnlyValue label="Email" value={profile?.email || "—"} />
-          <ReadOnlyValue label="Username" value={profile?.username || "—"} />
+          <ReadOnlyValue label={t("Email")} value={profile?.email || "—"} />
+          <ReadOnlyValue label={t("Username")} value={profile?.username || "—"} />
           <ReadOnlyValue
-            label="Last sign-in"
+            label={t("Last sign-in")}
             value={formatDate(profile?.last_login_at)}
           />
         </dl>
@@ -235,7 +234,7 @@ function PersonalSection({
           }}
         >
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Display name">
+            <Field label={t("Display name")}>
               <input
                 className="input"
                 maxLength={255}
@@ -248,7 +247,7 @@ function PersonalSection({
                 }
               />
             </Field>
-            <Field label="Phone">
+            <Field label={t("Phone")}>
               <input
                 className="input"
                 maxLength={64}
@@ -261,7 +260,7 @@ function PersonalSection({
                 }
               />
             </Field>
-            <Field label="Company">
+            <Field label={t("Company")}>
               <input
                 className="input"
                 maxLength={255}
@@ -277,7 +276,7 @@ function PersonalSection({
           </div>
           <div className="flex min-h-10 items-center justify-between gap-3 border-t border-line pt-4">
             <span className="text-sm text-muted">
-              {dirty ? "Unsaved changes" : "Your profile is up to date."}
+              {dirty ? t("Unsaved changes") : t("Your profile is up to date.")}
             </span>
             <button
               className="btn btn-primary min-h-10"
@@ -287,9 +286,7 @@ function PersonalSection({
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Save size={16} />
-              )}
-              Save changes
-            </button>
+              )}{t("Save changes")}</button>
           </div>
         </form>
       </section>
@@ -299,17 +296,11 @@ function PersonalSection({
         aria-labelledby="account-security-title"
       >
         <div>
-          <h2 id="account-security-title" className="font-semibold text-ink">
-            Account security
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Change your password without leaving the current signed-in session.
-          </p>
+          <h2 id="account-security-title" className="font-semibold text-ink">{t("Account security")}</h2>
+          <p className="mt-1 text-sm text-muted">{t("Change your password without leaving the current signed-in session.")}</p>
         </div>
         <button className="btn min-h-10 shrink-0" onClick={onChangePassword}>
-          <KeyRound size={16} />
-          Change password
-        </button>
+          <KeyRound size={16} />{t("Change password")}</button>
       </section>
     </div>
   );
@@ -324,6 +315,7 @@ function ChangePasswordDialog({
   apiContext: ApiContext;
   onClose: () => void;
 }) {
+  useLocale();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -343,7 +335,7 @@ function ChangePasswordDialog({
         new_password_confirm: confirmPassword,
       }),
     onSuccess: () => {
-      toast.success("Password changed");
+      toast.success(t("Password changed"));
       onClose();
     },
     onError: (error) =>
@@ -363,8 +355,8 @@ function ChangePasswordDialog({
   return (
     <NexilumeDialog
       open={open}
-      title="Change password"
-      description="Your current browser session remains signed in."
+      title={t("Change password")}
+      description={t("Your current browser session remains signed in.")}
       busy={mutation.isPending}
       onClose={onClose}
       footer={
@@ -373,9 +365,7 @@ function ChangePasswordDialog({
             className="btn min-h-11"
             onClick={onClose}
             disabled={mutation.isPending}
-          >
-            Cancel
-          </button>
+          >{t("Cancel")}</button>
           <button
             className="btn btn-primary min-h-11"
             disabled={disabled}
@@ -385,14 +375,12 @@ function ChangePasswordDialog({
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <KeyRound size={16} />
-            )}
-            Change password
-          </button>
+            )}{t("Change password")}</button>
         </>
       }
     >
       <div className="grid gap-4">
-        <Field label="Current password">
+        <Field label={t("Current password")}>
           <input
             className="input"
             type="password"
@@ -401,7 +389,7 @@ function ChangePasswordDialog({
             onChange={(event) => setCurrentPassword(event.target.value)}
           />
         </Field>
-        <Field label="New password">
+        <Field label={t("New password")}>
           <input
             className="input"
             type="password"
@@ -410,7 +398,7 @@ function ChangePasswordDialog({
             onChange={(event) => setNewPassword(event.target.value)}
           />
         </Field>
-        <Field label="Confirm new password">
+        <Field label={t("Confirm new password")}>
           <input
             className="input"
             type="password"
@@ -420,9 +408,7 @@ function ChangePasswordDialog({
           />
         </Field>
         {mismatch ? (
-          <p className="text-sm text-danger" role="alert">
-            New passwords do not match.
-          </p>
+          <p className="text-sm text-danger" role="alert">{t("New passwords do not match.")}</p>
         ) : null}
         {errorMessage ? (
           <p
@@ -453,7 +439,7 @@ function useUnsavedChanges(dirty: boolean) {
         link.origin !== window.location.origin
       )
         return;
-      if (!window.confirm("Discard your unsaved profile changes?")) {
+      if (!window.confirm(t("Discard your unsaved profile changes?"))) {
         event.preventDefault();
         event.stopPropagation();
       }

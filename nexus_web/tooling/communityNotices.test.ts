@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,7 +7,7 @@ import { collectCommunityNotices } from './communityNotices';
 const owned: string[] = [];
 afterEach(() => { for (const root of owned.splice(0)) rmSync(root, { recursive: true }); });
 function fixture() {
-  const base = mkdtempSync(join(tmpdir(), 'nexus-notices-')); owned.push(base);
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'nexus-notices-'))); owned.push(base);
   const root = join(base, 'node_modules'); mkdirSync(root);
   const packageRoot = join(root, 'example'); mkdirSync(packageRoot);
   writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ name: 'example', version: '1.2.3', license: 'MIT' }));

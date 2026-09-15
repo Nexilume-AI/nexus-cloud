@@ -1,3 +1,4 @@
+import { t, useLocale } from "../../localization";
 import { ChevronDown, ExternalLink, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -34,23 +35,24 @@ export function ShellNavigation({
   onClose?: () => void;
   onToggleCompact: () => void;
 }) {
+  useLocale();
   const activeDomain = domains.find((domain) => domain.lanes.some((lane) => lane.items.some((item) => itemMatchesPath(item, currentPath))));
   const isCompact = compact && !mobile;
 
   return (
     <aside className={`nexilume-shell-sidebar ${isCompact ? "is-compact" : ""} ${mobile ? "is-mobile" : ""}`} data-sidebar-mode={isCompact ? "compact" : "expanded"}>
       <div className="nexilume-shell-sidebar__brand">
-        <Link to="/" className="nexilume-shell-sidebar__brand-link" onClick={onNavigate} aria-label="Nexilume AI">
-          {isCompact ? <NexilumeMark className="h-9 w-9" /> : <NexilumeBrand dark subtitle="Capability fabric" />}
+        <Link to="/" className="nexilume-shell-sidebar__brand-link" onClick={onNavigate} aria-label={t("Nexilume AI")}>
+          {isCompact ? <NexilumeMark className="h-9 w-9" /> : <NexilumeBrand dark subtitle={t("Capability fabric")} />}
         </Link>
         {mobile && onClose ? (
-          <button className="nexilume-shell-icon-button is-on-ink" onClick={onClose} aria-label="Close navigation" type="button">
+          <button className="nexilume-shell-icon-button is-on-ink" onClick={onClose} data-close-navigation aria-label={t("Close navigation")} type="button">
             <X size={18} />
           </button>
         ) : null}
       </div>
 
-      <nav className="nexilume-shell-nav" aria-label="Primary navigation">
+      <nav className="nexilume-shell-nav" aria-label={t("Primary navigation")}>
         <ShellNavigationLink item={homeItem} currentPath={currentPath} compact={isCompact} onNavigate={onNavigate} />
         <div className="nexilume-shell-nav__separator" aria-hidden="true"><i /></div>
 
@@ -64,14 +66,14 @@ export function ShellNavigation({
                   className="nexilume-shell-domain__trigger"
                   onClick={() => onToggleDomain(domain.id)}
                   aria-expanded={expanded}
-                  aria-label={isCompact ? `${domain.label} navigation` : undefined}
-                  title={isCompact ? `${domain.label} · ${domain.verb}` : undefined}
+                  aria-label={isCompact ? t("{{0}} navigation", { 0: domain.label }) : undefined}
+                  title={isCompact ? `${t(domain.label)} · ${t(domain.verb)}` : undefined}
                   type="button"
                 >
                   <DomainMark domain={domain.id} />
                   <span className="nexilume-shell-domain__copy">
-                    <strong>{domain.label}</strong>
-                    <small>{domain.verb}</small>
+                    <strong>{t(domain.label)}</strong>
+                    <small>{t(domain.verb)}</small>
                   </span>
                   <ChevronDown className="nexilume-shell-domain__chevron" size={14} aria-hidden="true" />
                 </button>
@@ -81,15 +83,15 @@ export function ShellNavigation({
                     {isCompact ? (
                       <header className="nexilume-shell-domain__panel-header">
                         <span>
-                          <small>{domain.verb}</small>
-                          <strong>{domain.label}</strong>
+                          <small>{t(domain.verb)}</small>
+                          <strong>{t(domain.label)}</strong>
                         </span>
-                        <p>{domain.description}</p>
+                        <p>{t(domain.description)}</p>
                       </header>
                     ) : null}
                     {domain.lanes.map((lane) => (
                       <div className={`nexilume-shell-lane nexilume-shell-lane--${lane.variant}`} key={lane.id}>
-                        {lane.label ? <div className="nexilume-shell-lane__label">{lane.label}</div> : null}
+                        {lane.label ? <div className="nexilume-shell-lane__label">{t(lane.label)}</div> : null}
                         <div className="nexilume-shell-lane__items">
                           {lane.items.map((item) => (
                             <ShellNavigationLink
@@ -117,12 +119,12 @@ export function ShellNavigation({
           <button
             className="nexilume-shell-sidebar__mode"
             onClick={onToggleCompact}
-            aria-label={isCompact ? "Expand navigation" : "Use compact navigation"}
-            title={isCompact ? "Expand navigation" : "Use compact navigation"}
+            aria-label={isCompact ? t("Expand navigation") : t("Use compact navigation")}
+            title={isCompact ? t("Expand navigation") : t("Use compact navigation")}
             type="button"
           >
             {isCompact ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-            {!isCompact ? <span>Compact navigation</span> : null}
+            {!isCompact ? <span>{t("Compact navigation")}</span> : null}
           </button>
         </div>
       ) : null}
@@ -131,6 +133,7 @@ export function ShellNavigation({
 }
 
 function DomainMark({ domain }: { domain: NavigationDomainId }) {
+  useLocale();
   return (
     <span className={`nexilume-domain-mark nexilume-domain-mark--${domain}`} aria-hidden="true">
       <i />
@@ -153,6 +156,7 @@ function ShellNavigationLink({
   compact: boolean;
   onNavigate: () => void;
 }) {
+  useLocale();
   const Icon = item.icon;
   const active = itemMatchesPath(item, currentPath);
   const className = `nexilume-shell-link nexilume-shell-link--${variant} ${active ? "is-active" : ""} ${compact ? "is-compact" : ""}`;
@@ -164,8 +168,8 @@ function ShellNavigationLink({
       ) : (
         <Icon className="nexilume-shell-link__icon" size={17} aria-hidden="true" />
       ))}
-      <span className="nexilume-shell-link__label">{item.label}</span>
-      {item.verb ? <span className="nexilume-shell-link__verb">{item.verb}</span> : null}
+      <span className="nexilume-shell-link__label">{t(item.label)}</span>
+      {item.verb ? <span className="nexilume-shell-link__verb">{t(item.verb)}</span> : null}
       {item.opensInWindow ? <ExternalLink className="nexilume-shell-link__external" size={13} aria-hidden="true" /> : null}
     </>
   );
@@ -182,7 +186,7 @@ function ShellNavigationLink({
           onNavigate();
         }}
         className={className}
-        aria-label={`${item.label}, open in a new window`}
+        aria-label={t("{{0}}, open in a new window", { 0: item.label })}
       >
         {content}
       </a>

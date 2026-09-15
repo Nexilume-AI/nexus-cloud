@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FitAddon } from "@xterm/addon-fit";
@@ -52,6 +53,7 @@ import { ToolSetupPanel, getToolStatus, formatComputerConnection, type ToolSetup
 
 
 export function PlaygroundPage() {
+  useLocale();
   const { apiContext, isContextReady } = useAuth();
   const queryClient = useQueryClient();
 
@@ -59,9 +61,9 @@ export function PlaygroundPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">Workspace operations</div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">Computer</h1>
-          <p className="mt-1 text-sm leading-6 text-muted">Pair this user's Computer Runtime, resume a terminal session, and configure agent tooling without exposing an inbound SSH service.</p>
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">{t("Workspace operations")}</div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">{t("Computer")}</h1>
+          <p className="mt-1 text-sm leading-6 text-muted">{t("Pair this user's Computer Runtime, resume a terminal session, and configure agent tooling without exposing an inbound SSH service.")}</p>
         </div>
       </div>
 
@@ -79,6 +81,7 @@ function RemoteWorkspacePanel({
   isContextReady: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  useLocale();
   const [selectedConnectionId, setSelectedConnectionId] = useState("");
   const [activeSession, setActiveSession] = useState<WorkspaceTerminalSession | null>(null);
   const [lastConnectionTest, setLastConnectionTest] = useState<WorkspaceConnectionTestResult | null>(null);
@@ -180,7 +183,7 @@ function RemoteWorkspacePanel({
       await queryClient.invalidateQueries({ queryKey: ["workspace-connections"] });
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Pairing link could not be created"),
+      toast.error(error instanceof Error ? error.message : t("Pairing link could not be created")),
   });
 
   useEffect(() => {
@@ -196,19 +199,19 @@ function RemoteWorkspacePanel({
     onSuccess: async () => {
       setActiveSession(null);
       setSelectedConnectionId("");
-      toast.success("Target deleted");
+      toast.success(t("Target deleted"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to delete target")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to delete target"))
   });
 
   const revokeComputer = useMutation({
     mutationFn: (connectionId: string) => api.revokeComputerRuntime(apiContext, connectionId),
     onSuccess: async () => {
-      toast.success("Computer Runtime revoked");
+      toast.success(t("Computer Runtime revoked"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Computer Runtime could not be revoked"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Computer Runtime could not be revoked")),
   });
 
   const renameComputer = useMutation({
@@ -217,10 +220,10 @@ function RemoteWorkspacePanel({
     onSuccess: async () => {
       setRenameConnectionId("");
       setRenameValue("");
-      toast.success("Computer renamed");
+      toast.success(t("Computer renamed"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Computer could not be renamed"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Computer could not be renamed")),
   });
 
   const testConnection = useMutation({
@@ -228,13 +231,13 @@ function RemoteWorkspacePanel({
     onSuccess: async (result, connectionId) => {
       const silent = silentTestConnectionsRef.current.delete(connectionId);
       setLastConnectionTest(result);
-      if (!silent) toast.success(result.status === "succeeded" ? "Connection test passed" : "Connection test failed");
+      if (!silent) toast.success(result.status === "succeeded" ? t("Connection test passed") : t("Connection test failed"));
       await refreshWorkspace();
     },
     onError: (error, connectionId) => {
       const silent = silentTestConnectionsRef.current.delete(connectionId);
       setLastConnectionTest(null);
-      if (!silent) toast.error(error instanceof Error ? error.message : "Connection test failed");
+      if (!silent) toast.error(error instanceof Error ? error.message : t("Connection test failed"));
     }
   });
 
@@ -256,10 +259,10 @@ function RemoteWorkspacePanel({
       }),
     onSuccess: async (session) => {
       setActiveSession(session);
-      toast.success("Terminal ready");
+      toast.success(t("Terminal ready"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to open terminal")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to open terminal"))
   });
 
   const closeSession = useMutation({
@@ -270,20 +273,20 @@ function RemoteWorkspacePanel({
         (current) => current?.map((session) => (session.id === closedSession.id ? closedSession : session)) ?? []
       );
       setActiveSession(null);
-      toast.success("Terminal closed");
+      toast.success(t("Terminal closed"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to close terminal")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to close terminal"))
   });
 
   const detectTools = useMutation({
     mutationFn: (sessionId: string) => api.detectWorkspaceTerminalTools(apiContext, sessionId),
     onSuccess: async (session) => {
       setActiveSession(session);
-      toast.success("Tool status refreshed");
+      toast.success(t("Tool status refreshed"));
       await refreshWorkspace();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to detect tools")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to detect tools"))
   });
 
   const workspaceHasError = connections.isError || sessions.isError;
@@ -295,17 +298,15 @@ function RemoteWorkspacePanel({
       {workspaceHasError && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
           <div>
-            <div className="font-semibold">Computer data could not be refreshed.</div>
-            <div className="mt-0.5 text-rose-700">Check the selected workspace and try again. Existing terminal sessions are not stopped.</div>
+            <div className="font-semibold">{t("Computer data could not be refreshed.")}</div>
+            <div className="mt-0.5 text-rose-700">{t("Check the selected workspace and try again. Existing terminal sessions are not stopped.")}</div>
           </div>
           <button className="btn border-rose-200 bg-white text-rose-800" type="button" onClick={() => void refreshWorkspace()}>
-            <RefreshCw size={16} />
-            Retry
-          </button>
+            <RefreshCw size={16} />{t("Retry")}</button>
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-line bg-white shadow-panel" aria-label="Computer workbench">
+      <section className="overflow-hidden rounded-xl border border-line bg-white shadow-panel" aria-label={t("Computer workbench")}>
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-slate-50/70 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${sessionIsLive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-line bg-white text-slate-600"}`}>
@@ -313,23 +314,21 @@ function RemoteWorkspacePanel({
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-sm font-semibold text-ink">{selectedConnection?.name || "No Computer selected"}</h2>
-                <span className="text-xs font-medium text-muted">Session</span>
+                <h2 className="truncate text-sm font-semibold text-ink">{selectedConnection?.name || t("No Computer selected")}</h2>
+                <span className="text-xs font-medium text-muted">{t("Session")}</span>
                 <WorkspaceStatusBadge status={activeSession?.status || "not connected"} />
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 <span>
-                  {selectedConnection ? formatComputerConnection(selectedConnection) : "Pair a Computer Runtime to begin."}
+                  {selectedConnection ? formatComputerConnection(selectedConnection) : t("Pair a Computer Runtime to begin.")}
                 </span>
                 {selectedConnection && (
-                  <span className="inline-flex items-center gap-1">
-                    Target health:
-                    <span className="font-medium text-slate-700">{formatTargetHealth(selectedConnection)}</span>
+                  <span className="inline-flex items-center gap-1">{t("Target health:")}<span className="font-medium text-slate-700">{formatTargetHealth(selectedConnection)}</span>
                     {selectedConnection.last_test_at ? ` · ${formatRelativeTime(selectedConnection.last_test_at)}` : ""}
                   </span>
                 )}
                 {selectedConnection && (
-                  <span>{selectedActiveSessionCount} active session{selectedActiveSessionCount === 1 ? "" : "s"}</span>
+                  <span>{selectedActiveSessionCount}{" "}{t("active session")}{getLocale() === "zh-CN" ? "" : selectedActiveSessionCount === 1 ? "" : "s"}</span>
                 )}
               </div>
             </div>
@@ -342,13 +341,9 @@ function RemoteWorkspacePanel({
               disabled={!selectedConnection?.availability?.available}
               onClick={() => setIsToolSetupOpen(true)}
             >
-              <Settings2 size={16} />
-              Configure tools
-            </button>
+              <Settings2 size={16} />{t("Configure tools")}</button>
             <button className="btn" type="button" onClick={() => void refreshWorkspace()} disabled={connections.isFetching || sessions.isFetching}>
-              {connections.isFetching || sessions.isFetching ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-              Sync
-            </button>
+              {connections.isFetching || sessions.isFetching ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}{t("Sync")}</button>
             {activeSession ? (
               <button
                 className="btn"
@@ -356,9 +351,7 @@ function RemoteWorkspacePanel({
                 onClick={() => closeSession.mutate(activeSession.id)}
                 disabled={closeSession.isPending}
               >
-                {closeSession.isPending ? <Loader2 size={16} className="animate-spin" /> : <Square size={16} />}
-                End session
-              </button>
+                {closeSession.isPending ? <Loader2 size={16} className="animate-spin" /> : <Square size={16} />}{t("End session")}</button>
             ) : (
               <button
                 className="btn btn-primary"
@@ -368,38 +361,34 @@ function RemoteWorkspacePanel({
                   if (selectedConnection) createSession.mutate(selectedConnection.id);
                 }}
               >
-                {createSession.isPending ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />}
-                Open terminal
-              </button>
+                {createSession.isPending ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />}{t("Open terminal")}</button>
             )}
           </div>
         </header>
 
         <div className="grid min-w-0 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="min-w-0 border-b border-line bg-slate-50/40 xl:border-b-0 xl:border-r" aria-label="Computers">
+          <aside className="min-w-0 border-b border-line bg-slate-50/40 xl:border-b-0 xl:border-r" aria-label={t("Computers")}>
             <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-ink">Computers</h2>
-                <p className="mt-0.5 text-xs text-muted">{connectionData.length} configured</p>
+                <h2 className="text-sm font-semibold text-ink">{t("Computers")}</h2>
+                <p className="mt-0.5 text-xs text-muted">{connectionData.length}{" "}{t("configured")}</p>
               </div>
               <button className="btn btn-primary" type="button" onClick={openAddTarget}>
-                <Plus size={16} />
-                Pair Computer
-              </button>
+                <Plus size={16} />{t("Pair Computer")}</button>
             </div>
             {connectionData.length > 5 && (
               <div className="grid gap-2 border-b border-line bg-white px-3 py-3">
                 <label className="relative">
-                  <span className="sr-only">Search Computers</span>
+                  <span className="sr-only">{t("Search Computers")}</span>
                   <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={15} />
                   <input
                     className="input h-9 pl-9 text-sm"
-                    placeholder="Search targets"
+                    placeholder={t("Search targets")}
                     value={targetSearch}
                     onChange={(event) => setTargetSearch(event.target.value)}
                   />
                 </label>
-                <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1" aria-label="Target health filter">
+                <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1" aria-label={t("Target health filter")}>
                   {(["all", "attention"] as const).map((filter) => (
                     <button
                       key={filter}
@@ -407,7 +396,7 @@ function RemoteWorkspacePanel({
                       type="button"
                       onClick={() => setTargetFilter(filter)}
                     >
-                      {filter === "all" ? "All" : "Needs attention"}
+                      {filter === "all" ? t("All") : t("Needs attention")}
                     </button>
                   ))}
                 </div>
@@ -454,8 +443,8 @@ function RemoteWorkspacePanel({
           <section className="min-w-0 bg-white" aria-labelledby="remote-terminal-title">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
               <div>
-                <h2 id="remote-terminal-title" className="text-sm font-semibold text-ink">Terminal</h2>
-                <p className="mt-0.5 text-xs text-muted">This shell and its recent output stay attached until you end the session.</p>
+                <h2 id="remote-terminal-title" className="text-sm font-semibold text-ink">{t("Terminal")}</h2>
+                <p className="mt-0.5 text-xs text-muted">{t("This shell and its recent output stay attached until you end the session.")}</p>
               </div>
               {activeSession && <WorkspaceStatusBadge status={activeSession.status} />}
             </div>
@@ -573,6 +562,7 @@ function TerminalWorkspace({
   onConnected: () => void;
   onDisconnected: () => void;
 }) {
+  useLocale();
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -736,15 +726,15 @@ function TerminalWorkspace({
   }, [activeSessionId, apiContext, isCompactViewport, reconnectKey]);
 
   if (!selectedConnection) {
-    return <div className="rounded-md border border-dashed border-line bg-slate-50 p-6 text-sm text-muted">Select or pair a Computer Runtime first.</div>;
+    return <div className="rounded-md border border-dashed border-line bg-slate-50 p-6 text-sm text-muted">{t("Select or pair a Computer Runtime first.")}</div>;
   }
   if (!activeSession) {
     return (
       <div className="grid min-h-[320px] place-items-center rounded-lg border border-dashed border-line bg-slate-50 p-6 text-center sm:min-h-[480px] xl:min-h-[640px]">
         <div>
           <Terminal className="mx-auto text-muted" size={34} />
-          <div className="mt-3 text-sm font-semibold text-ink">No terminal session</div>
-          <div className="mt-1 text-sm text-muted">Open a terminal to configure CLI tools and MCP servers on this target.</div>
+          <div className="mt-3 text-sm font-semibold text-ink">{t("No terminal session")}</div>
+          <div className="mt-1 text-sm text-muted">{t("Open a terminal to configure CLI tools and MCP servers on this target.")}</div>
         </div>
       </div>
     );
@@ -754,10 +744,8 @@ function TerminalWorkspace({
       <div className="grid min-h-[260px] place-items-center rounded-lg border border-line bg-slate-50 p-6 text-center">
         <div className="max-w-sm">
           <MonitorUp className="mx-auto text-slate-600" size={34} />
-          <div className="mt-3 text-base font-semibold text-ink">Session is {formatWorkspaceStatus(activeSession.status)}</div>
-          <div className="mt-2 text-sm leading-6 text-muted">
-            Session status and controls remain available on mobile. Open Nexus on a tablet or desktop to interact with the live terminal.
-          </div>
+          <div className="mt-3 text-base font-semibold text-ink">{t("Session is")}{" "}{formatWorkspaceStatus(activeSession.status)}</div>
+          <div className="mt-2 text-sm leading-6 text-muted">{t("Session status and controls remain available on mobile. Open Nexus on a tablet or desktop to interact with the live terminal.")}</div>
         </div>
       </div>
     );
@@ -788,12 +776,10 @@ function TerminalWorkspace({
               if (transcript) void copyWorkspaceTerminalText(transcript, "Terminal output copied");
               else toast.info("No terminal output to copy yet");
             }}
-            aria-label="Copy terminal output"
-            title="Copy the complete terminal transcript"
+            aria-label={t("Copy terminal output")}
+            title={t("Copy the complete terminal transcript")}
           >
-            <Copy size={13} />
-            Copy output
-          </button>
+            <Copy size={13} />{t("Copy output")}</button>
         {["disconnected", "error"].includes(socketStatus) && (
           <button
             className="font-semibold text-white underline underline-offset-2"
@@ -802,9 +788,7 @@ function TerminalWorkspace({
               reconnectAttemptsRef.current = 0;
               setReconnectKey((value) => value + 1);
             }}
-          >
-            Reconnect
-          </button>
+          >{t("Reconnect")}</button>
         )}
         </div>
       </div>
@@ -841,7 +825,7 @@ async function copyWorkspaceTerminalText(value: string, successMessage: string) 
     const copied = document.execCommand("copy");
     textarea.remove();
     if (!copied) {
-      toast.error("Unable to copy terminal output");
+      toast.error(t("Unable to copy terminal output"));
       return;
     }
   }
@@ -877,6 +861,7 @@ function LegacyToolSetupPanel({
   onDetectTools: () => void;
   onOpenSession: () => void;
 }) {
+  useLocale();
   const toolStatus = getToolStatus(activeSession);
   const queryClient = useQueryClient();
   const [isReviewing, setIsReviewing] = useState(false);
@@ -922,7 +907,7 @@ function LegacyToolSetupPanel({
       toast.success(toolOperationLabel(variables.operation));
       await queryClient.invalidateQueries({ queryKey: ["workspace-tool-config"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to apply tool config")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to apply tool config"))
   });
   const rollbackToolConfig = useMutation({
     mutationFn: () => {
@@ -934,10 +919,10 @@ function LegacyToolSetupPanel({
         ["workspace-tool-config", apiContext, activeSession?.id, "codex"],
         result
       );
-      toast.success("Rolled back Codex config");
+      toast.success(t("Rolled back Codex config"));
       await queryClient.invalidateQueries({ queryKey: ["workspace-tool-config"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to rollback tool config")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to rollback tool config"))
   });
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -953,20 +938,20 @@ function LegacyToolSetupPanel({
   const primaryOperation = selectedAgent ? "full_profile" : "api_only";
   const configStatus =
     !activeSession
-      ? { label: "Session required", detail: "Open a terminal session before reading or changing remote configuration.", tone: "slate" }
+      ? { label: t("Session required"), detail: t("Open a terminal session before reading or changing remote configuration."), tone: "slate" }
       : toolStatus?.error
-        ? { label: "Needs attention", detail: toolStatus.error, tone: "rose" }
+        ? { label: t("Needs attention"), detail: toolStatus.error, tone: "rose" }
         : toolItem && !toolItem.installed
-          ? { label: "Tool missing", detail: `${toolLabel(form.selectedTool)} was not detected on this target.`, tone: "amber" }
+          ? { label: t("Tool missing"), detail: t("{{0}} was not detected on this target.", { 0: toolLabel(form.selectedTool) }), tone: "amber" }
           : toolConfig.isLoading
-            ? { label: "Reading configuration", detail: "Checking the managed Codex profile on this target.", tone: "slate" }
+            ? { label: t("Reading configuration"), detail: t("Checking the managed Codex profile on this target."), tone: "slate" }
             : remoteConfig && !remoteConfig.exists
-              ? { label: "Setup required", detail: "The Nexus-managed Codex profile has not been created yet.", tone: "amber" }
+              ? { label: t("Setup required"), detail: t("The Nexus-managed Codex profile has not been created yet."), tone: "amber" }
               : remoteConfig && selectedRuntimeModel && remoteConfig.model !== selectedRuntimeModel
-                ? { label: "Changes available", detail: `The remote profile currently uses ${remoteConfig.model || "no model"}.`, tone: "amber" }
+                ? { label: t("Changes available"), detail: t("The remote profile currently uses {{0}}.", { 0: remoteConfig.model || "no model" }), tone: "amber" }
                 : remoteConfig?.api_configured
-                  ? { label: "Configured", detail: "The managed Codex profile is connected to a Nexus provider runtime.", tone: "emerald" }
-                  : { label: "Setup required", detail: "Choose a provider runtime to connect Codex to Nexus.", tone: "amber" };
+                  ? { label: t("Configured"), detail: t("The managed Codex profile is connected to a Nexus provider runtime."), tone: "emerald" }
+                  : { label: t("Setup required"), detail: t("Choose a provider runtime to connect Codex to Nexus."), tone: "amber" };
   const configTone =
     configStatus.tone === "emerald"
       ? "border-emerald-200 bg-emerald-50 text-emerald-900"
@@ -979,13 +964,13 @@ function LegacyToolSetupPanel({
   function sendCommand(command: string) {
     window.dispatchEvent(new CustomEvent("nexus-terminal-command", { detail: command }));
     navigator.clipboard?.writeText(command).catch(() => undefined);
-    toast.info(activeSession ? "Command copied; paste it into the terminal if it was not inserted automatically." : "Open a terminal first. Command copied.");
+    toast.info(activeSession ? t("Command copied; paste it into the terminal if it was not inserted automatically.") : t("Open a terminal first. Command copied."));
   }
 
   function downloadGeneratedConfig() {
     if (!remoteConfig?.content) return;
     downloadTextFile("nexus.config.toml", remoteConfig.content, "text/plain");
-    toast.success("Config file downloaded");
+    toast.success(t("Config file downloaded"));
   }
 
   function applyOperation(operation: "api_only" | "mcp_add" | "mcp_remove" | "mcp_replace" | "mcp_clear" | "full_profile", extra: Record<string, string> = {}) {
@@ -1014,15 +999,15 @@ function LegacyToolSetupPanel({
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-4 py-4 sm:px-6">
           <div className="min-w-0">
-            <h2 id="tool-setup-title" className="text-lg font-semibold tracking-[-0.02em] text-ink">Tool setup</h2>
+            <h2 id="tool-setup-title" className="text-lg font-semibold tracking-[-0.02em] text-ink">{t("Tool setup")}</h2>
             <p className="mt-1 truncate text-sm text-muted">
-              {selectedConnection ? `${selectedConnection.name} · ${formatComputerConnection(selectedConnection)}` : "No Computer selected"}
+              {selectedConnection ? `${selectedConnection.name} · ${formatComputerConnection(selectedConnection)}` : t("No Computer selected")}
             </p>
           </div>
           <button
             className="btn h-10 w-10 shrink-0 p-0"
             type="button"
-            aria-label="Close tool setup"
+            aria-label={t("Close tool setup")}
             disabled={applyToolConfig.isPending || rollbackToolConfig.isPending}
             onClick={onClose}
           >
@@ -1034,19 +1019,17 @@ function LegacyToolSetupPanel({
           <section className="border-b border-line px-4 py-5 sm:px-6" aria-labelledby="available-tools-title">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 id="available-tools-title" className="text-sm font-semibold text-ink">Tools on this target</h3>
+                <h3 id="available-tools-title" className="text-sm font-semibold text-ink">{t("Tools on this target")}</h3>
                 <p className="mt-1 text-xs leading-5 text-muted">
-                  {toolStatus?.checked_at ? `Checked ${new Date(toolStatus.checked_at).toLocaleString()}` : "Tool detection begins when a terminal session is open."}
+                  {toolStatus?.checked_at ? t("Checked {{0}}", { 0: new Date(toolStatus.checked_at).toLocaleString(getLocale()) }) : t("Tool detection begins when a terminal session is open.")}
                 </p>
               </div>
               <button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={!activeSession || isDetecting} onClick={onDetectTools}>
-                {isDetecting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                Refresh status
-              </button>
+                {isDetecting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}{t("Refresh status")}</button>
             </div>
             <div className="mt-4 grid overflow-hidden rounded-xl border border-line">
               <ToolStatusRow
-                label="Codex"
+                label={t("Codex")}
                 item={toolStatus?.tools?.codex}
                 selected={form.selectedTool === "codex"}
                 onSelect={() => {
@@ -1055,7 +1038,7 @@ function LegacyToolSetupPanel({
                 }}
               />
               <ToolStatusRow
-                label="Claude Code"
+                label={t("Claude Code")}
                 item={toolStatus?.tools?.claude_code}
                 selected={form.selectedTool === "claude_code"}
                 onSelect={() => {
@@ -1070,12 +1053,10 @@ function LegacyToolSetupPanel({
             <section className="px-4 py-6 sm:px-6">
               <div className="rounded-xl border border-dashed border-line bg-slate-50 p-5">
                 <Terminal size={24} className="text-slate-600" />
-                <h3 className="mt-3 text-sm font-semibold text-ink">Open a terminal session first</h3>
-                <p className="mt-1 text-sm leading-6 text-muted">Nexus reads and applies tool configuration through the selected Computer Runtime session.</p>
+                <h3 className="mt-3 text-sm font-semibold text-ink">{t("Open a terminal session first")}</h3>
+                <p className="mt-1 text-sm leading-6 text-muted">{t("Nexus reads and applies tool configuration through the selected Computer Runtime session.")}</p>
                 <button className="btn btn-primary mt-4" type="button" disabled={!selectedConnection || isOpeningSession} onClick={onOpenSession}>
-                  {isOpeningSession ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />}
-                  Open terminal
-                </button>
+                  {isOpeningSession ? <Loader2 size={16} className="animate-spin" /> : <Terminal size={16} />}{t("Open terminal")}</button>
               </div>
             </section>
           ) : form.selectedTool === "claude_code" ? (
@@ -1084,24 +1065,22 @@ function LegacyToolSetupPanel({
                 <div className="flex items-start gap-3">
                   {toolItem?.installed ? <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" /> : <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-700" />}
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">{toolItem?.installed ? "Claude Code detected" : "Claude Code is not installed"}</h3>
+                    <h3 className="text-sm font-semibold text-ink">{toolItem?.installed ? t("Claude Code detected") : t("Claude Code is not installed")}</h3>
                     <p className="mt-1 text-sm leading-6 text-muted">
                       {toolItem?.installed
-                        ? "Nexus can verify this CLI, but managed remote configuration is currently available for Codex only."
-                        : "Installation is managed outside Nexus. Install Claude Code on this target, then refresh tool status."}
+                        ? t("Nexus can verify this CLI, but managed remote configuration is currently available for Codex only.")
+                        : t("Installation is managed outside Nexus. Install Claude Code on this target, then refresh tool status.")}
                     </p>
                   </div>
                 </div>
               </div>
               <button className="btn mt-4" type="button" onClick={() => sendCommand("claude --version\n")}>
-                <Send size={16} />
-                Run verification command
-              </button>
+                <Send size={16} />{t("Run verification command")}</button>
             </section>
           ) : (
             <>
               <section className="border-b border-line px-4 py-5 sm:px-6" aria-labelledby="configuration-status-title">
-                <h3 id="configuration-status-title" className="text-sm font-semibold text-ink">Configuration status</h3>
+                <h3 id="configuration-status-title" className="text-sm font-semibold text-ink">{t("Configuration status")}</h3>
                 <div className={`mt-3 rounded-xl border p-4 ${configTone}`} aria-live="polite">
                   <div className="flex items-start gap-3">
                     {configStatus.tone === "emerald" ? <CheckCircle2 size={19} className="mt-0.5 shrink-0" /> : configStatus.tone === "slate" ? <Loader2 size={19} className={`mt-0.5 shrink-0 ${toolConfig.isLoading ? "animate-spin" : ""}`} /> : <AlertTriangle size={19} className="mt-0.5 shrink-0" />}
@@ -1113,18 +1092,18 @@ function LegacyToolSetupPanel({
                 </div>
                 {toolConfig.isError && (
                   <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">
-                    {toolConfig.error instanceof Error ? toolConfig.error.message : "Remote configuration could not be read."}
+                    {toolConfig.error instanceof Error ? toolConfig.error.message : t("Remote configuration could not be read.")}
                   </div>
                 )}
               </section>
 
               <section className="border-b border-line px-4 py-5 sm:px-6" aria-labelledby="configure-codex-title">
                 <div>
-                  <h3 id="configure-codex-title" className="text-sm font-semibold text-ink">Configure Codex</h3>
-                  <p className="mt-1 text-xs leading-5 text-muted">Choose the Nexus runtime Codex should use. Connecting an Agent is optional.</p>
+                  <h3 id="configure-codex-title" className="text-sm font-semibold text-ink">{t("Configure Codex")}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted">{t("Choose the Nexus runtime Codex should use. Connecting an Agent is optional.")}</p>
                 </div>
                 <div className="mt-4 grid gap-4">
-                  <Field label="Provider runtime">
+                  <Field label={t("Provider runtime")}>
                     <select
                       className="select"
                       value={form.selectedRuntimeId}
@@ -1133,7 +1112,7 @@ function LegacyToolSetupPanel({
                         onChange({ ...form, selectedRuntimeId: event.target.value });
                       }}
                     >
-                      {runtimeData.length === 0 && <option value="">No provider runtime available</option>}
+                      {runtimeData.length === 0 && <option value="">{t("No provider runtime available")}</option>}
                       {runtimeData.map((runtime) => (
                         <option key={runtime.id} value={runtime.id}>
                           {runtime.name} / {runtimeCanonicalModel(runtime)}
@@ -1141,7 +1120,7 @@ function LegacyToolSetupPanel({
                       ))}
                     </select>
                   </Field>
-                  <Field label="Agent MCP (optional)">
+                  <Field label={t("Agent MCP (optional)")}>
                     <select
                       className="select"
                       value={form.selectedAgentId}
@@ -1150,48 +1129,44 @@ function LegacyToolSetupPanel({
                         onChange({ ...form, selectedAgentId: event.target.value });
                       }}
                     >
-                      <option value="">Keep existing MCP servers</option>
+                      <option value="">{t("Keep existing MCP servers")}</option>
                       {agentData.map((agent) => (
                         <option key={agent.id} value={agent.id}>
-                          {agent.name} / {agent.current_version || "draft"}
+                          {agent.name} / {agent.current_version || t("draft")}
                         </option>
                       ))}
                     </select>
                   </Field>
                 </div>
                 {(providerRuntimes.isError || agents.isError) && (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-                    Some setup options could not be loaded. Refresh the page before applying changes.
-                  </div>
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">{t("Some setup options could not be loaded. Refresh the page before applying changes.")}</div>
                 )}
 
                 {isReviewing && (
-                  <div className="mt-4 rounded-xl border border-slate-300 bg-slate-50 p-4" aria-label="Configuration change preview">
-                    <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Review changes</div>
+                  <div className="mt-4 rounded-xl border border-slate-300 bg-slate-50 p-4" aria-label={t("Configuration change preview")}>
+                    <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Review changes")}</div>
                     <div className="mt-3 grid gap-3 text-sm">
-                      <Detail label="Target" value={selectedConnection?.name || "Selected target"} />
-                      <Detail label="Provider API" value={`${selectedRuntime?.name || "Not selected"} / ${selectedRuntimeModel || "-"}`} />
+                      <Detail label={t("Target")} value={selectedConnection?.name || "Selected target"} />
+                      <Detail label={t("Provider API")} value={`${selectedRuntime?.name || "Not selected"} / ${selectedRuntimeModel || "-"}`} />
                       <Detail
-                        label="Agent MCP"
+                        label={t("Agent MCP")}
                         value={selectedAgent ? `Replace current servers with ${selectedAgent.name}` : "Keep all current MCP servers"}
                       />
-                      <Detail label="Safety" value={remoteConfig?.exists ? "Create a timestamped backup before writing" : "Create a new managed profile"} />
+                      <Detail label={t("Safety")} value={remoteConfig?.exists ? "Create a timestamped backup before writing" : "Create a new managed profile"} />
                     </div>
                   </div>
                 )}
-                {lastAppliedAt && <div className="mt-3 text-xs text-emerald-700">Last applied {new Date(lastAppliedAt).toLocaleString()}.</div>}
+                {lastAppliedAt && <div className="mt-3 text-xs text-emerald-700">{t("Last applied")}{" "}{new Date(lastAppliedAt).toLocaleString(getLocale())}.</div>}
               </section>
 
               <section className="border-b border-line px-4 py-5 sm:px-6" aria-labelledby="mcp-servers-title">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 id="mcp-servers-title" className="text-sm font-semibold text-ink">Current MCP servers</h3>
-                    <p className="mt-1 text-xs text-muted">{remoteConfig?.mcp_servers.length || 0} connected</p>
+                    <h3 id="mcp-servers-title" className="text-sm font-semibold text-ink">{t("Current MCP servers")}</h3>
+                    <p className="mt-1 text-xs text-muted">{remoteConfig?.mcp_servers.length || 0}{" "}{t("connected")}</p>
                   </div>
                   <button className="btn h-9 px-3 text-xs" type="button" disabled={toolConfig.isFetching} onClick={() => void toolConfig.refetch()}>
-                    {toolConfig.isFetching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                    Reload config
-                  </button>
+                    {toolConfig.isFetching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}{t("Reload config")}</button>
                 </div>
                 {remoteConfig?.mcp_servers.length ? (
                   <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">
@@ -1199,7 +1174,7 @@ function LegacyToolSetupPanel({
                       <div key={server.name} className="flex items-center justify-between gap-3 px-3 py-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-ink">{server.name}</div>
-                          <div className="mt-0.5 truncate text-xs text-muted">{server.url || server.type || "Managed server"}</div>
+                          <div className="mt-0.5 truncate text-xs text-muted">{server.url || server.type || t("Managed server")}</div>
                         </div>
                         <button
                           className="btn h-8 px-2 text-xs"
@@ -1207,59 +1182,47 @@ function LegacyToolSetupPanel({
                           disabled={applyToolConfig.isPending}
                           onClick={() => applyOperation("mcp_remove", { mcp_server_name: server.name })}
                         >
-                          <Trash2 size={14} />
-                          Remove
-                        </button>
+                          <Trash2 size={14} />{t("Remove")}</button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-lg border border-dashed border-line bg-slate-50 p-3 text-sm text-muted">No MCP servers are configured. Provider API settings are unaffected.</div>
+                  <div className="mt-3 rounded-lg border border-dashed border-line bg-slate-50 p-3 text-sm text-muted">{t("No MCP servers are configured. Provider API settings are unaffected.")}</div>
                 )}
               </section>
 
               <section className="px-4 py-5 sm:px-6">
                 <details className="group rounded-xl border border-line bg-white">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-                    Advanced settings
-                    <ChevronRight size={16} className="transition-transform group-open:rotate-90" />
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">{t("Advanced settings")}<ChevronRight size={16} className="transition-transform group-open:rotate-90" />
                   </summary>
                   <div className="border-t border-line px-4 py-4">
                     <div className="grid gap-3 text-sm">
-                      <Detail label="Config path" value={remoteConfig?.path || "~/.codex/nexus.config.toml"} />
-                      <Detail label="Profile" value={remoteConfig?.profile || "nexus"} />
-                      <Detail label="Model" value={remoteConfig?.model || "Not configured"} />
-                      <Detail label="Provider" value={remoteConfig?.model_provider || "Not configured"} />
-                      <Detail label="Base URL" value={remoteConfig?.base_url || "Not configured"} />
-                      <Detail label="Wire API" value={remoteConfig?.wire_api || "Not configured"} />
+                      <Detail label={t("Config path")} value={remoteConfig?.path || "~/.codex/nexus.config.toml"} />
+                      <Detail label={t("Profile")} value={remoteConfig?.profile || "nexus"} />
+                      <Detail label={t("Model")} value={remoteConfig?.model || "Not configured"} />
+                      <Detail label={t("Provider")} value={remoteConfig?.model_provider || "Not configured"} />
+                      <Detail label={t("Base URL")} value={remoteConfig?.base_url || "Not configured"} />
+                      <Detail label={t("Wire API")} value={remoteConfig?.wire_api || "Not configured"} />
                     </div>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <button className="btn justify-start" type="button" disabled={!remoteConfig?.content} onClick={downloadGeneratedConfig}>
-                        <Download size={16} />
-                        Download config
-                      </button>
+                        <Download size={16} />{t("Download config")}</button>
                       <button className="btn justify-start" type="button" onClick={() => sendCommand(`codex --profile ${remoteConfig?.profile || "nexus"}\n`)}>
-                        <Send size={16} />
-                        Launch Codex
-                      </button>
+                        <Send size={16} />{t("Launch Codex")}</button>
                       <button
                         className="btn justify-start"
                         type="button"
                         disabled={!selectedRuntime || applyToolConfig.isPending}
                         onClick={() => applyOperation("api_only")}
                       >
-                        <Save size={16} />
-                        Apply API only
-                      </button>
+                        <Save size={16} />{t("Apply API only")}</button>
                       <button
                         className="btn justify-start"
                         type="button"
                         disabled={!selectedAgent || applyToolConfig.isPending}
                         onClick={() => applyOperation("mcp_add")}
                       >
-                        <Plus size={16} />
-                        Add selected MCP
-                      </button>
+                        <Plus size={16} />{t("Add selected MCP")}</button>
                       <button
                         className="btn justify-start"
                         type="button"
@@ -1270,9 +1233,7 @@ function LegacyToolSetupPanel({
                           }
                         }}
                       >
-                        <Save size={16} />
-                        Replace all MCP
-                      </button>
+                        <Save size={16} />{t("Replace all MCP")}</button>
                       <button
                         className="btn justify-start border-rose-200 text-rose-700 hover:bg-rose-50"
                         type="button"
@@ -1283,32 +1244,28 @@ function LegacyToolSetupPanel({
                           }
                         }}
                       >
-                        <Trash2 size={16} />
-                        Clear all MCP
-                      </button>
+                        <Trash2 size={16} />{t("Clear all MCP")}</button>
                     </div>
 
                     <div className="mt-5 border-t border-line pt-4">
-                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Recovery</div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Recovery")}</div>
                       <p className="mt-1 text-xs leading-5 text-muted">
                         {remoteConfig?.rollback_available
-                          ? `Latest backup: ${remoteConfig.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString() : "available"}`
-                          : "No backup is available for this session yet."}
+                          ? t("Latest backup: {{0}}", { 0: remoteConfig.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString(getLocale()) : "available" })
+                          : t("No backup is available for this session yet.")}
                       </p>
                       <button
                         className="btn mt-3 justify-start"
                         type="button"
                         disabled={rollbackToolConfig.isPending || !remoteConfig?.rollback_available}
                         onClick={() => {
-                          const backupTime = remoteConfig?.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString() : "the latest backup";
+                          const backupTime = remoteConfig?.backup_created_at ? new Date(remoteConfig.backup_created_at).toLocaleString(getLocale()) : "the latest backup";
                           if (window.confirm(`Roll back Codex configuration on "${selectedConnection?.name || "this target"}" to ${backupTime}?`)) {
                             rollbackToolConfig.mutate();
                           }
                         }}
                       >
-                        {rollbackToolConfig.isPending ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
-                        Roll back latest backup
-                      </button>
+                        {rollbackToolConfig.isPending ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}{t("Roll back latest backup")}</button>
                     </div>
                   </div>
                 </details>
@@ -1320,9 +1277,7 @@ function LegacyToolSetupPanel({
           <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:px-6">
             {isReviewing ? (
               <>
-                <button className="btn" type="button" disabled={applyToolConfig.isPending} onClick={() => setIsReviewing(false)}>
-                  Cancel
-                </button>
+                <button className="btn" type="button" disabled={applyToolConfig.isPending} onClick={() => setIsReviewing(false)}>{t("Cancel")}</button>
                 <button
                   className="btn btn-primary"
                   type="button"
@@ -1330,7 +1285,7 @@ function LegacyToolSetupPanel({
                   onClick={() => applyOperation(primaryOperation)}
                 >
                   {applyToolConfig.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {applyToolConfig.isPending ? "Applying…" : "Apply changes"}
+                  {applyToolConfig.isPending ? t("Applying…") : t("Apply changes")}
                 </button>
               </>
             ) : (
@@ -1339,9 +1294,7 @@ function LegacyToolSetupPanel({
                 type="button"
                 disabled={!selectedRuntime || applyToolConfig.isPending || providerRuntimes.isError}
                 onClick={() => setIsReviewing(true)}
-              >
-                Review changes
-                <ChevronRight size={16} />
+              >{t("Review changes")}<ChevronRight size={16} />
               </button>
             )}
           </footer>
@@ -1371,7 +1324,7 @@ function buildConfigCommands({
   if (shell === "powershell") {
     return [
       {
-        title: tool === "codex" ? `Generate Codex profile ${config.profileName}` : `Apply ${toolLabel(tool)} config with backup`,
+        title: tool === "codex" ? t("Generate Codex profile {{0}}", { 0: config.profileName }) : t("Apply {{0}} config with backup", { 0: toolLabel(tool) }),
         kind: "apply",
         disabled: applyDisabled,
         command: buildPowerShellApplyCommand(tool, config)
@@ -1379,7 +1332,7 @@ function buildConfigCommands({
       ...(tool === "codex"
         ? [
             {
-              title: `Launch codex --profile ${config.profileName}`,
+              title: t("Launch codex --profile {{0}}", { 0: config.profileName }),
               kind: "launch",
               disabled: applyDisabled,
               command: buildPowerShellLaunchCommand(config)
@@ -1387,7 +1340,7 @@ function buildConfigCommands({
           ]
         : []),
       {
-        title: `Rollback ${toolLabel(tool)} latest backup`,
+        title: t("Rollback {{0}} latest backup", { 0: toolLabel(tool) }),
         kind: "rollback",
         disabled: false,
         command: buildPowerShellRollbackCommand(tool, config)
@@ -1396,7 +1349,7 @@ function buildConfigCommands({
   }
   return [
     {
-      title: tool === "codex" ? `Generate Codex profile ${config.profileName}` : `Apply ${toolLabel(tool)} config with backup`,
+      title: tool === "codex" ? t("Generate Codex profile {{0}}", { 0: config.profileName }) : t("Apply {{0}} config with backup", { 0: toolLabel(tool) }),
       kind: "apply",
       disabled: applyDisabled,
       command: buildBashApplyCommand(tool, config)
@@ -1404,7 +1357,7 @@ function buildConfigCommands({
     ...(tool === "codex"
       ? [
           {
-            title: `Launch codex --profile ${config.profileName}`,
+            title: t("Launch codex --profile {{0}}", { 0: config.profileName }),
             kind: "launch",
             disabled: applyDisabled,
             command: buildBashLaunchCommand(config)
@@ -1412,7 +1365,7 @@ function buildConfigCommands({
         ]
       : []),
     {
-      title: `Rollback ${toolLabel(tool)} latest backup`,
+      title: t("Rollback {{0}} latest backup", { 0: toolLabel(tool) }),
       kind: "rollback",
       disabled: false,
       command: buildBashRollbackCommand(tool, config)
@@ -1433,7 +1386,7 @@ function toolOperationLabel(operation: string) {
     mcp_remove: "Removed MCP server",
     mcp_clear: "Cleared MCP servers"
   };
-  return labels[operation] || "Applied tool config";
+  return labels[operation] || t("Applied tool config");
 }
 
 function envDownloadName(tool: ToolSetupForm["selectedTool"], config: ReturnType<typeof buildToolConfig>, shell: "bash" | "powershell") {
@@ -1660,6 +1613,7 @@ function ToolStatusRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  useLocale();
   const status = item ? (item.installed ? "installed" : "missing") : "unknown";
   return (
     <button
@@ -1693,11 +1647,11 @@ function ToolStatusRow({
                   : "text-xs font-semibold text-muted"
             }
           >
-            {status === "installed" ? "Installed" : status === "missing" ? "Not installed" : "Not checked"}
+            {status === "installed" ? t("Installed") : status === "missing" ? t("Not installed") : t("Not checked")}
           </span>
         </span>
         <span className="mt-1 block truncate text-xs text-muted">
-          {item?.installed ? item.version || item.path || item.command || "Ready" : item?.command ? `Command: ${item.command}` : "Open a session to check"}
+          {item?.installed ? item.version || item.path || item.command || t("Ready") : item?.command ? t("Command: {{0}}", { 0: item.command }) : t("Open a session to check")}
         </span>
       </span>
       <ChevronRight size={16} className={selected ? "text-brand" : "text-slate-400"} />
@@ -1725,7 +1679,7 @@ function inferConfigShell(connection: WorkspaceConnection | undefined, session: 
 }
 
 function toolLabel(tool: ToolSetupForm["selectedTool"]) {
-  return tool === "codex" ? "Codex" : "Claude Code";
+  return tool === "codex" ? t("Codex") : t("Claude Code");
 }
 
 function codexProfileName(_context: {
@@ -1784,9 +1738,10 @@ function TargetsList({
   onDelete: (connection: WorkspaceConnection) => void;
   onAdd: () => void;
 }) {
+  useLocale();
   if (isLoading) {
     return (
-      <div className="grid gap-1 p-2" aria-label="Loading Computers">
+      <div className="grid gap-1 p-2" aria-label={t("Loading Computers")}>
         {[0, 1, 2].map((item) => (
           <div key={item} className="animate-pulse rounded-lg px-3 py-3">
             <div className="h-4 w-2/3 rounded bg-slate-200" />
@@ -1801,12 +1756,10 @@ function TargetsList({
     return (
       <div className="m-3 rounded-lg border border-dashed border-line bg-white p-5 text-center">
         <Server className="mx-auto text-muted" size={24} />
-        <div className="mt-3 text-sm font-semibold text-ink">No Computers paired</div>
-        <p className="mt-1 text-xs leading-5 text-muted">Pair Nexus Computer Runtime to open terminals and configure agent tools without inbound SSH.</p>
+        <div className="mt-3 text-sm font-semibold text-ink">{t("No Computers paired")}</div>
+        <p className="mt-1 text-xs leading-5 text-muted">{t("Pair Nexus Computer Runtime to open terminals and configure agent tools without inbound SSH.")}</p>
         <button className="btn btn-primary mt-4" type="button" onClick={onAdd}>
-          <Plus size={15} />
-          Pair Computer
-        </button>
+          <Plus size={15} />{t("Pair Computer")}</button>
       </div>
     );
   }
@@ -1835,8 +1788,8 @@ function TargetsList({
     return (
       <div className="m-3 rounded-lg border border-dashed border-line bg-white p-5 text-center">
         <Search className="mx-auto text-muted" size={22} />
-        <div className="mt-3 text-sm font-semibold text-ink">No matching targets</div>
-        <p className="mt-1 text-xs text-muted">Clear the search or switch the health filter.</p>
+        <div className="mt-3 text-sm font-semibold text-ink">{t("No matching targets")}</div>
+        <p className="mt-1 text-xs text-muted">{t("Clear the search or switch the health filter.")}</p>
       </div>
     );
   }
@@ -1865,11 +1818,11 @@ function TargetsList({
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
                 <TargetHealthBadge connection={connection} />
-                <span>{connection.connection_type === "runtime" ? "Outbound Runtime" : "Legacy SSH · Disabled"}</span>
+                <span>{connection.connection_type === "runtime" ? t("Outbound Runtime") : t("Legacy SSH · Disabled")}</span>
                 <span aria-hidden="true">·</span>
-                <span>{connection.last_test_at ? formatRelativeTime(connection.last_test_at) : "Never checked"}</span>
+                <span>{connection.last_test_at ? formatRelativeTime(connection.last_test_at) : t("Never checked")}</span>
                 <span aria-hidden="true">·</span>
-                <span>{activeSessions} active session{activeSessions === 1 ? "" : "s"}</span>
+                <span>{activeSessions}{" "}{t("active session")}{getLocale() === "zh-CN" ? "" : activeSessions === 1 ? "" : "s"}</span>
               </div>
               {targetNeedsAttention(connection) && connection.last_test_error && (
                 <div className="mt-2 line-clamp-2 text-xs leading-5 text-rose-700">{connection.last_test_error}</div>
@@ -1880,8 +1833,8 @@ function TargetsList({
               <details className="relative">
                 <summary
                   className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink [&::-webkit-details-marker]:hidden"
-                  aria-label={`Actions for ${connection.name}`}
-                  title="Target actions"
+                  aria-label={t("Actions for {{0}}", { 0: connection.name })}
+                  title={t("Target actions")}
                 >
                   <MoreHorizontal size={18} />
                 </summary>
@@ -1890,31 +1843,23 @@ function TargetsList({
                     event.currentTarget.closest("details")?.removeAttribute("open");
                     onViewDetails(connection);
                   }}>
-                    <Eye size={15} />
-                    View details
-                  </button>
+                    <Eye size={15} />{t("View details")}</button>
                   <button className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm text-ink hover:bg-slate-50" type="button" onClick={(event) => {
                     event.currentTarget.closest("details")?.removeAttribute("open");
                     onTest(connection);
                   }} disabled={isTesting}>
-                    {isTesting && testingConnectionId === connection.id ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-                    Refresh status
-                  </button>
+                    {isTesting && testingConnectionId === connection.id ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}{t("Refresh status")}</button>
                   {connection.connection_type === "runtime" && !connection.runtime?.revoked && <button className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm text-amber-800 hover:bg-amber-50" type="button" onClick={(event) => {
                     event.currentTarget.closest("details")?.removeAttribute("open");
                     onRevoke(connection);
                   }}>
-                    <ShieldCheck size={15} />
-                    Revoke Runtime
-                  </button>}
+                    <ShieldCheck size={15} />{t("Revoke Runtime")}</button>}
                   <div className="my-1 border-t border-line" />
                   <button className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm text-rose-700 hover:bg-rose-50" type="button" onClick={(event) => {
                     event.currentTarget.closest("details")?.removeAttribute("open");
                     onDelete(connection);
                   }}>
-                    <Trash2 size={15} />
-                    Delete Computer
-                  </button>
+                    <Trash2 size={15} />{t("Delete Computer")}</button>
                 </div>
               </details>
             </div>
@@ -1946,6 +1891,7 @@ function TargetDetailsDrawer({
   onTest: () => void;
   onDelete: () => void;
 }) {
+  useLocale();
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -1971,7 +1917,7 @@ function TargetDetailsDrawer({
             </div>
             <div className="mt-1 truncate text-sm text-muted">{formatComputerConnection(connection)}</div>
           </div>
-          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} aria-label="Close target details">
+          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} aria-label={t("Close target details")}>
             <X size={17} />
           </button>
         </header>
@@ -1981,27 +1927,27 @@ function TargetDetailsDrawer({
             <div className="mb-4 flex gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900" role="alert">
               <AlertTriangle className="mt-0.5 shrink-0" size={17} />
               <div>
-                <div className="font-semibold">Connection needs attention</div>
+                <div className="font-semibold">{t("Connection needs attention")}</div>
                 <div className="mt-1 leading-5 text-rose-700">{connection.last_test_error}</div>
               </div>
             </div>
           )}
 
           <section className="rounded-xl border border-line bg-white p-4">
-            <h3 className="text-sm font-semibold text-ink">Connection</h3>
+            <h3 className="text-sm font-semibold text-ink">{t("Connection")}</h3>
             <div className="mt-4 grid grid-cols-2 gap-4">
-              <Detail label="Connection" value={connection.connection_type === "runtime" ? "Outbound WSS" : "Legacy SSH · Disabled"} />
-              <Detail label="Active sessions" value={String(activeSessions.length)} />
-              <Detail label="Operating system" value={String(connection.runtime?.platform || factRecord.os || "Not detected")} />
-              <Detail label="Shell" value={String(factRecord.shell || "Not detected")} />
+              <Detail label={t("Connection")} value={connection.connection_type === "runtime" ? "Outbound WSS" : "Legacy SSH · Disabled"} />
+              <Detail label={t("Active sessions")} value={String(activeSessions.length)} />
+              <Detail label={t("Operating system")} value={String(connection.runtime?.platform || factRecord.os || "Not detected")} />
+              <Detail label={t("Shell")} value={String(factRecord.shell || "Not detected")} />
             </div>
-            {connection.connection_type === "runtime" && <div className="mt-4 border-t border-line pt-4 text-xs leading-5 text-muted">The device identity is held by the current operating-system user. Nexus Cloud stores only its public key.</div>}
+            {connection.connection_type === "runtime" && <div className="mt-4 border-t border-line pt-4 text-xs leading-5 text-muted">{t("The device identity is held by the current operating-system user. Nexus Cloud stores only its public key.")}</div>}
           </section>
 
           {connection.connection_type === "runtime" && (
             <section className="mt-4 rounded-xl border border-line bg-white p-4">
-              <h3 className="text-sm font-semibold text-ink">Runtime controls</h3>
-              <p className="mt-1 text-xs leading-5 text-muted">Run these commands as the paired operating-system user.</p>
+              <h3 className="text-sm font-semibold text-ink">{t("Runtime controls")}</h3>
+              <p className="mt-1 text-xs leading-5 text-muted">{t("Run these commands as the paired operating-system user.")}</p>
               <div className="mt-3 grid gap-2 font-mono text-xs">
                 <code className="rounded-lg bg-slate-950 px-3 py-2.5 text-slate-100">nexus-computer status</code>
                 <code className="rounded-lg bg-slate-950 px-3 py-2.5 text-slate-100">nexus-computer restart</code>
@@ -2012,17 +1958,17 @@ function TargetDetailsDrawer({
 
           <section className="mt-4 rounded-xl border border-line bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-ink">Health history</h3>
-              <span className="text-xs text-muted">Last {Math.min(history.length, 10)} checks</span>
+              <h3 className="text-sm font-semibold text-ink">{t("Health history")}</h3>
+              <span className="text-xs text-muted">{t("Last")}{" "}{Math.min(history.length, 10)}{" "}{t("checks")}</span>
             </div>
             <div className="mt-3 grid">
-              {history.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-muted">No recorded checks yet. Recheck this target to establish a baseline.</div>}
+              {history.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-muted">{t("No recorded checks yet. Recheck this target to establish a baseline.")}</div>}
               {history.slice(0, 10).map((entry, index) => (
                 <div key={`${String(entry.checked_at)}-${index}`} className="flex items-start gap-3 border-b border-line py-3 last:border-b-0">
                   <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${entry.status === "succeeded" ? "bg-emerald-500" : "bg-rose-500"}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="font-medium text-ink">{entry.status === "succeeded" ? "Reachable" : "Needs attention"}</span>
+                      <span className="font-medium text-ink">{entry.status === "succeeded" ? t("Reachable") : t("Needs attention")}</span>
                       <span className="text-xs text-muted">{formatWorkspaceTime(String(entry.checked_at || ""))}</span>
                     </div>
                     {Boolean(entry.error) && <div className="mt-1 line-clamp-2 text-xs leading-5 text-rose-700">{String(entry.error)}</div>}
@@ -2033,9 +1979,9 @@ function TargetDetailsDrawer({
           </section>
 
           <section className="mt-4 rounded-xl border border-line bg-white p-4">
-            <h3 className="text-sm font-semibold text-ink">Recent sessions</h3>
+            <h3 className="text-sm font-semibold text-ink">{t("Recent sessions")}</h3>
             <div className="mt-3 grid gap-2">
-              {sessions.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-muted">No sessions have been opened on this target.</div>}
+              {sessions.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-muted">{t("No sessions have been opened on this target.")}</div>}
               {sessions.slice(0, 5).map((session) => (
                 <div key={session.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
                   <div className="min-w-0">
@@ -2050,20 +1996,14 @@ function TargetDetailsDrawer({
         </div>
 
         <footer className="flex flex-wrap items-center gap-2 border-t border-line bg-white px-4 py-3 sm:px-5">
-          <button className="btn" type="button" onClick={onRename}>Rename</button>
-          {(connection.runtime?.revoked || !connection.runtime) && <button className="btn" type="button" onClick={onPairAgain}>Pair again</button>}
+          <button className="btn" type="button" onClick={onRename}>{t("Rename")}</button>
+          {(connection.runtime?.revoked || !connection.runtime) && <button className="btn" type="button" onClick={onPairAgain}>{t("Pair again")}</button>}
           {connection.connection_type === "runtime" && !connection.runtime?.revoked && <button className="btn border-amber-200 text-amber-800 hover:bg-amber-50" type="button" onClick={onRevoke}>
-            <ShieldCheck size={15} />
-            Revoke Runtime
-          </button>}
+            <ShieldCheck size={15} />{t("Revoke Runtime")}</button>}
           <button className="btn" type="button" onClick={onTest} disabled={isTesting}>
-            {isTesting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-            Refresh status
-          </button>
+            {isTesting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}{t("Refresh status")}</button>
           <button className="btn ml-auto border-rose-200 text-rose-700 hover:bg-rose-50" type="button" onClick={onDelete}>
-            <Trash2 size={15} />
-            Delete Computer
-          </button>
+            <Trash2 size={15} />{t("Delete Computer")}</button>
         </footer>
       </div>
     </div>
@@ -2083,6 +2023,7 @@ function RenameComputerDialog({
   onClose: () => void;
   onSave: () => void;
 }) {
+  useLocale();
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSaving) onClose();
@@ -2096,19 +2037,19 @@ function RenameComputerDialog({
       <div className="w-full max-w-md rounded-2xl border border-line bg-white shadow-overlay" onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div>
-            <h2 id="rename-computer-title" className="text-base font-semibold text-ink">Rename Computer</h2>
-            <p className="mt-1 text-sm text-muted">This changes the Nexus display name, not the operating-system device name.</p>
+            <h2 id="rename-computer-title" className="text-base font-semibold text-ink">{t("Rename Computer")}</h2>
+            <p className="mt-1 text-sm text-muted">{t("This changes the Nexus display name, not the operating-system device name.")}</p>
           </div>
-          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} disabled={isSaving} aria-label="Close rename dialog"><X size={16} /></button>
+          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} disabled={isSaving} aria-label={t("Close rename dialog")}><X size={16} /></button>
         </header>
         <div className="p-5">
-          <Field label="Computer name">
+          <Field label={t("Computer name")}>
             <input className="input" autoFocus maxLength={128} value={name} onChange={(event) => onNameChange(event.target.value)} />
           </Field>
         </div>
         <footer className="flex justify-end gap-2 border-t border-line bg-slate-50/60 px-5 py-4">
-          <button className="btn" type="button" onClick={onClose} disabled={isSaving}>Cancel</button>
-          <button className="btn btn-primary min-w-28" type="button" onClick={onSave} disabled={isSaving || !name.trim()}>{isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{isSaving ? "Saving…" : "Save"}</button>
+          <button className="btn" type="button" onClick={onClose} disabled={isSaving}>{t("Cancel")}</button>
+          <button className="btn btn-primary min-w-28" type="button" onClick={onSave} disabled={isSaving || !name.trim()}>{isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{isSaving ? t("Saving…") : t("Save")}</button>
         </footer>
       </div>
     </div>
@@ -2136,6 +2077,7 @@ function PairComputerModal({
   onClose: () => void;
   onCreate: () => void;
 }) {
+  useLocale();
   const online = Boolean(connection?.runtime?.online);
   const copy = useApplicationDistribution().computerPairing ?? personalComputerPairing;
   return (
@@ -2143,24 +2085,22 @@ function PairComputerModal({
       <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/50 bg-white shadow-overlay" onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div>
-            <h2 id="pair-computer-title" className="text-base font-semibold text-ink">Pair Computer</h2>
+            <h2 id="pair-computer-title" className="text-base font-semibold text-ink">{t("Pair Computer")}</h2>
             <p className="mt-1 text-sm leading-6 text-muted">{copy.introduction}</p>
           </div>
-          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} aria-label="Close Pair Computer dialog"><X size={16} /></button>
+          <button className="btn h-10 w-10 p-0" type="button" onClick={onClose} aria-label={t("Close Pair Computer dialog")}><X size={16} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           {!pairing ? (
             <div className="grid gap-4">
-              <Field label="Computer name">
-                <input className="input" value={name} onChange={(event) => onNameChange(event.target.value)} placeholder="My Computer" />
+              <Field label={t("Computer name")}>
+                <input className="input" value={name} onChange={(event) => onNameChange(event.target.value)} placeholder={t("My Computer")} />
               </Field>
-              <Field label="Workspace root">
-                <input className="input font-mono text-sm" value={workspaceRoot} onChange={(event) => onWorkspaceRootChange(event.target.value)} placeholder="~/.nexus" />
+              <Field label={t("Workspace root")}>
+                <input className="input font-mono text-sm" value={workspaceRoot} onChange={(event) => onWorkspaceRootChange(event.target.value)} placeholder={t("~/.nexus")} />
                 <p className="mt-1 text-xs leading-5 text-muted">{copy.workspaceDescription}</p>
               </Field>
-              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
-                Install <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">nexus-agent-sdk[computer,browser]</code> first. Pairing creates a user-only Ed25519 identity and installs a user-level background service.
-              </div>
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-950">{t("Install")}{" "}<code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">nexus-agent-sdk[computer,browser]</code>{" "}{t("first. Pairing creates a user-only Ed25519 identity and installs a user-level background service.")}</div>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -2168,28 +2108,28 @@ function PairComputerModal({
                 <div className="flex items-start gap-3">
                   {online ? <CheckCircle2 className="mt-0.5 shrink-0" size={20} /> : <Loader2 className="mt-0.5 shrink-0 animate-spin" size={20} />}
                   <div>
-                    <div className="font-semibold">{online ? "Computer Runtime connected" : "Waiting for this Computer"}</div>
-                    <p className="mt-1 text-sm leading-6">{online ? copy.connectedDescription(connection?.name || name) : "Run the command below on the Computer before the pairing link expires."}</p>
+                    <div className="font-semibold">{online ? t("Computer Runtime connected") : t("Waiting for this Computer")}</div>
+                    <p className="mt-1 text-sm leading-6">{online ? copy.connectedDescription(connection?.name || name) : t("Run the command below on the Computer before the pairing link expires.")}</p>
                   </div>
                 </div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Setup command</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Setup command")}</div>
                 <div className="mt-2 flex items-start gap-2 rounded-xl border border-line bg-slate-950 p-3 text-slate-100">
                   <code className="min-w-0 flex-1 break-all font-mono text-xs leading-6">{pairing.setup_command}</code>
-                  <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 hover:bg-white/10" type="button" aria-label="Copy setup command" onClick={async () => {
+                  <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 hover:bg-white/10" type="button" aria-label={t("Copy setup command")} onClick={async () => {
                     await navigator.clipboard.writeText(pairing.setup_command);
                     toast.success("Setup command copied");
                   }}><Copy size={16} /></button>
                 </div>
-                <p className="mt-2 text-xs text-muted">Pairing expires {new Date(pairing.expires_at).toLocaleString()} and can only be used once.</p>
+                <p className="mt-2 text-xs text-muted">{t("Pairing expires")}{" "}{new Date(pairing.expires_at).toLocaleString(getLocale())}{" "}{t("and can only be used once.")}</p>
               </div>
             </div>
           )}
         </div>
         <footer className="flex justify-end gap-2 border-t border-line bg-slate-50/60 px-5 py-4">
-          <button className="btn" type="button" onClick={onClose}>{online ? "Done" : "Cancel"}</button>
-          {!pairing && <button className="btn btn-primary min-w-40" type="button" onClick={onCreate} disabled={isCreating || !name.trim()}>{isCreating ? <Loader2 size={16} className="animate-spin" /> : <MonitorUp size={16} />}{isCreating ? "Creating link…" : "Create pairing link"}</button>}
+          <button className="btn" type="button" onClick={onClose}>{online ? t("Done") : t("Cancel")}</button>
+          {!pairing && <button className="btn btn-primary min-w-40" type="button" onClick={onCreate} disabled={isCreating || !name.trim()}>{isCreating ? <Loader2 size={16} className="animate-spin" /> : <MonitorUp size={16} />}{isCreating ? t("Creating link…") : t("Create pairing link")}</button>}
         </footer>
       </div>
     </div>
@@ -2484,6 +2424,7 @@ function formatTargetHealth(connection: WorkspaceConnection) {
 
 
 function TargetHealthBadge({ connection }: { connection: WorkspaceConnection }) {
+  useLocale();
   const label = formatTargetHealth(connection);
   const tone =
     ["Reachable", "Online"].includes(label)
@@ -2524,10 +2465,11 @@ function formatWorkspaceStatus(status: string) {
     disconnected: "Disconnected",
     "not connected": "Not connected"
   };
-  return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Unknown";
+  return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase()) || t("Unknown");
 }
 
 function WorkspaceStatusBadge({ status }: { status: string }) {
+  useLocale();
   const normalized = String(status || "").toLowerCase();
   const tone =
     ["active", "succeeded", "success", "passed"].includes(normalized)
@@ -2548,7 +2490,7 @@ function WorkspaceStatusBadge({ status }: { status: string }) {
 function formatWorkspaceTime(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString([], {
+  return parsed.toLocaleString(getLocale(), {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -2557,6 +2499,7 @@ function formatWorkspaceTime(value: string) {
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
+  useLocale();
   return (
     <div className="min-w-0">
       <div className="label">{label}</div>

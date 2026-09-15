@@ -1,0 +1,13 @@
+{
+  "Remote terminal": "远程终端",
+  "Live execution": "实时执行",
+  "Follow connection health and session state in real time.": "实时跟踪连接健康状况和会话状态。",
+  "Workspace context": "工作区上下文",
+  "Keep targets, runtime setup, and recent activity together.": "将目标、运行时设置和最近的活动放在一起。",
+  "Agent tooling": "智能体工具",
+  "Configure Codex, provider APIs, and MCP from one workbench.": "从一个工作台配置 Codex、提供商 API 和 MCP。",
+  "Operate remote computers without losing session context.": "操作远程计算机而不丢失会话上下文。",
+  "Sign in to open Computer": "登录以打开电脑",
+  "Back to overview": "返回概述",
+  "Available after sign-in": "登录后可用"
+}

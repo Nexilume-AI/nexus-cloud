@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { Loader2, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
@@ -26,6 +27,7 @@ export function AgentDisplaySurface({
   children: ReactNode;
   standalone?: boolean;
 }) {
+  useLocale();
   return (
     <div
       className={`${standalone ? "h-[100dvh]" : "min-h-[calc(100dvh-8rem)] rounded-md"} flex flex-col overflow-hidden bg-[#f8f8f7] text-[#34322d]`}
@@ -36,6 +38,7 @@ export function AgentDisplaySurface({
 }
 
 export function AgentDisplayHeaderFrame({ children }: { children: ReactNode }) {
+  useLocale();
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-black/10 bg-[#f8f8f7]/95 backdrop-blur">
       {children}
@@ -52,6 +55,7 @@ export function AgentDisplayMobileTabs({
   active: string;
   onChange: (panel: string) => void;
 }) {
+  useLocale();
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next = index;
     if (event.key === "ArrowRight") next = (index + 1) % panels.length;
@@ -69,7 +73,7 @@ export function AgentDisplayMobileTabs({
       className={`grid h-12 shrink-0 border-b border-black/10 bg-white px-2 lg:hidden`}
       style={{ gridTemplateColumns: `repeat(${panels.length}, minmax(0, 1fr))` }}
       role="tablist"
-      aria-label="Agent run panels"
+      aria-label={t("Agent run panels")}
     >
       {panels.map(({ id, label, icon: Icon, attention }, index) => (
         <button
@@ -88,7 +92,7 @@ export function AgentDisplayMobileTabs({
           <Icon size={15} />
           {label}
           {attention ? (
-            <span className="h-2 w-2 rounded-full bg-[#bdfc73] ring-1 ring-[#386a22]" aria-label="Input required" />
+            <span className="h-2 w-2 rounded-full bg-[#bdfc73] ring-1 ring-[#386a22]" aria-label={t("Input required")} />
           ) : null}
           {active === id ? <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1a1a19]" /> : null}
         </button>
@@ -108,6 +112,7 @@ export function AgentDisplayWorkspace({
   live: ReactNode;
   context: ReactNode;
 }) {
+  useLocale();
   const container = useRef<HTMLElement>(null);
   const [contextWidth, setContextWidth] = useState(() => {
     try { const value = Number(localStorage.getItem("nexus.run-context.width")); return value >= 280 && value <= 900 ? value : 360; } catch { return 360; }
@@ -129,8 +134,8 @@ export function AgentDisplayWorkspace({
     <main ref={container} style={{ "--run-context-width": `${contextWidth}px`, "--run-history-width": `${historyWidth}px` } as CSSProperties} className="agent-display-workspace grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-3 overflow-hidden px-2 pb-1.5 pt-1.5 lg:px-3 lg:pb-2.5 lg:pt-2.5 xl:px-5">
       <div className={`${activeMobilePanel === "plan" ? "block" : "hidden"} relative min-h-0 min-w-0 lg:block`}>
         {plan}
-        <div role="separator" aria-label="Resize Run history" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={360} aria-valuenow={historyWidth} tabIndex={0}
-          title="Drag to resize. Arrow keys adjust width; Home resets it."
+        <div role="separator" aria-label={t("Resize Run history")} aria-orientation="vertical" aria-valuemin={240} aria-valuemax={360} aria-valuenow={historyWidth} tabIndex={0}
+          title={t("Drag to resize. Arrow keys adjust width; Home resets it.")}
           className="run-history-resizer absolute -right-3 top-0 z-10 hidden h-full w-3 cursor-col-resize touch-none lg:block"
           onDoubleClick={() => resizeHistory(280)} onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -141,8 +146,8 @@ export function AgentDisplayWorkspace({
       </div>
       <div className={`${activeMobilePanel === "live" ? "block" : "hidden"} min-h-0 min-w-0 lg:block`}>{live}</div>
       <div className={`${activeMobilePanel === "files" ? "block" : "hidden"} relative min-h-0 min-w-0 lg:block`}>
-        <div role="separator" aria-label="Resize Run context" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={900} aria-valuenow={contextWidth} tabIndex={0}
-          title="Drag to resize. Arrow keys adjust width; Home resets it."
+        <div role="separator" aria-label={t("Resize Run context")} aria-orientation="vertical" aria-valuemin={280} aria-valuemax={900} aria-valuenow={contextWidth} tabIndex={0}
+          title={t("Drag to resize. Arrow keys adjust width; Home resets it.")}
           className="run-context-resizer absolute -left-3 top-0 z-10 hidden h-full w-3 cursor-col-resize touch-none lg:block"
           onDoubleClick={() => resize(360)} onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -169,6 +174,7 @@ export function AgentDisplayModeTabs({
   label: string;
   touchTargets?: boolean;
 }) {
+  useLocale();
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next = index;
     if (event.key === "ArrowRight") next = (index + 1) % modes.length;
@@ -203,7 +209,7 @@ export function AgentDisplayModeTabs({
         >
           {Icon ? <Icon size={14} /> : null}
           {modeLabel}
-          {attention ? <span className="h-2 w-2 rounded-full bg-[#bdfc73] ring-1 ring-[#386a22]" aria-label={attentionLabel || "Input required"} /> : null}
+          {attention ? <span className="h-2 w-2 rounded-full bg-[#bdfc73] ring-1 ring-[#386a22]" aria-label={attentionLabel || t("Input required")} /> : null}
         </button>
       ))}
     </div>
@@ -223,6 +229,7 @@ export function AgentDisplayLiveHeader({
   message: string;
   trailing?: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-3">
       <div className="flex min-w-0 items-start gap-3">
@@ -232,7 +239,7 @@ export function AgentDisplayLiveHeader({
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-[#34322d]" title={title}>{title}</h2>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-[#858481]">
-            <span className="shrink-0">Viewing</span>
+            <span className="shrink-0">{t("Viewing")}</span>
             <span className="min-w-0 truncate rounded-full border border-black/10 bg-[#37352f0a] px-2 py-0.5 font-mono text-[#535350]" title={label}>{label}</span>
             <span className="truncate" title={message}>{message}</span>
           </div>
@@ -258,6 +265,7 @@ export function AgentDisplayComputerFrame({
   action?: ReactNode;
   children: ReactNode;
 }) {
+  useLocale();
   const dark = tone === "dark";
   return (
     <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border shadow-sm ${dark ? "border-black/20 bg-[#111111]" : "border-black/10 bg-white"}`}>
@@ -288,7 +296,7 @@ export function AgentDisplayComposer({
   maxCharacters,
   placeholder,
   error,
-  label = "Reply to this Agent",
+  label = t("Reply to this Agent"),
   allowEmpty = false,
   attachments,
   attachmentActionsDisabled = false,
@@ -319,10 +327,11 @@ export function AgentDisplayComposer({
   /** Queue/steer belongs to the message toolbar, not a separate status row. */
   deliveryActions?: ReactNode;
 }) {
+  useLocale();
   const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const characters = Array.from(value.trim()).length;
   const overLimit = maxCharacters !== undefined && characters > maxCharacters;
-  const lengthError = overLimit ? `Keep this message within ${maxCharacters!.toLocaleString("en-US")} characters. Your full draft is kept.` : "";
+  const lengthError = overLimit ? t("Keep this message within {{0}} characters. Your full draft is kept.", { 0: maxCharacters!.toLocaleString(getLocale()) }) : "";
   function submit(event?: FormEvent) {
     event?.preventDefault();
     const next = value.trim();
@@ -358,7 +367,7 @@ export function AgentDisplayComposer({
   }, [value]);
 
   return (
-    <form aria-label="Message composer" className="agent-message-composer min-w-0 rounded-xl border border-black/15 bg-white p-2 focus-within:border-[#52783b]" onSubmit={submit}>
+    <form aria-label={t("Message composer")} className="agent-message-composer min-w-0 rounded-xl border border-black/15 bg-white p-2 focus-within:border-[#52783b]" onSubmit={submit}>
       {attachments ? <div className="max-h-40 min-w-0 overflow-y-auto overscroll-contain">{attachments(toolbar)}</div> : null}
       {prompt ? <p className="px-2 pb-2 text-sm font-medium leading-6 text-[#34322d]">{prompt}</p> : null}
       {choices.length ? (
@@ -388,16 +397,16 @@ export function AgentDisplayComposer({
           placeholder={placeholder}
           className={`min-h-11 min-w-0 ${attachments ? "w-full flex-none" : "flex-1"} resize-none bg-transparent px-2 py-2 text-sm text-[#34322d] outline-none placeholder:text-[#858481]`}
         />
-        <div className="flex min-w-0 items-end gap-1.5" aria-label="Message actions">
+        <div className="flex min-w-0 items-end gap-1.5" aria-label={t("Message actions")}>
         {attachments ? <fieldset disabled={attachmentActionsDisabled} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div ref={setToolbar} /></fieldset> : null}
         {deliveryActions}
         {deviceActions}
-        <button type="submit" disabled={disabled || busy || overLimit || choices.length > 0 || (!value.trim() && !allowEmpty)} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a1a19] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Send message">
+        <button type="submit" disabled={disabled || busy || overLimit || choices.length > 0 || (!value.trim() && !allowEmpty)} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a1a19] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" aria-label={t("Send message")}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
         </div>
       </div>
-      {maxCharacters !== undefined && characters >= maxCharacters * 0.9 ? <p className="px-2 pt-1 text-right text-xs text-[#535350]" aria-label="Message length">{characters.toLocaleString("en-US")} / {maxCharacters.toLocaleString("en-US")}</p> : null}
+      {maxCharacters !== undefined && characters >= maxCharacters * 0.9 ? <p className="px-2 pt-1 text-right text-xs text-[#535350]" aria-label={t("Message length")}>{characters.toLocaleString(getLocale())} / {maxCharacters.toLocaleString(getLocale())}</p> : null}
       {lengthError || error ? <p role="alert" className="px-2 pt-2 text-xs text-[#9b2c2c]">{lengthError || error}</p> : null}
     </form>
   );
@@ -412,6 +421,7 @@ export function AgentDisplayPanel({
   className?: string;
   as?: "section" | "aside";
 }) {
+  useLocale();
   return (
     <Component className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-black/10 bg-white shadow-sm ${className}`}>
       {children}

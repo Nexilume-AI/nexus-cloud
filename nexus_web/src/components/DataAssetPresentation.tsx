@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import type { Dataset } from "../lib/types";
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -24,7 +25,7 @@ export function humanizeLifecycle(status: string | undefined) {
     ready_to_publish: "Ready to publish",
     published: "Published",
   };
-  if (!status) return "Not reported";
+  if (!status) return t("Not reported");
   return (
     labels[status] ??
     status
@@ -34,6 +35,7 @@ export function humanizeLifecycle(status: string | undefined) {
 }
 
 export function Detail({ label, value }: { label: string; value: string }) {
+  useLocale();
   return (
     <div className="rounded-md border border-line px-3 py-2">
       <div className="label">{label}</div>
@@ -68,9 +70,9 @@ export async function downloadApiFile(
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    toast.success("Download started. Progress and resume are available in your browser's downloads.");
+    toast.success(t("Download started. Progress and resume are available in your browser's downloads."));
   } catch (error) {
-    toast.error(error instanceof Error ? error.message : "Could not start download. Please retry.");
+    toast.error(error instanceof Error ? error.message : t("Could not start download. Please retry."));
   }
 }
 
@@ -80,29 +82,29 @@ export function useDatasetDownloadColumns(apiContext: ApiContext) {
   >(
     () => [
       {
-        header: "File",
+        header: t("File"),
         cell: ({ row }) => (
           <div className="font-medium text-ink">{row.original.file_name}</div>
         ),
       },
-      { header: "Type", cell: ({ row }) => row.original.content_type || "-" },
+      { header: t("Type"), cell: ({ row }) => row.original.content_type || "-" },
       {
-        header: "Size",
+        header: t("Size"),
         cell: ({ row }) => formatBytes(row.original.size_bytes),
       },
       {
-        header: "Status",
+        header: t("Status"),
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         id: "download",
-        header: "Actions",
+        header: t("Actions"),
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-2">
           <DatasetImagePreview context={apiContext} file={row.original} />
           <button
             className="btn min-h-11 px-2"
-            aria-label={`Download ${row.original.file_name}`}
+            aria-label={t("Download {{0}}", { 0: row.original.file_name })}
             onClick={() =>
               void downloadApiFile(
                 row.original.download_url,
@@ -117,16 +119,17 @@ export function useDatasetDownloadColumns(apiContext: ApiContext) {
         ),
       },
     ],
-    [apiContext],
+    [apiContext, getLocale()],
   );
 }
 
 export function datasetOwnershipLabel(dataset: Dataset) {
   if (dataset.ownership?.label) return dataset.ownership.label;
-  return dataset.project_id ? "Project resource" : "Organization shared";
+  return dataset.project_id ? t("Project resource") : t("Organization shared");
 }
 
 export function LoadingState({ label }: { label: string }) {
+  useLocale();
   return (
     <div className="flex min-h-32 items-center justify-center gap-2 rounded-lg border border-dashed border-line text-sm text-muted">
       <Loader2 size={18} className="animate-spin" />
@@ -142,13 +145,12 @@ export function ErrorState({
   label: string;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="grid min-h-32 place-items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
       <div className="text-sm text-red-900">{label}</div>
       <button type="button" className="btn min-h-11" onClick={onRetry}>
-        <RefreshCw size={15} />
-        Try again
-      </button>
+        <RefreshCw size={15} />{t("Try again")}</button>
     </div>
   );
 }

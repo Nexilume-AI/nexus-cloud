@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
@@ -89,6 +90,7 @@ const actionOptions: Array<{ value: CommandAction; label: string; description: s
 ];
 
 export function MobileDevicesPage() {
+  useLocale();
   const { apiContext, isContextReady, user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState("");
@@ -231,10 +233,10 @@ export function MobileDevicesPage() {
     onSuccess: async (device) => {
       setPairing(device);
       setSelectedId(device.id);
-      toast.success("Android device record created");
+      toast.success(t("Android device record created"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to create mobile device")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to create mobile device"))
   });
 
   const rotateToken = useMutation({
@@ -243,26 +245,26 @@ export function MobileDevicesPage() {
       setPairing(device);
       setPairingServerUrl("");
       setShowPairingAdvanced(false);
-      toast.success("New pairing QR generated");
+      toast.success(t("New pairing QR generated"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to generate pairing QR")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to generate pairing QR"))
   });
 
   const updateDevice = useMutation({
     mutationFn: ({ deviceId, body }: { deviceId: string; body: Parameters<typeof api.updateMobileDevice>[2] }) =>
       api.updateMobileDevice(apiContext, deviceId, body),
     onSuccess: async () => {
-      toast.success("Device policy updated");
+      toast.success(t("Device policy updated"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to update device")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to update device"))
   });
 
   const deleteDevice = useMutation({
     mutationFn: (deviceId: string) => api.deleteMobileDevice(apiContext, deviceId),
     onSuccess: async () => {
-      toast.success("Device deleted");
+      toast.success(t("Device deleted"));
       setDeleteDialogOpen(false);
       setSelectedId("");
       setPairing(null);
@@ -272,7 +274,7 @@ export function MobileDevicesPage() {
         queryClient.invalidateQueries({ queryKey: ["mobile-commands"] })
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to delete device")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to delete device"))
   });
 
   const createCommand = useMutation({
@@ -282,13 +284,13 @@ export function MobileDevicesPage() {
     },
     onSuccess: async (command) => {
       setSelectedView("activity");
-      toast.success(command.status === "pending_approval" ? "Action sent for approval" : "Action queued");
+      toast.success(command.status === "pending_approval" ? t("Action sent for approval") : t("Action queued"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["mobile-commands"] }),
         queryClient.invalidateQueries({ queryKey: ["mobile-devices"] })
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to run action")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to run action"))
   });
 
   const captureScreen = useMutation({
@@ -299,55 +301,55 @@ export function MobileDevicesPage() {
         ttl_seconds: 180
       }),
     onSuccess: async (command) => {
-      toast.success(command.status === "pending_approval" ? "Screen capture sent for approval" : "Screen capture requested");
+      toast.success(command.status === "pending_approval" ? t("Screen capture sent for approval") : t("Screen capture requested"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to request screen capture")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to request screen capture"))
   });
 
   const approveCommand = useMutation({
     mutationFn: (commandId: string) => api.approveMobileCommand(apiContext, commandId),
     onSuccess: async () => {
-      toast.success("Action approved and queued");
+      toast.success(t("Action approved and queued"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to approve action")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to approve action"))
   });
 
   const rejectCommand = useMutation({
     mutationFn: (commandId: string) => api.rejectMobileCommand(apiContext, commandId),
     onSuccess: async () => {
-      toast.success("Action rejected");
+      toast.success(t("Action rejected"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to reject action")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to reject action"))
   });
 
   const cancelCommand = useMutation({
     mutationFn: (commandId: string) => api.cancelMobileCommand(apiContext, commandId),
     onSuccess: async () => {
-      toast.success("Action canceled");
+      toast.success(t("Action canceled"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to cancel action")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to cancel action"))
   });
 
   const deleteCommand = useMutation({
     mutationFn: (commandId: string) => api.deleteMobileCommand(apiContext, commandId),
     onSuccess: async () => {
-      toast.success("Activity entry removed");
+      toast.success(t("Activity entry removed"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to remove activity")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to remove activity"))
   });
 
   const exportMcp = useMutation({
     mutationFn: (deviceId: string) => api.exportMobileMcp(apiContext, deviceId),
     onSuccess: (result) => {
       setMcpExport(JSON.stringify(result, null, 2));
-      toast.success("MCP configuration ready");
+      toast.success(t("MCP configuration ready"));
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to export MCP config")
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to export MCP config"))
   });
 
   function openDevice(device: MobileDevice, preferredView?: DeviceView) {
@@ -387,29 +389,27 @@ export function MobileDevicesPage() {
     <div className="min-w-0 grid gap-6 overflow-x-hidden">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Mobile</h1>
-          <p className="mt-1 text-sm text-muted">Pair Android devices, monitor connection health, and run protected actions.</p>
+          <h1 className="text-2xl font-semibold text-ink">{t("Mobile")}</h1>
+          <p className="mt-1 text-sm text-muted">{t("Pair Android devices, monitor connection health, and run protected actions.")}</p>
         </div>
         <button className="btn btn-primary min-h-11 w-fit" onClick={beginPairing}>
-          <Plus size={16} />
-          Pair Android device
-        </button>
+          <Plus size={16} />{t("Pair Android device")}</button>
       </header>
 
       <section className="panel min-w-0 overflow-hidden" aria-labelledby="mobile-devices-heading">
         <div className="grid gap-4 border-b border-line px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <h2 id="mobile-devices-heading" className="text-base font-semibold text-ink">Devices</h2>
-            <p className="mt-1 text-sm text-muted">Connection state and the next useful action are kept visible.</p>
+            <h2 id="mobile-devices-heading" className="text-base font-semibold text-ink">{t("Devices")}</h2>
+            <p className="mt-1 text-sm text-muted">{t("Connection state and the next useful action are kept visible.")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <SummaryPill label="Total" value={deviceData.length} />
-            <SummaryPill label="Online" value={onlineCount} tone={onlineCount > 0 ? "success" : "neutral"} />
-            <SummaryPill label="Pairing" value={awaitingCount} />
-            <SummaryPill label="Attention" value={attentionCount} tone={attentionCount > 0 ? "warn" : "neutral"} />
+            <SummaryPill label={t("Total")} value={deviceData.length} />
+            <SummaryPill label={t("Online")} value={onlineCount} tone={onlineCount > 0 ? "success" : "neutral"} />
+            <SummaryPill label={t("Pairing")} value={awaitingCount} />
+            <SummaryPill label={t("Attention")} value={attentionCount} tone={attentionCount > 0 ? "warn" : "neutral"} />
             {aggregateStatus.data ? (
               <SummaryPill
-                label="Workspace fleet"
+                label={t("Workspace fleet")}
                 value={`${aggregateStatus.data.online}/${aggregateStatus.data.total} online · ${aggregateStatus.data.busy} busy · ${aggregateStatus.data.failed} failed`}
                 tone={aggregateStatus.data.failed > 0 ? "warn" : "neutral"}
               />
@@ -420,30 +420,26 @@ export function MobileDevicesPage() {
         <div className="flex flex-col gap-3 border-b border-line bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           {deviceData.length >= 5 ? (
             <label className="relative block w-full sm:max-w-xs">
-              <span className="sr-only">Search devices</span>
+              <span className="sr-only">{t("Search devices")}</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
               <input
                 className="input min-h-11 pl-9"
-                placeholder="Search devices"
+                placeholder={t("Search devices")}
                 value={deviceSearch}
                 onChange={(event) => setDeviceSearch(event.target.value)}
               />
             </label>
           ) : (
             <div className="flex min-h-10 items-center gap-2 text-sm text-muted">
-              <RefreshCw size={15} className={devices.isFetching ? "animate-spin" : ""} />
-              Live updates every 5 seconds
-            </div>
+              <RefreshCw size={15} className={devices.isFetching ? "animate-spin" : ""} />{t("Live updates every 5 seconds")}</div>
           )}
           <button
             className="btn min-h-11 w-fit"
             onClick={() => void devices.refetch()}
             disabled={devices.isFetching}
-            aria-label="Refresh device status"
+            aria-label={t("Refresh device status")}
           >
-            <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />
-            Refresh now
-          </button>
+            <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />{t("Refresh now")}</button>
         </div>
 
         <div className="min-w-0 p-4 sm:p-5">
@@ -451,26 +447,24 @@ export function MobileDevicesPage() {
             <DeviceListSkeleton />
           ) : devices.isError ? (
             <EmptyState
-              title="Devices could not be loaded"
-              description={devices.error instanceof Error ? devices.error.message : "Check your Mobile permissions and try again."}
-              action={<button className="btn btn-primary" onClick={() => void devices.refetch()}>Try again</button>}
+              title={t("Devices could not be loaded")}
+              description={devices.error instanceof Error ? devices.error.message : t("Check your Mobile permissions and try again.")}
+              action={<button className="btn btn-primary" onClick={() => void devices.refetch()}>{t("Try again")}</button>}
             />
           ) : filteredDevices.length === 0 && deviceData.length > 0 ? (
-            <EmptyState title="No matching devices" description="Clear the search or try another device name." />
+            <EmptyState title={t("No matching devices")} description={t("Clear the search or try another device name.")} />
           ) : deviceData.length === 0 ? (
             <EmptyState
-              title="No Android devices paired"
-              description="Create a secure pairing QR, scan it in Nexus Mobile, and wait for the device to come online."
+              title={t("No Android devices paired")}
+              description={t("Create a secure pairing QR, scan it in Nexus Mobile, and wait for the device to come online.")}
               action={
                 <button className="btn btn-primary min-h-11" onClick={beginPairing}>
-                  <Plus size={16} />
-                  Pair Android device
-                </button>
+                  <Plus size={16} />{t("Pair Android device")}</button>
               }
             />
           ) : (
             <>
-              <div className="grid gap-3 md:hidden" aria-label="Mobile devices">
+              <div className="grid gap-3 md:hidden" aria-label={t("Mobile devices")}>
                 {filteredDevices.map((device) => (
                   <DeviceCard key={device.id} device={device} onOpen={() => openDevice(device)} />
                 ))}
@@ -479,11 +473,11 @@ export function MobileDevicesPage() {
                 <table className="w-full table-fixed text-left text-sm">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-muted">
                     <tr>
-                      <th className="w-[27%] px-4 py-3">Device</th>
-                      <th className="w-[19%] px-4 py-3">Connection</th>
-                      <th className="w-[23%] px-4 py-3">Current app</th>
-                      <th className="w-[18%] px-4 py-3">Last seen</th>
-                      <th className="w-[13%] px-4 py-3 text-right">Action</th>
+                      <th className="w-[27%] px-4 py-3">{t("Device")}</th>
+                      <th className="w-[19%] px-4 py-3">{t("Connection")}</th>
+                      <th className="w-[23%] px-4 py-3">{t("Current app")}</th>
+                      <th className="w-[18%] px-4 py-3">{t("Last seen")}</th>
+                      <th className="w-[13%] px-4 py-3 text-right">{t("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -492,17 +486,17 @@ export function MobileDevicesPage() {
                         <td className="px-4 py-3">
                           <button className="min-h-11 min-w-0 text-left" onClick={() => openDevice(device)}>
                             <span className="block truncate font-semibold text-ink hover:text-accent">{device.name}</span>
-                            <span className="block truncate font-mono text-xs text-muted">{compactId(device.id)} · Android</span>
+                            <span className="block truncate font-mono text-xs text-muted">{compactId(device.id)}{" "}{t("· Android")}</span>
                           </button>
                         </td>
                         <td className="px-4 py-3"><LifecycleBadge device={device} /></td>
                         <td className="px-4 py-3">
-                          <div className="truncate font-medium text-ink">{friendlyAppName(device.current_package) || "No app reported"}</div>
+                          <div className="truncate font-medium text-ink">{friendlyAppName(device.current_package) || t("No app reported")}</div>
                           <div className="truncate text-xs text-muted">{device.current_activity || lifecycleDetail(device)}</div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-ink">{formatRelativeTime(device.last_seen_at)}</div>
-                          <div className="text-xs text-muted">{device.last_seen_at ? formatDate(device.last_seen_at) : "Waiting for first connection"}</div>
+                          <div className="text-xs text-muted">{device.last_seen_at ? formatDate(device.last_seen_at) : t("Waiting for first connection")}</div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button className="btn min-h-10 px-3" onClick={() => openDevice(device)}>
@@ -521,7 +515,7 @@ export function MobileDevicesPage() {
       </section>
 
       {selectedDevice && (
-        <AccessibleDrawer title={`${selectedDevice.name} device workspace`} onClose={closeDevice}>
+        <AccessibleDrawer title={t("{{0}} device workspace", { 0: selectedDevice.name })} onClose={closeDevice}>
           <div className="flex h-full min-h-0 flex-col">
             <header className="border-b border-line bg-white px-4 py-4 sm:px-6">
               <div className="flex items-start justify-between gap-4">
@@ -532,11 +526,11 @@ export function MobileDevicesPage() {
                   </div>
                   <p className="mt-1 text-sm text-muted">{lifecycleDetail(selectedDevice)}</p>
                 </div>
-                <button className="btn h-11 w-11 shrink-0 p-0" onClick={closeDevice} aria-label="Close device workspace" title="Close">
+                <button className="btn h-11 w-11 shrink-0 p-0" onClick={closeDevice} aria-label={t("Close device workspace")} title={t("Close")}>
                   <X size={18} />
                 </button>
               </div>
-              <nav className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1" aria-label="Device workspace sections">
+              <nav className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1" aria-label={t("Device workspace sections")}>
                 {deviceViews.map((view) => {
                   const Icon = view.icon;
                   const attention = view.id === "activity" && pendingCommands.length > 0;
@@ -551,7 +545,7 @@ export function MobileDevicesPage() {
                     >
                       <Icon size={16} />
                       <span>{view.label}</span>
-                      {attention && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" aria-label={`${pendingCommands.length} actions need approval`} />}
+                      {attention && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" aria-label={t("{{0}} actions need approval", { 0: pendingCommands.length })} />}
                     </button>
                   );
                 })}
@@ -580,19 +574,17 @@ export function MobileDevicesPage() {
                   <section className="rounded-xl border border-line bg-white" aria-labelledby="device-health-heading">
                     <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 id="device-health-heading" className="font-semibold text-ink">Connection health</h3>
-                        <p className="mt-1 text-sm text-muted">The latest heartbeat and device context.</p>
+                        <h3 id="device-health-heading" className="font-semibold text-ink">{t("Connection health")}</h3>
+                        <p className="mt-1 text-sm text-muted">{t("The latest heartbeat and device context.")}</p>
                       </div>
                       <button className="btn min-h-11 w-fit" onClick={() => void devices.refetch()} disabled={devices.isFetching}>
-                        <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />
-                        Recheck
-                      </button>
+                        <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />{t("Recheck")}</button>
                     </div>
                     <div className="grid gap-px bg-line sm:grid-cols-2 xl:grid-cols-4">
-                      <DeviceMetric label="Connection" value={lifecycleLabel(selectedLifecycle)} detail={lifecycleDetail(selectedDevice)} />
-                      <DeviceMetric label="Last seen" value={formatRelativeTime(selectedDevice.last_seen_at)} detail={selectedDevice.last_seen_at ? formatDate(selectedDevice.last_seen_at) : "No heartbeat received"} />
-                      <DeviceMetric label="Current app" value={friendlyAppName(selectedDevice.current_package) || "Not reported"} detail={selectedDevice.current_package || "The app reports this after pairing"} />
-                      <DeviceMetric label="Protection" value={approvalModeLabel(selectedDevice.approval_mode)} detail={approvalModeDetail(selectedDevice.approval_mode)} />
+                      <DeviceMetric label={t("Connection")} value={lifecycleLabel(selectedLifecycle)} detail={lifecycleDetail(selectedDevice)} />
+                      <DeviceMetric label={t("Last seen")} value={formatRelativeTime(selectedDevice.last_seen_at)} detail={selectedDevice.last_seen_at ? formatDate(selectedDevice.last_seen_at) : t("No heartbeat received")} />
+                      <DeviceMetric label={t("Current app")} value={friendlyAppName(selectedDevice.current_package) || "Not reported"} detail={selectedDevice.current_package || t("The app reports this after pairing")} />
+                      <DeviceMetric label={t("Protection")} value={approvalModeLabel(selectedDevice.approval_mode)} detail={approvalModeDetail(selectedDevice.approval_mode)} />
                     </div>
                   </section>
 
@@ -601,17 +593,13 @@ export function MobileDevicesPage() {
                       <div className="flex gap-3">
                         <WifiOff className="mt-0.5 shrink-0 text-amber-700" size={20} />
                         <div>
-                          <h3 className="font-semibold text-amber-950">Device is offline</h3>
-                          <p className="mt-1 text-sm leading-6 text-amber-900">Open Nexus Mobile, confirm network access and Accessibility permission, then return here. Status refreshes automatically.</p>
+                          <h3 className="font-semibold text-amber-950">{t("Device is offline")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-amber-900">{t("Open Nexus Mobile, confirm network access and Accessibility permission, then return here. Status refreshes automatically.")}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button className="btn min-h-11 bg-white" onClick={() => void devices.refetch()}>
-                              <RefreshCw size={16} />
-                              Check again
-                            </button>
+                              <RefreshCw size={16} />{t("Check again")}</button>
                             <button className="btn min-h-11 bg-white" onClick={() => setSelectedView("settings")}>
-                              <RotateCw size={16} />
-                              Re-pair device
-                            </button>
+                              <RotateCw size={16} />{t("Re-pair device")}</button>
                           </div>
                         </div>
                       </div>
@@ -623,19 +611,13 @@ export function MobileDevicesPage() {
                       <div className="flex gap-3">
                         <ShieldCheck className="mt-0.5 shrink-0 text-amber-700" size={20} />
                         <div>
-                          <h3 id="mobile-setup-required-heading" className="font-semibold text-amber-950">Finish setup on Android</h3>
-                          <p className="mt-1 text-sm leading-6 text-amber-900">
-                            Pairing is complete. On the phone, open Nexus Mobile, enable Nexus Mobile Control in Accessibility settings, then return here.
-                          </p>
+                          <h3 id="mobile-setup-required-heading" className="font-semibold text-amber-950">{t("Finish setup on Android")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-amber-900">{t("Pairing is complete. On the phone, open Nexus Mobile, enable Nexus Mobile Control in Accessibility settings, then return here.")}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button className="btn min-h-11 bg-white" onClick={() => void devices.refetch()} disabled={devices.isFetching}>
-                              <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />
-                              Check permission
-                            </button>
+                              <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />{t("Check permission")}</button>
                             <button className="btn min-h-11 bg-white" onClick={() => setSelectedView("settings")}>
-                              <Settings size={16} />
-                              Pairing details
-                            </button>
+                              <Settings size={16} />{t("Pairing details")}</button>
                           </div>
                         </div>
                       </div>
@@ -655,19 +637,17 @@ export function MobileDevicesPage() {
                     <div className="rounded-xl border border-line bg-white p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-semibold text-ink">Device details</h3>
-                          <p className="mt-1 text-sm text-muted">Useful identity and capability information.</p>
+                          <h3 className="font-semibold text-ink">{t("Device details")}</h3>
+                          <p className="mt-1 text-sm text-muted">{t("Useful identity and capability information.")}</p>
                         </div>
                         <button className="btn min-h-11" onClick={() => setSelectedView("control")} disabled={selectedLifecycle !== "online"}>
-                          <MousePointerClick size={16} />
-                          Open control
-                        </button>
+                          <MousePointerClick size={16} />{t("Open control")}</button>
                       </div>
                       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <Fact label="Platform" value="Android" />
-                        <Fact label="Current activity" value={selectedDevice.current_activity || "Not reported"} />
-                        <Fact label="Paired" value={selectedDevice.paired_at ? formatDate(selectedDevice.paired_at) : "Not yet"} />
-                        <Fact label="Capabilities" value={capabilitySummary(selectedDevice)} />
+                        <Fact label={t("Platform")} value="Android" />
+                        <Fact label={t("Current activity")} value={selectedDevice.current_activity || "Not reported"} />
+                        <Fact label={t("Paired")} value={selectedDevice.paired_at ? formatDate(selectedDevice.paired_at) : "Not yet"} />
+                        <Fact label={t("Capabilities")} value={capabilitySummary(selectedDevice)} />
                       </dl>
                     </div>
                   </section>
@@ -689,8 +669,8 @@ export function MobileDevicesPage() {
                   <section className="rounded-xl border border-line bg-white p-4 sm:p-5" aria-labelledby="mobile-action-heading">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 id="mobile-action-heading" className="font-semibold text-ink">Run an action</h3>
-                        <p className="mt-1 text-sm text-muted">Review the target, risk, and approval path before dispatch.</p>
+                        <h3 id="mobile-action-heading" className="font-semibold text-ink">{t("Run an action")}</h3>
+                        <p className="mt-1 text-sm text-muted">{t("Review the target, risk, and approval path before dispatch.")}</p>
                       </div>
                       <LifecycleBadge device={selectedDevice} />
                     </div>
@@ -699,28 +679,28 @@ export function MobileDevicesPage() {
                       <div className="mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
                         <WifiOff className="mt-0.5 shrink-0" size={17} />
                         <div>
-                          <div className="font-semibold">Actions are paused while this device is offline.</div>
-                          <div className="mt-1">Reconnect the Android device before sending a command.</div>
+                          <div className="font-semibold">{t("Actions are paused while this device is offline.")}</div>
+                          <div className="mt-1">{t("Reconnect the Android device before sending a command.")}</div>
                         </div>
                       </div>
                     )}
 
                     <div className="mt-5 grid gap-4">
-                      <Field label="Action">
+                      <Field label={t("Action")}>
                         <select
                           className="select min-h-11"
                           value={commandForm.action}
                           onChange={(event) => setCommandForm((current) => ({ ...initialCommandForm, action: event.target.value as CommandAction }))}
                         >
                           {actionOptions.filter((option) => showAdvancedActions || !option.label.startsWith("Advanced:")).map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                            <option key={option.value} value={option.value}>{t(option.label)}</option>
                           ))}
                         </select>
                       </Field>
                       <p className="-mt-2 text-sm text-muted">{actionDescription}</p>
 
                       {actionNeedsText(commandForm.action) && (
-                        <Field label={commandForm.action === "type_text" ? "Text to type" : "Text to find"}>
+                        <Field label={commandForm.action === "type_text" ? t("Text to type") : t("Text to find")}>
                           <input
                             className="input min-h-11"
                             value={commandForm.text}
@@ -729,29 +709,29 @@ export function MobileDevicesPage() {
                         </Field>
                       )}
                       {commandForm.action === "open_app" && (
-                        <Field label="Android package name">
+                        <Field label={t("Android package name")}>
                           <input
                             className="input min-h-11"
                             value={commandForm.packageName}
                             onChange={(event) => setCommandForm((current) => ({ ...current, packageName: event.target.value }))}
-                            placeholder="com.android.settings"
+                            placeholder={t("com.android.settings")}
                           />
                         </Field>
                       )}
                       {actionNeedsCoordinates(commandForm.action) && (
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="Start X (0–1)">
+                          <Field label={t("Start X (0–1)")}>
                             <input className="input min-h-11" inputMode="decimal" value={commandForm.x} onChange={(event) => setCommandForm((current) => ({ ...current, x: event.target.value }))} />
                           </Field>
-                          <Field label="Start Y (0–1)">
+                          <Field label={t("Start Y (0–1)")}>
                             <input className="input min-h-11" inputMode="decimal" value={commandForm.y} onChange={(event) => setCommandForm((current) => ({ ...current, y: event.target.value }))} />
                           </Field>
                           {commandForm.action === "swipe" && (
                             <>
-                              <Field label="End X (0–1)">
+                              <Field label={t("End X (0–1)")}>
                                 <input className="input min-h-11" inputMode="decimal" value={commandForm.endX} onChange={(event) => setCommandForm((current) => ({ ...current, endX: event.target.value }))} />
                               </Field>
-                              <Field label="End Y (0–1)">
+                              <Field label={t("End Y (0–1)")}>
                                 <input className="input min-h-11" inputMode="decimal" value={commandForm.endY} onChange={(event) => setCommandForm((current) => ({ ...current, endY: event.target.value }))} />
                               </Field>
                             </>
@@ -760,20 +740,20 @@ export function MobileDevicesPage() {
                       )}
 
                       <button className="text-left text-sm font-semibold text-accent underline-offset-4 hover:underline" onClick={() => setShowAdvancedActions((current) => !current)}>
-                        {showAdvancedActions ? "Hide coordinate actions" : "Show advanced coordinate actions"}
+                        {showAdvancedActions ? t("Hide coordinate actions") : t("Show advanced coordinate actions")}
                       </button>
                     </div>
 
-                    <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4" aria-label="Execution preview">
+                    <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4" aria-label={t("Execution preview")}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-sm font-semibold text-ink">Execution preview</div>
-                        <Badge tone={riskTone(actionRisk)}>{actionRisk} risk</Badge>
+                        <div className="text-sm font-semibold text-ink">{t("Execution preview")}</div>
+                        <Badge tone={riskTone(actionRisk)}>{actionRisk}{" "}{t("risk")}</Badge>
                       </div>
                       <dl className="mt-3 grid gap-2 text-sm">
-                        <PreviewRow label="Target" value={selectedDevice.name} />
-                        <PreviewRow label="Action" value={actionLabel(commandForm.action)} />
-                        <PreviewRow label="Approval" value={approvalPreview(selectedDevice.approval_mode, actionRisk)} />
-                        <PreviewRow label="Expires" value="3 minutes after submission" />
+                        <PreviewRow label={t("Target")} value={selectedDevice.name} />
+                        <PreviewRow label={t("Action")} value={actionLabel(commandForm.action)} />
+                        <PreviewRow label={t("Approval")} value={approvalPreview(selectedDevice.approval_mode, actionRisk)} />
+                        <PreviewRow label={t("Expires")} value="3 minutes after submission" />
                       </dl>
                     </div>
 
@@ -783,7 +763,7 @@ export function MobileDevicesPage() {
                       disabled={!actionReady || createCommand.isPending}
                     >
                       {createCommand.isPending ? <Loader2 size={16} className="animate-spin" /> : commandIcon(commandForm.action)}
-                      {actionRisk === "high" && selectedDevice.approval_mode !== "auto" ? "Send for approval" : "Run action"}
+                      {actionRisk === "high" && selectedDevice.approval_mode !== "auto" ? t("Send for approval") : t("Run action")}
                     </button>
                   </section>
                 </div>
@@ -796,8 +776,8 @@ export function MobileDevicesPage() {
                       <div className="flex items-start gap-3">
                         <ClipboardCheck className="mt-0.5 shrink-0 text-amber-700" size={20} />
                         <div className="min-w-0 flex-1">
-                          <h3 id="approval-queue-heading" className="font-semibold text-amber-950">{pendingCommands.length} action{pendingCommands.length === 1 ? "" : "s"} need approval</h3>
-                          <p className="mt-1 text-sm text-amber-900">Confirm the target and arguments before allowing execution.</p>
+                          <h3 id="approval-queue-heading" className="font-semibold text-amber-950">{pendingCommands.length}{" "}{t("action")}{getLocale() === "zh-CN" ? "" : pendingCommands.length === 1 ? "" : "s"}{" "}{t("need approval")}</h3>
+                          <p className="mt-1 text-sm text-amber-900">{t("Confirm the target and arguments before allowing execution.")}</p>
                           <div className="mt-3 grid gap-3">
                             {pendingCommands.map((command) => (
                               <ApprovalCard
@@ -817,10 +797,10 @@ export function MobileDevicesPage() {
                   <section className="rounded-xl border border-line bg-white" aria-labelledby="activity-history-heading">
                     <div className="grid gap-3 border-b border-line px-4 py-4 sm:flex sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 id="activity-history-heading" className="font-semibold text-ink">Action history</h3>
-                        <p className="mt-1 text-sm text-muted">Approvals, execution progress, results, and failures.</p>
+                        <h3 id="activity-history-heading" className="font-semibold text-ink">{t("Action history")}</h3>
+                        <p className="mt-1 text-sm text-muted">{t("Approvals, execution progress, results, and failures.")}</p>
                       </div>
-                      <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
+                      <div className="flex flex-wrap gap-1" role="group" aria-label={t("Filter activity")}>
                         {(["all", "attention", "running", "completed"] as ActivityFilter[]).map((filter) => (
                           <button
                             key={filter}
@@ -837,9 +817,9 @@ export function MobileDevicesPage() {
                         <DeviceListSkeleton />
                       ) : visibleCommands.length === 0 ? (
                         <EmptyState
-                          title={commandData.length === 0 ? "No actions yet" : "No actions match this filter"}
-                          description={commandData.length === 0 ? "Open Control to run the first protected action." : "Choose another activity filter."}
-                          action={commandData.length === 0 ? <button className="btn btn-primary" onClick={() => setSelectedView("control")}>Open Control</button> : undefined}
+                          title={commandData.length === 0 ? t("No actions yet") : t("No actions match this filter")}
+                          description={commandData.length === 0 ? t("Open Control to run the first protected action.") : t("Choose another activity filter.")}
+                          action={commandData.length === 0 ? <button className="btn btn-primary" onClick={() => setSelectedView("control")}>{t("Open Control")}</button> : undefined}
                         />
                       ) : (
                         <div className="divide-y divide-line">
@@ -861,49 +841,45 @@ export function MobileDevicesPage() {
               {selectedView === "settings" && (
                 <div className="grid gap-5">
                   <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
-                    <h3 className="font-semibold text-ink">Approval policy</h3>
-                    <p className="mt-1 text-sm text-muted">The server calculates action risk. Users cannot lower required protection per action.</p>
+                    <h3 className="font-semibold text-ink">{t("Approval policy")}</h3>
+                    <p className="mt-1 text-sm text-muted">{t("The server calculates action risk. Users cannot lower required protection per action.")}</p>
                     <div className="mt-4 grid gap-3 lg:grid-cols-3">
                       <PolicyOption
-                        title="Confirm high risk"
-                        description="Low and medium risk actions run directly. High risk actions wait for approval."
+                        title={t("Confirm high risk")}
+                        description={t("Low and medium risk actions run directly. High risk actions wait for approval.")}
                         selected={selectedDevice.approval_mode === "confirm_high_risk"}
                         onSelect={() => updateDevice.mutate({ deviceId: selectedDevice.id, body: { approval_mode: "confirm_high_risk" } })}
                       />
                       <PolicyOption
-                        title="Approve every action"
-                        description="Every action waits for an administrator. Best for shared or sensitive devices."
+                        title={t("Approve every action")}
+                        description={t("Every action waits for an administrator. Best for shared or sensitive devices.")}
                         selected={selectedDevice.approval_mode === "manual"}
                         onSelect={() => updateDevice.mutate({ deviceId: selectedDevice.id, body: { approval_mode: "manual" } })}
                       />
                       {canManageAutomaticApproval ? (
                         <PolicyOption
-                          title="Automatic approval"
-                          description="Actions run without a manual checkpoint. Restrict this to trusted test devices."
+                          title={t("Automatic approval")}
+                          description={t("Actions run without a manual checkpoint. Restrict this to trusted test devices.")}
                           selected={selectedDevice.approval_mode === "auto"}
                           danger
                           onSelect={() => updateDevice.mutate({ deviceId: selectedDevice.id, body: { approval_mode: "auto" } })}
                         />
                       ) : selectedDevice.approval_mode === "auto" ? (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-                          <div className="font-semibold">Automatic approval is active</div>
-                          <div className="mt-1">A Mobile policy administrator must change this setting.</div>
+                          <div className="font-semibold">{t("Automatic approval is active")}</div>
+                          <div className="mt-1">{t("A Mobile policy administrator must change this setting.")}</div>
                         </div>
                       ) : null}
                     </div>
                   </section>
 
                   <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
-                    <h3 className="font-semibold text-ink">Pairing and connection</h3>
-                    <p className="mt-1 text-sm text-muted">Generating a new QR immediately invalidates the previous device token.</p>
+                    <h3 className="font-semibold text-ink">{t("Pairing and connection")}</h3>
+                    <p className="mt-1 text-sm text-muted">{t("Generating a new QR immediately invalidates the previous device token.")}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button className="btn min-h-11" onClick={() => rotateToken.mutate(selectedDevice.id)} disabled={rotateToken.isPending}>
-                        {rotateToken.isPending ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}
-                        Generate new pairing QR
-                      </button>
-                      <button className="btn min-h-11" onClick={() => setSelectedView("overview")}>
-                        View connection health
-                      </button>
+                        {rotateToken.isPending ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}{t("Generate new pairing QR")}</button>
+                      <button className="btn min-h-11" onClick={() => setSelectedView("overview")}>{t("View connection health")}</button>
                     </div>
                     {pairing?.id === selectedDevice.id && (
                       <div className="mt-5">
@@ -925,19 +901,15 @@ export function MobileDevicesPage() {
                   </section>
 
                   <details className="rounded-xl border border-line bg-white">
-                    <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                      Developer integration
-                      <ChevronRight size={17} />
+                    <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">{t("Developer integration")}<ChevronRight size={17} />
                     </summary>
                     <div className="grid gap-4 border-t border-line p-4 xl:grid-cols-[0.9fr_1.1fr]">
                       <div className="grid content-start gap-3">
-                        <PairingField label="Device ID" value={selectedDevice.id} />
-                        <PairingField label="Project" value={selectedDevice.project_id || "Organization-wide"} />
-                        <PairingField label="Token prefix" value={selectedDevice.token_prefix || "Not available"} />
+                        <PairingField label={t("Device ID")} value={selectedDevice.id} />
+                        <PairingField label={t("Project")} value={selectedDevice.project_id || "Organization-wide"} />
+                        <PairingField label={t("Token prefix")} value={selectedDevice.token_prefix || "Not available"} />
                         <button className="btn min-h-11 w-fit" onClick={() => exportMcp.mutate(selectedDevice.id)}>
-                          {exportMcp.isPending ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
-                          Prepare MCP configuration
-                        </button>
+                          {exportMcp.isPending ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}{t("Prepare MCP configuration")}</button>
                       </div>
                       <pre className="max-h-80 min-h-40 overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-5 text-slate-100">
                         {mcpExport || "Prepare the MCP configuration to connect this device to a trusted agent."}
@@ -946,12 +918,10 @@ export function MobileDevicesPage() {
                   </details>
 
                   <section className="rounded-xl border border-rose-200 bg-white p-4 sm:p-5">
-                    <h3 className="font-semibold text-rose-900">Danger zone</h3>
-                    <p className="mt-1 text-sm text-rose-700">Delete this device after active and queued actions have completed or been canceled.</p>
+                    <h3 className="font-semibold text-rose-900">{t("Danger zone")}</h3>
+                    <p className="mt-1 text-sm text-rose-700">{t("Delete this device after active and queued actions have completed or been canceled.")}</p>
                     <button className="btn btn-danger mt-4 min-h-11" onClick={() => setDeleteDialogOpen(true)}>
-                      <Trash2 size={16} />
-                      Delete device
-                    </button>
+                      <Trash2 size={16} />{t("Delete device")}</button>
                   </section>
                 </div>
               )}
@@ -961,14 +931,14 @@ export function MobileDevicesPage() {
       )}
 
       {pairDialogOpen && (
-        <AccessibleDialog title="Pair an Android device" description="Create a secure QR, scan it in Nexus Mobile, and confirm the first heartbeat." onClose={() => setPairDialogOpen(false)} maxWidth="max-w-3xl">
+        <AccessibleDialog title={t("Pair an Android device")} description={t("Create a secure QR, scan it in Nexus Mobile, and confirm the first heartbeat.")} onClose={() => setPairDialogOpen(false)} maxWidth="max-w-3xl">
           <div className="grid gap-6 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)]">
             <div>
-              <ol className="grid gap-2" aria-label="Pairing progress">
-                <PairingStep number="1" title="Create device" detail={pairing ? "Complete" : "Name the Android device"} complete={Boolean(pairing)} />
-                <PairingStep number="2" title="Scan QR" detail={pairing ? "QR ready" : "Available after creation"} complete={Boolean(pairing && selectedDevice?.paired_at)} active={Boolean(pairing && !selectedDevice?.paired_at)} />
-                <PairingStep number="3" title="Grant permissions" detail="Accessibility and screen observation" complete={Boolean(selectedDevice?.capabilities?.accessibility)} active={Boolean(selectedDevice?.paired_at && !selectedDevice?.capabilities?.accessibility)} />
-                <PairingStep number="4" title="Confirm online" detail={selectedDevice && deviceLifecycle(selectedDevice) === "online" ? "Device connected" : "Waiting for heartbeat"} complete={Boolean(selectedDevice && deviceLifecycle(selectedDevice) === "online")} />
+              <ol className="grid gap-2" aria-label={t("Pairing progress")}>
+                <PairingStep number="1" title={t("Create device")} detail={pairing ? t("Complete") : t("Name the Android device")} complete={Boolean(pairing)} />
+                <PairingStep number="2" title={t("Scan QR")} detail={pairing ? t("QR ready") : t("Available after creation")} complete={Boolean(pairing && selectedDevice?.paired_at)} active={Boolean(pairing && !selectedDevice?.paired_at)} />
+                <PairingStep number="3" title={t("Grant permissions")} detail={t("Accessibility and screen observation")} complete={Boolean(selectedDevice?.capabilities?.accessibility)} active={Boolean(selectedDevice?.paired_at && !selectedDevice?.capabilities?.accessibility)} />
+                <PairingStep number="4" title={t("Confirm online")} detail={selectedDevice && deviceLifecycle(selectedDevice) === "online" ? t("Device connected") : t("Waiting for heartbeat")} complete={Boolean(selectedDevice && deviceLifecycle(selectedDevice) === "online")} />
               </ol>
 
               {!pairing && (
@@ -979,23 +949,21 @@ export function MobileDevicesPage() {
                     createDevice.mutate();
                   }}
                 >
-                  <Field label="Device name">
+                  <Field label={t("Device name")}>
                     <input className="input min-h-11" value={deviceName} onChange={(event) => setDeviceName(event.target.value)} required />
                   </Field>
-                  <Field label="Approval policy">
+                  <Field label={t("Approval policy")}>
                     <select className="select min-h-11" value={approvalMode} onChange={(event) => setApprovalMode(event.target.value as typeof approvalMode)}>
-                      <option value="confirm_high_risk">Confirm high-risk actions</option>
-                      <option value="manual">Approve every action</option>
-                      {canManageAutomaticApproval && <option value="auto">Automatic approval · trusted test devices only</option>}
+                      <option value="confirm_high_risk">{t("Confirm high-risk actions")}</option>
+                      <option value="manual">{t("Approve every action")}</option>
+                      {canManageAutomaticApproval && <option value="auto">{t("Automatic approval · trusted test devices only")}</option>}
                     </select>
                   </Field>
                   {approvalMode === "auto" && (
                     <RiskNotice text="Automatic approval removes the manual checkpoint. Use it only for isolated, trusted test devices." />
                   )}
                   <button className="btn btn-primary min-h-11 w-full sm:w-fit" disabled={createDevice.isPending || !deviceName.trim()}>
-                    {createDevice.isPending ? <Loader2 size={16} className="animate-spin" /> : <Smartphone size={16} />}
-                    Create pairing QR
-                  </button>
+                    {createDevice.isPending ? <Loader2 size={16} className="animate-spin" /> : <Smartphone size={16} />}{t("Create pairing QR")}</button>
                 </form>
               )}
             </div>
@@ -1008,17 +976,15 @@ export function MobileDevicesPage() {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="mt-0.5 text-emerald-700" size={22} />
                         <div>
-                          <h3 className="font-semibold text-emerald-950">Android device connected</h3>
-                          <p className="mt-1 text-sm text-emerald-800">The first heartbeat was received. This device is ready for protected actions.</p>
+                          <h3 className="font-semibold text-emerald-950">{t("Android device connected")}</h3>
+                          <p className="mt-1 text-sm text-emerald-800">{t("The first heartbeat was received. This device is ready for protected actions.")}</p>
                           <button
                             className="btn btn-primary mt-4 min-h-11"
                             onClick={() => {
                               setPairDialogOpen(false);
                               openDevice(selectedDevice, "overview");
                             }}
-                          >
-                            Open device
-                          </button>
+                          >{t("Open device")}</button>
                         </div>
                       </div>
                     </div>
@@ -1027,51 +993,43 @@ export function MobileDevicesPage() {
                       <div className="flex items-start gap-3">
                         <ShieldCheck className="mt-0.5 text-amber-700" size={22} />
                         <div>
-                          <h3 className="font-semibold text-amber-950">Pairing confirmed — one permission remains</h3>
-                          <p className="mt-1 text-sm leading-6 text-amber-900">
-                            On Android, tap Enable control and allow Nexus Mobile Control in Accessibility settings. Commands remain blocked until this permission is active.
-                          </p>
+                          <h3 className="font-semibold text-amber-950">{t("Pairing confirmed — one permission remains")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-amber-900">{t("On Android, tap Enable control and allow Nexus Mobile Control in Accessibility settings. Commands remain blocked until this permission is active.")}</p>
                           <button className="btn mt-4 min-h-11 bg-white" type="button" onClick={() => void devices.refetch()}>
-                            <RefreshCw size={16} />
-                            Check permission
-                          </button>
+                            <RefreshCw size={16} />{t("Check permission")}</button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
                       <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-line bg-white p-3">
-                        {pairingQrUrl ? <img className="h-full w-full" src={pairingQrUrl} alt="Nexus Mobile Android pairing QR code" /> : <Loader2 size={22} className="animate-spin text-muted" />}
+                        {pairingQrUrl ? <img className="h-full w-full" src={pairingQrUrl} alt={t("Nexus Mobile Android pairing QR code")} /> : <Loader2 size={22} className="animate-spin text-muted" />}
                       </div>
                       <div className="grid content-start gap-3">
                         <div>
-                          <h3 className="font-semibold text-ink">Scan with Nexus Mobile</h3>
-                          <p className="mt-1 text-sm leading-6 text-muted">Open Nexus Mobile on Android and scan this QR. Keep this screen open until the device reports online.</p>
+                          <h3 className="font-semibold text-ink">{t("Scan with Nexus Mobile")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-muted">{t("Open Nexus Mobile on Android and scan this QR. Keep this screen open until the device reports online.")}</p>
                         </div>
                         <PairingExpiry value={pairing.pairing_expires_at} />
                         <div className="flex items-center gap-2 text-sm text-muted">
-                          <Loader2 size={16} className="animate-spin" />
-                          Waiting for the first heartbeat
-                        </div>
+                          <Loader2 size={16} className="animate-spin" />{t("Waiting for the first heartbeat")}</div>
                         <button className="btn min-h-11 w-fit" type="button" onClick={() => void devices.refetch()}>
-                          <RefreshCw size={16} />
-                          Check connection
-                        </button>
+                          <RefreshCw size={16} />{t("Check connection")}</button>
                       </div>
                     </div>
                   )}
                   <button className="text-left text-sm font-semibold text-accent underline-offset-4 hover:underline" type="button" onClick={() => setShowPairingAdvanced((current) => !current)}>
-                    {showPairingAdvanced ? "Hide connection details" : "Show connection details"}
+                    {showPairingAdvanced ? t("Hide connection details") : t("Show connection details")}
                   </button>
                   {showPairingAdvanced && (
                     <div className="grid gap-3 rounded-xl border border-line bg-slate-50 p-4 sm:grid-cols-2">
-                      <Field label="Server URL encoded in QR">
+                      <Field label={t("Server URL encoded in QR")}>
                         <input className="input min-h-11" value={pairingServerUrl} onChange={(event) => setPairingServerUrl(event.target.value)} placeholder={runtime.lanBaseUrl} />
                       </Field>
-                      <PairingField label="Android emulator URL" value={runtime.emulatorBaseUrl} />
-                      <PairingField label="Device ID" value={pairing.id} />
-                      <PairingField label="Pairing token" value={pairing.pairing_token} secret />
-                      <div className="sm:col-span-2"><PairingField label="Deep link" value={pairingDeepLink} secret /></div>
+                      <PairingField label={t("Android emulator URL")} value={runtime.emulatorBaseUrl} />
+                      <PairingField label={t("Device ID")} value={pairing.id} />
+                      <PairingField label={t("Pairing token")} value={pairing.pairing_token} secret />
+                      <div className="sm:col-span-2"><PairingField label={t("Deep link")} value={pairingDeepLink} secret /></div>
                     </div>
                   )}
                 </div>
@@ -1079,8 +1037,8 @@ export function MobileDevicesPage() {
                 <div className="flex min-h-72 items-center justify-center rounded-xl border border-dashed border-line bg-slate-50 p-6">
                   <div className="max-w-sm text-center">
                     <ShieldCheck className="mx-auto text-muted" size={30} />
-                    <h3 className="mt-3 font-semibold text-ink">QR appears after device creation</h3>
-                    <p className="mt-1 text-sm leading-6 text-muted">The token is shown only once and expires if the device does not complete its first pairing in time.</p>
+                    <h3 className="mt-3 font-semibold text-ink">{t("QR appears after device creation")}</h3>
+                    <p className="mt-1 text-sm leading-6 text-muted">{t("The token is shown only once and expires if the device does not complete its first pairing in time.")}</p>
                   </div>
                 </div>
               )}
@@ -1090,7 +1048,7 @@ export function MobileDevicesPage() {
       )}
 
       {deleteDialogOpen && selectedDevice && (
-        <AccessibleDialog title="Delete Android device" description={selectedDevice.name} onClose={() => setDeleteDialogOpen(false)} maxWidth="max-w-lg" layer="z-[70]">
+        <AccessibleDialog title={t("Delete Android device")} description={selectedDevice.name} onClose={() => setDeleteDialogOpen(false)} maxWidth="max-w-lg" layer="z-[70]">
           <div className="grid gap-4">
             <RiskNotice text="Active, queued, and pending approval actions must be completed or canceled before deletion." />
             <div className="rounded-lg border border-line bg-slate-50 p-4">
@@ -1098,11 +1056,9 @@ export function MobileDevicesPage() {
               <div className="mt-1 font-mono text-xs text-muted">{selectedDevice.id}</div>
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button className="btn min-h-11" onClick={() => setDeleteDialogOpen(false)}>Keep device</button>
+              <button className="btn min-h-11" onClick={() => setDeleteDialogOpen(false)}>{t("Keep device")}</button>
               <button className="btn btn-danger min-h-11" onClick={() => deleteDevice.mutate(selectedDevice.id)} disabled={deleteDevice.isPending}>
-                {deleteDevice.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                Delete device
-              </button>
+                {deleteDevice.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}{t("Delete device")}</button>
             </div>
           </div>
         </AccessibleDialog>
@@ -1112,22 +1068,23 @@ export function MobileDevicesPage() {
 }
 
 function DeviceCard({ device, onOpen }: { device: MobileDevice; onOpen: () => void }) {
+  useLocale();
   return (
     <article className="rounded-xl border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate font-semibold text-ink">{device.name}</h3>
-          <p className="mt-0.5 truncate font-mono text-xs text-muted">{compactId(device.id)} · Android</p>
+          <p className="mt-0.5 truncate font-mono text-xs text-muted">{compactId(device.id)}{" "}{t("· Android")}</p>
         </div>
         <LifecycleBadge device={device} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Current app</div>
-          <div className="mt-1 truncate font-medium text-ink">{friendlyAppName(device.current_package) || "Not reported"}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Current app")}</div>
+          <div className="mt-1 truncate font-medium text-ink">{friendlyAppName(device.current_package) || t("Not reported")}</div>
         </div>
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Last seen</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Last seen")}</div>
           <div className="mt-1 font-medium text-ink">{formatRelativeTime(device.last_seen_at)}</div>
         </div>
       </div>
@@ -1141,6 +1098,7 @@ function DeviceCard({ device, onOpen }: { device: MobileDevice; onOpen: () => vo
 }
 
 function LifecycleBadge({ device }: { device: MobileDevice }) {
+  useLocale();
   const lifecycle = deviceLifecycle(device);
   const config = {
     online: { icon: Wifi, className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
@@ -1184,46 +1142,43 @@ function PairingPanel({
   onServerUrlChange: (value: string) => void;
   onGenerate: () => void;
 }) {
+  useLocale();
   return (
     <section className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 sm:p-5" aria-labelledby="pair-device-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 id="pair-device-heading" className="font-semibold text-blue-950">
-            {deviceLifecycle(device) === "token_expired" ? "Pairing QR expired" : "Finish pairing this Android device"}
+            {deviceLifecycle(device) === "token_expired" ? t("Pairing QR expired") : t("Finish pairing this Android device")}
           </h3>
           <p className="mt-1 text-sm leading-6 text-blue-900">
-            {deviceLifecycle(device) === "token_expired" ? "Generate a new QR and scan it within the pairing window." : "Scan the QR in Nexus Mobile and wait for the first heartbeat."}
+            {deviceLifecycle(device) === "token_expired" ? t("Generate a new QR and scan it within the pairing window.") : t("Scan the QR in Nexus Mobile and wait for the first heartbeat.")}
           </p>
         </div>
         {!pairing && (
           <button className="btn btn-primary min-h-11 shrink-0" onClick={onGenerate} disabled={isRotating}>
-            {isRotating ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}
-            Generate QR
-          </button>
+            {isRotating ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}{t("Generate QR")}</button>
         )}
       </div>
       {pairing && (
         <div className="mt-5 grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
           <div className="mx-auto flex h-[200px] w-[200px] items-center justify-center rounded-xl border border-line bg-white p-3">
-            {pairingQrUrl ? <img className="h-full w-full" src={pairingQrUrl} alt="Nexus Mobile Android pairing QR code" /> : <Loader2 size={20} className="animate-spin text-muted" />}
+            {pairingQrUrl ? <img className="h-full w-full" src={pairingQrUrl} alt={t("Nexus Mobile Android pairing QR code")} /> : <Loader2 size={20} className="animate-spin text-muted" />}
           </div>
           <div className="grid content-start gap-3">
             <PairingExpiry value={pairing.pairing_expires_at} />
             <div className="flex items-center gap-2 text-sm text-blue-900">
-              <Loader2 size={15} className="animate-spin" />
-              Waiting for Nexus Mobile
-            </div>
+              <Loader2 size={15} className="animate-spin" />{t("Waiting for Nexus Mobile")}</div>
             <button className="btn min-h-11 w-fit bg-white" type="button" onClick={onShowAdvanced}>
-              {showAdvanced ? "Hide connection details" : "Connection details"}
+              {showAdvanced ? t("Hide connection details") : t("Connection details")}
             </button>
             {showAdvanced && (
               <div className="grid gap-3">
-                <Field label="Server URL encoded in QR">
+                <Field label={t("Server URL encoded in QR")}>
                   <input className="input min-h-11" value={pairingServerUrl} onChange={(event) => onServerUrlChange(event.target.value)} placeholder={runtime.lanBaseUrl} />
                 </Field>
-                <PairingField label="Device ID" value={pairing.id} />
-                <PairingField label="Pairing token" value={pairing.pairing_token} secret />
-                <PairingField label="Deep link" value={pairingDeepLink} secret />
+                <PairingField label={t("Device ID")} value={pairing.id} />
+                <PairingField label={t("Pairing token")} value={pairing.pairing_token} secret />
+                <PairingField label={t("Deep link")} value={pairingDeepLink} secret />
               </div>
             )}
           </div>
@@ -1252,23 +1207,24 @@ function ObservationPreview({
   canCapture: boolean;
   onCapture: () => void;
 }) {
+  useLocale();
   const observationText = observationTextLines(device.last_observation);
   const screenshotSupported = device.capabilities?.screenshot === true;
   return (
     <section className={`rounded-xl border border-line bg-white ${prominent ? "p-5" : "p-4"}`} aria-labelledby={`observation-${device.id}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 id={`observation-${device.id}`} className="font-semibold text-ink">Latest screen</h3>
+          <h3 id={`observation-${device.id}`} className="font-semibold text-ink">{t("Latest screen")}</h3>
           <p className="mt-1 text-sm text-muted">
             {device.screenshot_captured_at
-              ? `Image captured ${formatRelativeTime(device.screenshot_captured_at)}`
+              ? t("Image captured {{0}}", { 0: formatRelativeTime(device.screenshot_captured_at) })
               : device.last_seen_at
-                ? `UI observation received ${formatRelativeTime(device.last_seen_at)}`
-                : "No screen data received"}
+                ? t("UI observation received {{0}}", { 0: formatRelativeTime(device.last_seen_at) })
+                : t("No screen data received")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={deviceLifecycle(device) === "online" ? "success" : "muted"}>{friendlyAppName(device.current_package) || "Android"}</Badge>
+          <Badge tone={deviceLifecycle(device) === "online" ? "success" : "muted"}>{friendlyAppName(device.current_package) || t("Android")}</Badge>
           <button
             type="button"
             className="btn min-h-10 bg-white"
@@ -1277,36 +1233,34 @@ function ObservationPreview({
             title={
               screenshotSupported
                 ? deviceLifecycle(device) === "online"
-                  ? "Capture the current screen once"
-                  : "The device must be online"
-                : "Requires Android 11+ and screenshot permission"
+                  ? t("Capture the current screen once")
+                  : t("The device must be online")
+                : t("Requires Android 11+ and screenshot permission")
             }
           >
             {capturePending ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
-            {capturePending ? "Capturing" : "Capture screen"}
+            {capturePending ? t("Capturing") : t("Capture screen")}
           </button>
         </div>
       </div>
       <div className={`mx-auto mt-4 overflow-hidden rounded-[1.5rem] border-[6px] border-slate-900 bg-slate-950 shadow-sm ${prominent ? "max-w-sm" : "max-w-xs"}`}>
         <div className="flex h-7 items-center justify-between bg-slate-900 px-4 text-[10px] text-slate-300">
-          <span>{deviceLifecycle(device) === "online" ? "Connected" : "Last known state"}</span>
-          <span>{friendlyAppName(device.current_package) || "Nexus Mobile"}</span>
+          <span>{deviceLifecycle(device) === "online" ? t("Connected") : t("Last known state")}</span>
+          <span>{friendlyAppName(device.current_package) || t("Nexus Mobile")}</span>
         </div>
         <div className="min-h-72 bg-white">
           {screenshotLoading ? (
             <div className="flex min-h-72 items-center justify-center text-sm text-slate-500">
-              <Loader2 className="mr-2 animate-spin" size={18} />
-              Loading protected image
-            </div>
+              <Loader2 className="mr-2 animate-spin" size={18} />{t("Loading protected image")}</div>
           ) : screenshotUrl ? (
             <img
               src={screenshotUrl}
-              alt="Latest Android screen capture"
+              alt={t("Latest Android screen capture")}
               className="block h-auto min-h-72 w-full bg-slate-100 object-contain"
             />
           ) : observationText.length > 0 ? (
             <div className="grid gap-2">
-              <div className="px-4 pt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">UI observation fallback</div>
+              <div className="px-4 pt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("UI observation fallback")}</div>
               <div className="grid gap-2 px-4 pb-4">
               {observationText.slice(0, 12).map((text, index) => (
                 <div key={`${text}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">{text}</div>
@@ -1316,9 +1270,9 @@ function ObservationPreview({
           ) : (
             <div className="flex min-h-64 flex-col items-center justify-center text-center">
               <Eye className="text-slate-400" size={26} />
-              <div className="mt-3 font-semibold text-slate-700">No screen image</div>
+              <div className="mt-3 font-semibold text-slate-700">{t("No screen image")}</div>
               <div className="mt-1 max-w-52 text-sm leading-5 text-slate-500">
-                {screenshotSupported ? "Connect the device and capture the current screen." : "Screen capture requires Android 11 or newer."}
+                {screenshotSupported ? t("Connect the device and capture the current screen.") : t("Screen capture requires Android 11 or newer.")}
               </div>
             </div>
           )}
@@ -1326,33 +1280,30 @@ function ObservationPreview({
       </div>
       <div className="mt-3 text-xs leading-5 text-muted">
         {screenshotError
-          ? `Image unavailable: ${screenshotError}`
-          : "Screenshots are requested manually, blocked on sensitive screens, and removed after 5 minutes."}
+          ? t("Image unavailable: {{0}}", { 0: screenshotError })
+          : t("Screenshots are requested manually, blocked on sensitive screens, and removed after 5 minutes.")}
       </div>
     </section>
   );
 }
 
 function ApprovalCard({ command, isBusy, onApprove, onReject }: { command: MobileCommand; isBusy: boolean; onApprove: () => void; onReject: () => void }) {
+  useLocale();
   return (
     <article className="rounded-lg border border-amber-200 bg-white p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-ink">{actionLabel(command.action)}</span>
-            <Badge tone={riskTone(command.risk_level)}>{command.risk_level} risk</Badge>
+            <Badge tone={riskTone(command.risk_level)}>{command.risk_level}{" "}{t("risk")}</Badge>
           </div>
           <p className="mt-1 break-words text-sm text-muted">{friendlyArguments(command)}</p>
         </div>
         <div className="flex gap-2">
           <button className="btn min-h-11 flex-1 sm:flex-none" onClick={onReject} disabled={isBusy}>
-            <X size={15} />
-            Reject
-          </button>
+            <X size={15} />{t("Reject")}</button>
           <button className="btn btn-primary min-h-11 flex-1 sm:flex-none" onClick={onApprove} disabled={isBusy}>
-            <CheckCircle2 size={15} />
-            Approve
-          </button>
+            <CheckCircle2 size={15} />{t("Approve")}</button>
         </div>
       </div>
     </article>
@@ -1360,6 +1311,7 @@ function ApprovalCard({ command, isBusy, onApprove, onReject }: { command: Mobil
 }
 
 function CommandRow({ command, onCancel, onDelete }: { command: MobileCommand; onCancel: () => void; onDelete: () => void }) {
+  useLocale();
   const canCancel = ["pending_approval", "queued"].includes(command.status);
   const canDelete = ["succeeded", "failed", "rejected", "canceled"].includes(command.status);
   return (
@@ -1367,25 +1319,25 @@ function CommandRow({ command, onCancel, onDelete }: { command: MobileCommand; o
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-ink">{actionLabel(command.action)}</span>
-          <Badge tone={riskTone(command.risk_level)}>{command.risk_level} risk</Badge>
+          <Badge tone={riskTone(command.risk_level)}>{command.risk_level}{" "}{t("risk")}</Badge>
         </div>
         <p className="mt-1 break-words text-sm text-muted">{friendlyArguments(command)}</p>
         {command.error && <p className="mt-1 text-sm text-rose-700">{command.error}</p>}
       </div>
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted">Status</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Status")}</div>
         <div className="mt-1"><CommandStatus status={command.status} /></div>
       </div>
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted">Created</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Created")}</div>
         <div className="mt-1 text-sm text-ink">{formatDate(command.created_at)}</div>
       </div>
       {(canCancel || canDelete) && (
         <div className="flex justify-end">
           {canCancel ? (
-            <button className="btn min-h-11" onClick={onCancel}>Cancel</button>
+            <button className="btn min-h-11" onClick={onCancel}>{t("Cancel")}</button>
           ) : (
-            <button className="btn h-11 w-11 p-0" onClick={onDelete} aria-label={`Remove ${actionLabel(command.action)} activity`} title="Remove activity">
+            <button className="btn h-11 w-11 p-0" onClick={onDelete} aria-label={t("Remove {{0}} activity", { 0: actionLabel(command.action) })} title={t("Remove activity")}>
               <Trash2 size={16} />
             </button>
           )}
@@ -1396,11 +1348,13 @@ function CommandRow({ command, onCancel, onDelete }: { command: MobileCommand; o
 }
 
 function CommandStatus({ status }: { status: string }) {
+  useLocale();
   const tone = status === "succeeded" ? "success" : status === "failed" || status === "rejected" ? "danger" : status === "pending_approval" || status === "queued" ? "warn" : "info";
   return <Badge tone={tone}>{commandStatusLabel(status)}</Badge>;
 }
 
 function PolicyOption({ title, description, selected, danger = false, onSelect }: { title: string; description: string; selected: boolean; danger?: boolean; onSelect: () => void }) {
+  useLocale();
   return (
     <button
       className={`min-h-28 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -1419,6 +1373,7 @@ function PolicyOption({ title, description, selected, danger = false, onSelect }
 }
 
 function AccessibleDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useLocale();
   const dialogRef = useDialogFocus(onClose);
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35" role="presentation" onMouseDown={onClose}>
@@ -1437,6 +1392,7 @@ function AccessibleDrawer({ title, onClose, children }: { title: string; onClose
 }
 
 function AccessibleDialog({ title, description, onClose, children, maxWidth, layer = "z-[60]" }: { title: string; description?: string; onClose: () => void; children: ReactNode; maxWidth: string; layer?: string }) {
+  useLocale();
   const dialogRef = useDialogFocus(onClose);
   const titleId = `dialog-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
@@ -1454,7 +1410,7 @@ function AccessibleDialog({ title, description, onClose, children, maxWidth, lay
             <h2 id={titleId} className="text-lg font-semibold text-ink">{title}</h2>
             {description && <p className="mt-1 text-sm text-muted">{description}</p>}
           </div>
-          <button className="btn h-11 w-11 shrink-0 p-0" onClick={onClose} aria-label={`Close ${title}`} title="Close">
+          <button className="btn h-11 w-11 shrink-0 p-0" onClick={onClose} aria-label={t("Close {{0}}", { 0: title })} title={t("Close")}>
             <X size={18} />
           </button>
         </header>
@@ -1505,12 +1461,13 @@ function useDialogFocus(onClose: () => void) {
 }
 
 function PairingField({ label, value, secret = false }: { label: string; value: string; secret?: boolean }) {
+  useLocale();
   return (
     <div className="grid min-w-0 gap-1.5">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
       <div className="flex min-w-0 items-center gap-2 rounded-lg border border-line bg-white px-3 py-2">
         <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink">{secret ? maskToken(value) : value}</code>
-        <button className="btn h-11 w-11 shrink-0 p-0" onClick={() => void copyText(value)} aria-label={`Copy ${label}`} title={`Copy ${label}`}>
+        <button className="btn h-11 w-11 shrink-0 p-0" onClick={() => void copyText(value)} aria-label={t("Copy {{0}}", { 0: label })} title={t("Copy {{0}}", { 0: label })}>
           <Copy size={15} />
         </button>
       </div>
@@ -1519,6 +1476,7 @@ function PairingField({ label, value, secret = false }: { label: string; value: 
 }
 
 function PairingStep({ number, title, detail, active = false, complete = false }: { number: string; title: string; detail: string; active?: boolean; complete?: boolean }) {
+  useLocale();
   return (
     <li className={`grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3 rounded-lg border px-3 py-3 ${active ? "border-blue-300 bg-blue-50" : complete ? "border-emerald-200 bg-emerald-50" : "border-line bg-white"}`}>
       <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${complete ? "bg-emerald-700 text-white" : active ? "bg-accent text-white" : "bg-slate-100 text-slate-600"}`}>
@@ -1533,15 +1491,16 @@ function PairingStep({ number, title, detail, active = false, complete = false }
 }
 
 function PairingExpiry({ value }: { value: string | null }) {
-  if (!value) return <div className="text-sm text-muted">Keep this QR private and scan it promptly.</div>;
+  useLocale();
+  if (!value) return <div className="text-sm text-muted">{t("Keep this QR private and scan it promptly.")}</div>;
   return (
-    <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-blue-950">
-      Pairing window ends <span className="font-semibold">{formatDate(value)}</span>
+    <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-blue-950">{t("Pairing window ends")}{" "}<span className="font-semibold">{formatDate(value)}</span>
     </div>
   );
 }
 
 function DeviceMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  useLocale();
   return (
     <div className="min-w-0 bg-white p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
@@ -1552,6 +1511,7 @@ function DeviceMetric({ label, value, detail }: { label: string; value: string; 
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
+  useLocale();
   return (
     <div className="rounded-lg border border-line bg-slate-50 p-3">
       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</dt>
@@ -1561,6 +1521,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 function PreviewRow({ label, value }: { label: string; value: string }) {
+  useLocale();
   return (
     <div className="flex items-start justify-between gap-4">
       <dt className="text-muted">{label}</dt>
@@ -1570,6 +1531,7 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
 }
 
 function SummaryPill({ label, value, tone = "neutral" }: { label: string; value: ReactNode; tone?: "neutral" | "warn" | "success" }) {
+  useLocale();
   const toneClass = tone === "warn" ? "border-amber-200 bg-amber-50" : tone === "success" ? "border-emerald-200 bg-emerald-50" : "border-line bg-slate-50";
   return (
     <div className={`flex min-h-10 items-center rounded-lg border px-3 ${toneClass}`}>
@@ -1580,6 +1542,7 @@ function SummaryPill({ label, value, tone = "neutral" }: { label: string; value:
 }
 
 function RiskNotice({ text }: { text: string }) {
+  useLocale();
   return (
     <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950" role="alert">
       <AlertTriangle className="mt-0.5 shrink-0" size={16} />
@@ -1589,8 +1552,9 @@ function RiskNotice({ text }: { text: string }) {
 }
 
 function DeviceListSkeleton() {
+  useLocale();
   return (
-    <div className="grid gap-3" aria-label="Loading devices">
+    <div className="grid gap-3" aria-label={t("Loading devices")}>
       {[0, 1].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-slate-100" />)}
     </div>
   );
@@ -1604,13 +1568,13 @@ function deviceLifecycle(device: MobileDevice): string {
 }
 
 function lifecycleLabel(value: string) {
-  if (value === "awaiting_pairing") return "Awaiting pairing";
-  if (value === "setup_required") return "Setup required";
-  if (value === "online") return "Online";
-  if (value === "offline") return "Offline";
-  if (value === "token_expired") return "QR expired";
-  if (value === "disabled") return "Disabled";
-  return "Unknown";
+  if (value === "awaiting_pairing") return t("Awaiting pairing");
+  if (value === "setup_required") return t("Setup required");
+  if (value === "online") return t("Online");
+  if (value === "offline") return t("Offline");
+  if (value === "token_expired") return t("QR expired");
+  if (value === "disabled") return t("Disabled");
+  return t("Unknown");
 }
 
 function lifecycleDetail(device: MobileDevice) {
@@ -1626,19 +1590,19 @@ function lifecycleDetail(device: MobileDevice) {
 
 function recommendedActionLabel(device: MobileDevice) {
   const lifecycle = deviceLifecycle(device);
-  if (lifecycle === "online") return "Open";
-  if (lifecycle === "awaiting_pairing") return "Pair";
-  if (lifecycle === "setup_required") return "Finish";
-  if (lifecycle === "token_expired") return "New QR";
-  if (lifecycle === "offline") return "Diagnose";
-  return "Review";
+  if (lifecycle === "online") return t("Open");
+  if (lifecycle === "awaiting_pairing") return t("Pair");
+  if (lifecycle === "setup_required") return t("Finish");
+  if (lifecycle === "token_expired") return t("New QR");
+  if (lifecycle === "offline") return t("Diagnose");
+  return t("Review");
 }
 
 function approvalModeLabel(value: string) {
-  if (value === "confirm_high_risk") return "Confirm high risk";
-  if (value === "manual") return "Approve every action";
-  if (value === "auto") return "Automatic approval";
-  return value || "Unknown";
+  if (value === "confirm_high_risk") return t("Confirm high risk");
+  if (value === "manual") return t("Approve every action");
+  if (value === "auto") return t("Automatic approval");
+  return value || t("Unknown");
 }
 
 function approvalModeDetail(value: string) {
@@ -1765,7 +1729,7 @@ function friendlyAppName(packageName: string) {
 
 function capabilitySummary(device: MobileDevice) {
   const entries = Object.entries(device.capabilities || {}).filter(([, value]) => Boolean(value));
-  if (entries.length === 0) return "Not reported";
+  if (entries.length === 0) return t("Not reported");
   return entries.map(([key]) => key.replace(/_/g, " ")).join(", ");
 }
 
@@ -1847,5 +1811,5 @@ function buildPairingDeepLink(pairing: MobileDeviceWithPairingToken, baseUrl: st
 
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
-  toast.success("Copied");
+  toast.success(t("Copied"));
 }

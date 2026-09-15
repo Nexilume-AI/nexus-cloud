@@ -497,7 +497,7 @@
 .data-import-choice { position: relative; min-height: 7rem; border: 1px solid var(--nexus-line); background: var(--nexus-panel); padding: 1rem; color: var(--nexus-ink); text-align: left; }
 .data-import-choice:hover { background: rgb(189 252 115 / 0.08); }
 .data-import-choice.is-selected { background: rgb(189 252 115 / 0.14); box-shadow: inset 0 -3px var(--nexus-lume); }
-.data-import-choice.is-selected::after { content: "SELECTED"; position: absolute; top: 0.7rem; right: 0.7rem; color: var(--nexus-brand); font: 650 0.58rem/1 "IBM Plex Mono", monospace; letter-spacing: 0.08em; }
+.data-import-choice.is-selected::after { content: attr(data-selected-label); position: absolute; top: 0.7rem; right: 0.7rem; color: var(--nexus-brand); font: 650 0.58rem/1 "IBM Plex Mono", monospace; letter-spacing: 0.08em; }
 .data-task-step { display: flex; min-height: 2.75rem; align-items: center; gap: 0.7rem; border-bottom: 1px solid var(--nexus-line); padding: 0.55rem 0.7rem; color: var(--nexus-muted); }
 .data-task-step > span:first-child { display: grid; width: 1.5rem; height: 1.5rem; place-items: center; border: 1px solid var(--nexus-line); border-radius: 50%; font: 650 0.64rem/1 "IBM Plex Mono", monospace; }
 .data-task-step.is-active { color: var(--nexus-ink); box-shadow: inset 0 -3px var(--nexus-lume); }

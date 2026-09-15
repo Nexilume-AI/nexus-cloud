@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { Loader2 } from "lucide-react";
 
 export function ReadOnlyValue({
@@ -9,6 +10,7 @@ export function ReadOnlyValue({
   value: string;
   mono?: boolean;
 }) {
+  useLocale();
   return (
     <div className="min-w-0">
       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -30,6 +32,7 @@ export function LoadingState({
   label: string;
   compact?: boolean;
 }) {
+  useLocale();
   return (
     <div
       className={`flex items-center gap-2 text-sm text-muted ${compact ? "py-4" : "panel p-6"}`}
@@ -50,6 +53,7 @@ export function ErrorState({
   error: Error;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div
       className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950"
@@ -57,9 +61,7 @@ export function ErrorState({
     >
       <div className="font-semibold">{title}</div>
       <div className="mt-1">{error.message}</div>
-      <button className="btn mt-3 min-h-10" onClick={onRetry}>
-        Retry
-      </button>
+      <button className="btn mt-3 min-h-10" onClick={onRetry}>{t("Retry")}</button>
     </div>
   );
 }
@@ -75,6 +77,7 @@ export function InlineIssue({
   onRetry: () => void;
   detail?: string;
 }) {
+  useLocale();
   return (
     <div
       className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between"
@@ -84,9 +87,7 @@ export function InlineIssue({
         <div className="font-semibold">{title}</div>
         <div className="mt-1">{detail || error.message}</div>
       </div>
-      <button className="btn min-h-10 shrink-0" onClick={onRetry}>
-        Retry
-      </button>
+      <button className="btn min-h-10 shrink-0" onClick={onRetry}>{t("Retry")}</button>
     </div>
   );
 }

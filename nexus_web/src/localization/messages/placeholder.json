@@ -1,0 +1,6 @@
+{
+  "Planned for": "计划用于",
+  "; the navigation contract is already in place.": ";导航合同已经到位。",
+  "Implementation queue": "实施队列",
+  "This section is intentionally staged behind the core gateway loop. The first production slice focuses on provider connection, deployment publication, API key policy, and live gateway testing.": "此部分有意放置在核心网关循环后面。第一个生产切片侧重于提供商连接、部署发布、API 密钥策略和实时网关测试。"
+}

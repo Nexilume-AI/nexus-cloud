@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -101,6 +102,7 @@ const viewOptions = [
 ];
 
 export function ObservabilityPage() {
+  useLocale();
   const { apiContext, isContextReady, projectId } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -332,7 +334,7 @@ export function ObservabilityPage() {
           : {},
       }),
     onSuccess: async () => {
-      toast.success("Alert created");
+      toast.success(t("Alert created"));
       setDialog(null);
       await queryClient.invalidateQueries({ queryKey: ["alerts"] });
     },
@@ -342,7 +344,7 @@ export function ObservabilityPage() {
   const deleteAlert = useMutation({
     mutationFn: (id: string) => api.deleteAlert(apiContext, id),
     onSuccess: async () => {
-      toast.success("Alert deleted");
+      toast.success(t("Alert deleted"));
       setConfirmDelete(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["alerts"] }),
@@ -355,7 +357,7 @@ export function ObservabilityPage() {
   const testAlert = useMutation({
     mutationFn: (id: string) => api.testAlert(apiContext, id),
     onSuccess: async () => {
-      toast.success("Test event recorded; notification queued");
+      toast.success(t("Test event recorded; notification queued"));
       await queryClient.invalidateQueries({ queryKey: ["alert-events"] });
     },
     onError: (error) =>
@@ -364,7 +366,7 @@ export function ObservabilityPage() {
   const createSchedule = useMutation({
     mutationFn: () => api.createReportSchedule(apiContext, reportForm),
     onSuccess: async () => {
-      toast.success("Report schedule saved");
+      toast.success(t("Report schedule saved"));
       setDialog(null);
       await queryClient.invalidateQueries({ queryKey: ["report-schedules"] });
     },
@@ -374,7 +376,7 @@ export function ObservabilityPage() {
   const deleteSchedule = useMutation({
     mutationFn: (id: string) => api.deleteReportSchedule(apiContext, id),
     onSuccess: async () => {
-      toast.success("Report schedule deleted");
+      toast.success(t("Report schedule deleted"));
       setConfirmDelete(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["report-schedules"] }),
@@ -387,7 +389,7 @@ export function ObservabilityPage() {
   const sendNow = useMutation({
     mutationFn: (id: string) => api.sendReportNow(apiContext, id),
     onSuccess: async () => {
-      toast.success("Report queued for delivery");
+      toast.success(t("Report queued for delivery"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["report-deliveries"] }),
         queryClient.invalidateQueries({ queryKey: ["report-schedules"] }),
@@ -467,14 +469,14 @@ export function ObservabilityPage() {
   async function copy(value: string) {
     if (!value) return;
     await navigator.clipboard.writeText(value);
-    toast.success("Copied");
+    toast.success(t("Copied"));
   }
 
   const currentInspector = onJobs ? (
     <JobInspector
       job={selectedJob}
       events={jobEvents.isError ? [] : (jobEvents.data?.items ?? [])}
-      historyControls={<MonitoringPager label="Job events" control={jobEventsPage} data={jobEvents.data} busy={jobEvents.isFetching} />}
+      historyControls={<MonitoringPager label={t("Job events")} control={jobEventsPage} data={jobEvents.data} busy={jobEvents.isFetching} />}
       error={jobEvents.error || jobDetail.error}
       loading={jobEvents.isFetching}
     />
@@ -516,20 +518,20 @@ export function ObservabilityPage() {
     />
   ) : null;
   const inspectorTitle = onJobs
-    ? selectedJob?.job_type || "Job details"
+    ? selectedJob?.job_type || t("Job details")
     : onAlerts
       ? selectedAlert
         ? metricLabel(selectedAlert.metric)
-        : "Alert details"
+        : t("Alert details")
       : onReports
-        ? selectedSchedule?.email || "Report details"
-        : selectedAudit?.action || "Audit details";
+        ? selectedSchedule?.email || t("Report details")
+        : selectedAudit?.action || t("Audit details");
 
   return (
     <div className="observability-desk ops-desk">
       <header className="observability-header">
         <div>
-          <h1>Observability</h1>
+          <h1>{t("Observability")}</h1>
         </div>
         <div className="observability-header__refresh">
           {canRead && view !== "platform" && <MonitoringStatus key={JSON.stringify(apiContext)} metrics={metrics}
@@ -539,16 +541,14 @@ export function ObservabilityPage() {
             className="btn obs-quiet-action"
             type="button"
             onClick={refreshCurrent}
-            aria-label="Refresh current observability view"
+            aria-label={t("Refresh current observability view")}
             disabled={systemMetrics.isFetching}
           >
-            <RefreshCw size={15} />
-            Refresh
-          </button>
+            <RefreshCw size={15} />{t("Refresh")}</button>
         </div>
       </header>
       <div className="observability-mobile-switcher">
-        <label htmlFor="observability-view">Work surface</label>
+        <label htmlFor="observability-view">{t("Work surface")}</label>
         <select
           id="observability-view"
           className="select"
@@ -559,14 +559,14 @@ export function ObservabilityPage() {
         >
           {visibleViews.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.label)}
             </option>
           ))}
         </select>
       </div>
       <div className="observability-desktop-tabs">
         <NexilumeTabs
-          label="Observability work surfaces"
+          label={t("Observability work surfaces")}
           options={visibleViews}
           value={view}
           onChange={(next) =>
@@ -630,8 +630,8 @@ export function ObservabilityPage() {
         {canRead && view === "activity" && (
           <div className="observability-mode-surface">
             <ModeHeader
-              title="Activity"
-              description="Jobs and background operations."
+              title={t("Activity")}
+              description={t("Jobs and background operations.")}
               scope={projectId ? "Current project" : "All projects"}
             />
             <JobsSurface
@@ -653,15 +653,15 @@ export function ObservabilityPage() {
         {canRead && view === "automations" && (
           <div className="observability-mode-surface">
             <ModeHeader
-              title="Automations"
-              description="Alert rules and report schedules."
+              title={t("Automations")}
+              description={t("Alert rules and report schedules.")}
               scope={projectId ? "Current project" : "Organization-wide"}
             >
               <NexilumeTabs
-                label="Automation modes"
+                label={t("Automation modes")}
                 options={[
-                  { value: "alerts" as const, label: "Alerts" },
-                  ...(canFinance ? [{ value: "reports" as const, label: "Reports" }] : []),
+                  { value: "alerts" as const, label: t("Alerts") },
+                  ...(canFinance ? [{ value: "reports" as const, label: t("Reports") }] : []),
                 ]}
                 value={automationMode}
                 onChange={(mode) => setRoute("automations", mode)}
@@ -693,7 +693,7 @@ export function ObservabilityPage() {
                 role="tabpanel"
                 aria-labelledby="observability-automations-tab-reports"
               >
-                {!canFinance ? <p>Financial monitoring permission is required.</p> : <ReportsSurface
+                {!canFinance ? <p>{t("Financial monitoring permission is required.")}</p> : <ReportsSurface
                   schedules={validSchedules}
                   selectedId={selectedSchedule?.id || ""}
                   loading={schedules.isPending}
@@ -730,18 +730,18 @@ export function ObservabilityPage() {
           />
         )}
         {canRead && view === "platform" && canDiagnose && <PlatformMonitoring key={JSON.stringify(apiContext)} />}
-        {canRead && onJobs && <MonitoringPager label="Jobs" control={jobsPage} data={jobs.data} busy={jobs.isFetching} />}
-        {canRead && onAlerts && <MonitoringPager label="Alert rules" control={rulesPage} data={alerts.data} busy={alerts.isFetching} />}
-        {canFinance && onReports && <MonitoringPager label="Report schedules" control={schedulePage} data={schedules.data} busy={schedules.isFetching} />}
-        {canAudit && onAudit && <MonitoringPager label="Audit events" control={auditPage} data={auditLogs.data} busy={auditLogs.isFetching} />}
+        {canRead && onJobs && <MonitoringPager label={t("Jobs")} control={jobsPage} data={jobs.data} busy={jobs.isFetching} />}
+        {canRead && onAlerts && <MonitoringPager label={t("Alert rules")} control={rulesPage} data={alerts.data} busy={alerts.isFetching} />}
+        {canFinance && onReports && <MonitoringPager label={t("Report schedules")} control={schedulePage} data={schedules.data} busy={schedules.isFetching} />}
+        {canAudit && onAudit && <MonitoringPager label={t("Audit events")} control={auditPage} data={auditLogs.data} busy={auditLogs.isFetching} />}
         {canRead && onAudit && <RequestLookup />}
       </section>
 
       <NexilumeDialog
         open={dialog === "alert" && canManage}
-        title="Create alert"
-        eyebrow="AUTOMATIONS · ALERTS"
-        description="Choose a measure, condition and notification destination."
+        title={t("Create alert")}
+        eyebrow={t("AUTOMATIONS · ALERTS")}
+        description={t("Choose a measure, condition and notification destination.")}
         onClose={closeDialog}
         busy={createAlert.isPending}
         size="large"
@@ -757,9 +757,9 @@ export function ObservabilityPage() {
       </NexilumeDialog>
       <NexilumeDialog
         open={dialog === "report" && canReports}
-        title="Schedule report"
-        eyebrow="AUTOMATIONS · REPORTS"
-        description="Create a recurring workspace-wide operational summary."
+        title={t("Schedule report")}
+        eyebrow={t("AUTOMATIONS · REPORTS")}
+        description={t("Create a recurring workspace-wide operational summary.")}
         onClose={closeDialog}
         busy={createSchedule.isPending}
       >
@@ -774,9 +774,9 @@ export function ObservabilityPage() {
       </NexilumeDialog>
       <NexilumeDialog
         open={dialog === "resource"}
-        title="Resource lookup"
-        eyebrow="ACTIVITY · SECONDARY TOOL"
-        description="Query the existing Resource Metrics endpoint by an exact type and ID."
+        title={t("Resource lookup")}
+        eyebrow={t("ACTIVITY · SECONDARY TOOL")}
+        description={t("Query the existing Resource Metrics endpoint by an exact type and ID.")}
         onClose={closeDialog}
         size="large"
       >
@@ -792,7 +792,7 @@ export function ObservabilityPage() {
       <NexilumeDialog
         open={inspectorOpen && Boolean(currentInspector)}
         title={inspectorTitle}
-        eyebrow="OPERATIONS INSPECTOR"
+        eyebrow={t("OPERATIONS INSPECTOR")}
         onClose={() => setInspectorOpen(false)}
         variant="drawer"
       >
@@ -800,9 +800,9 @@ export function ObservabilityPage() {
       </NexilumeDialog>
       <NexilumeDialog
         open={Boolean(confirmDelete)}
-        title={`Delete ${confirmDelete?.kind || "automation"}?`}
-        eyebrow="DANGER · CONFIRMATION"
-        description="This operation cannot be undone. Historical records follow server retention."
+        title={t("Delete {{0}}?", { 0: confirmDelete?.kind || "automation" })}
+        eyebrow={t("DANGER · CONFIRMATION")}
+        description={t("This operation cannot be undone. Historical records follow server retention.")}
         onClose={() => setConfirmDelete(null)}
         busy={deleteAlert.isPending || deleteSchedule.isPending}
         footer={
@@ -811,9 +811,7 @@ export function ObservabilityPage() {
               className="btn"
               type="button"
               onClick={() => setConfirmDelete(null)}
-            >
-              Cancel
-            </button>
+            >{t("Cancel")}</button>
             <button
               className="btn obs-danger-action"
               type="button"
@@ -825,9 +823,7 @@ export function ObservabilityPage() {
                   : deleteSchedule.mutate(confirmDelete.id);
               }}
             >
-              <Trash2 size={15} />
-              Delete
-            </button>
+              <Trash2 size={15} />{t("Delete")}</button>
           </>
         }
       >
@@ -876,41 +872,40 @@ function JobsSurface({
   onResourceLookup: () => void;
   inspector: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="obs-surface-stack">
       <div className="obs-toolbar">
         <label className="obs-search">
           <Search size={16} />
-          <span className="sr-only">Search jobs</span>
+          <span className="sr-only">{t("Search jobs")}</span>
           <input
             className="input"
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder="Search jobs or resources"
+            placeholder={t("Search jobs or resources")}
           />
         </label>
         <select
           className="select"
-          aria-label="Filter jobs by status"
+          aria-label={t("Filter jobs by status")}
           value={filters.status}
           onChange={(event) =>
             onFilters({ ...filters, status: event.target.value })
           }
         >
-          <option value="">All statuses</option>
-          <option value="queued">Queued</option>
-          <option value="running">Running</option>
-          <option value="succeeded">Succeeded</option>
-          <option value="failed">Failed</option>
-          <option value="canceled">Canceled</option>
+          <option value="">{t("All statuses")}</option>
+          <option value="queued">{t("Queued")}</option>
+          <option value="running">{t("Running")}</option>
+          <option value="succeeded">{t("Succeeded")}</option>
+          <option value="failed">{t("Failed")}</option>
+          <option value="canceled">{t("Canceled")}</option>
         </select>
         <details className="obs-advanced-filters">
           <summary>
-            <Filter size={15} />
-            Advanced filters
-          </summary>
+            <Filter size={15} />{t("Advanced filters")}</summary>
           <div>
-            <Field label="Job type">
+            <Field label={t("Job type")}>
               <input
                 className="input"
                 value={filters.job_type}
@@ -919,7 +914,7 @@ function JobsSurface({
                 }
               />
             </Field>
-            <Field label="Resource type">
+            <Field label={t("Resource type")}>
               <input
                 className="input"
                 value={filters.resource_type}
@@ -928,7 +923,7 @@ function JobsSurface({
                 }
               />
             </Field>
-            <Field label="Resource ID">
+            <Field label={t("Resource ID")}>
               <input
                 className="input font-mono"
                 value={filters.resource_id}
@@ -944,13 +939,11 @@ function JobsSurface({
           type="button"
           onClick={onResourceLookup}
         >
-          <Gauge size={15} />
-          Resource lookup
-        </button>
+          <Gauge size={15} />{t("Resource lookup")}</button>
       </div>
       {Boolean(error) && (
         <QueryNotice
-          title="Jobs unavailable"
+          title={t("Jobs unavailable")}
           error={errorMessage(error, "The jobs request failed.")}
           onRetry={onRetry}
         />
@@ -959,12 +952,12 @@ function JobsSurface({
         <LoadingRows count={6} />
       ) : jobs.length === 0 ? (
         <EmptyState
-          title="No matching jobs"
-          description="Try removing a filter. Runtime and background jobs appear here when they run."
+          title={t("No matching jobs")}
+          description={t("Try removing a filter. Runtime and background jobs appear here when they run.")}
         />
       ) : (
         <ObjectWorkspace
-          label="Job inventory"
+          label={t("Job inventory")}
           inspector={inspector}
           track={jobs.map((job) => (
             <button
@@ -1013,10 +1006,11 @@ function ResourcesSurface({
   error: Error | null;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="obs-resource-surface">
       <div className="obs-resource-query">
-        <Field label="Resource type">
+        <Field label={t("Resource type")}>
           <select
             className="select"
             value={resource.type}
@@ -1024,35 +1018,35 @@ function ResourcesSurface({
               onResource({ ...resource, type: event.target.value })
             }
           >
-            <option value="agent">Agent</option>
-            <option value="router">Router</option>
-            <option value="model">Model</option>
-            <option value="dataset">Dataset</option>
-            <option value="api_key">API key</option>
+            <option value="agent">{t("Agent")}</option>
+            <option value="router">{t("Router")}</option>
+            <option value="model">{t("Model")}</option>
+            <option value="dataset">{t("Dataset")}</option>
+            <option value="api_key">{t("API key")}</option>
           </select>
         </Field>
-        <Field label="Resource ID">
+        <Field label={t("Resource ID")}>
           <input
             className="input font-mono"
             value={resource.id}
             onChange={(event) =>
               onResource({ ...resource, id: event.target.value })
             }
-            placeholder="Paste a resource ID"
+            placeholder={t("Paste a resource ID")}
           />
         </Field>
       </div>
       {error && (
         <QueryNotice
-          title="Resource metrics unavailable"
+          title={t("Resource metrics unavailable")}
           error={errorMessage(error, "The resource request failed.")}
           onRetry={onRetry}
         />
       )}
       {!resource.id.trim() ? (
         <EmptyState
-          title="Choose a resource"
-          description="Resource metrics load only after an ID is provided."
+          title={t("Choose a resource")}
+          description={t("Resource metrics load only after an ID is provided.")}
         />
       ) : loading ? (
         <LoadingRows count={4} />
@@ -1062,20 +1056,20 @@ function ResourcesSurface({
           aria-labelledby="resource-summary-title"
         >
           <SectionHeading
-            eyebrow={`${resourceLabel(resource.type).toUpperCase()} · SAFE SUMMARY`}
-            title="Resource health"
+            eyebrow={t("{{0}} · SAFE SUMMARY", { 0: resourceLabel(resource.type).toUpperCase() })}
+            title={t("Resource health")}
             id="resource-summary-title"
           />
           <KeyValueGrid value={data} />
           <TechnicalDetails>
-            <Detail label="Full resource ID" value={resource.id} mono />
-            <JsonBlock label="Snapshot and raw payload" value={data} />
+            <Detail label={t("Full resource ID")} value={resource.id} mono />
+            <JsonBlock label={t("Snapshot and raw payload")} value={data} />
           </TechnicalDetails>
         </section>
       ) : (
         <EmptyState
-          title="No metrics returned"
-          description="This resource did not return a metrics snapshot."
+          title={t("No metrics returned")}
+          description={t("This resource did not return a metrics snapshot.")}
         />
       )}
     </div>
@@ -1105,19 +1099,20 @@ function AlertsSurface({
   onSelect: (id: string) => void;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="obs-surface-stack">
       <SurfaceAction
-        title="Alert rules"
-        detail={`${alerts.length} rule${alerts.length === 1 ? "" : "s"} on this page`}
-        tools={<label className="obs-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Search rules</span><input className="input" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search metric or resource" /></label>}
+        title={t("Alert rules")}
+        detail={t("{{0}} rule{{1}} on this page", { 0: alerts.length, 1: alerts.length === 1 ? "" : "s" })}
+        tools={<label className="obs-search"><Search size={16} aria-hidden="true" /><span className="sr-only">{t("Search rules")}</span><input className="input" value={search} onChange={(event) => onSearch(event.target.value)} placeholder={t("Search metric or resource")} /></label>}
         action="Create alert"
         icon={<Plus />}
         onAction={onCreate} canManage={canManage}
       />
       {error && (
         <QueryNotice
-          title="Alerts unavailable"
+          title={t("Alerts unavailable")}
           error={errorMessage(error, "The alerts request failed.")}
           onRetry={onRetry}
         />
@@ -1126,13 +1121,13 @@ function AlertsSurface({
         <LoadingRows count={5} />
       ) : alerts.length === 0 ? (
         <EmptyState
-          title="No alert rules"
-          description="Create a rule to monitor balance, usage, or a scoped resource."
+          title={t("No alert rules")}
+          description={t("Create a rule to monitor balance, usage, or a scoped resource.")}
 
         />
       ) : (
         <ObjectWorkspace
-          label="Alert rules"
+          label={t("Alert rules")}
           inspector={inspector}
           track={alerts.map((rule) => (
             <button
@@ -1186,18 +1181,19 @@ function ReportsSurface({
   onSelect: (id: string) => void;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="obs-surface-stack">
       <SurfaceAction
-        title="Report schedules"
-        detail={`${schedules.length} schedule${schedules.length === 1 ? "" : "s"} on this page`}
+        title={t("Report schedules")}
+        detail={t("{{0}} schedule{{1}} on this page", { 0: schedules.length, 1: schedules.length === 1 ? "" : "s" })}
         action="Schedule report"
         icon={<Plus />}
         onAction={onCreate} canManage={canManage}
       />
       {error && (
         <QueryNotice
-          title="Reports unavailable"
+          title={t("Reports unavailable")}
           error={errorMessage(error, "The reports request failed.")}
           onRetry={onRetry}
         />
@@ -1206,13 +1202,13 @@ function ReportsSurface({
         <LoadingRows count={5} />
       ) : schedules.length === 0 ? (
         <EmptyState
-          title="No report schedules"
-          description="Schedule a daily, weekly, or monthly operational email."
+          title={t("No report schedules")}
+          description={t("Schedule a daily, weekly, or monthly operational email.")}
 
         />
       ) : (
         <ObjectWorkspace
-          label="Report schedules"
+          label={t("Report schedules")}
           inspector={inspector}
           track={schedules.map((schedule) => (
             <button
@@ -1225,7 +1221,7 @@ function ReportsSurface({
               <ReportShape />
               <span>
                 <strong>{schedule.email}</strong>
-                <small>{humanize(schedule.interval)} operational report</small>
+                <small>{humanize(schedule.interval)}{" "}{t("operational report")}</small>
               </span>
               <span className="obs-object-row__state">
                 <StatusBadge status={schedule.status} />
@@ -1271,31 +1267,32 @@ function AuditSurface({
   onSelect: (id: string) => void;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="observability-mode-surface">
       <ModeHeader
-        title="Audit"
-        description="Security and resource changes."
+        title={t("Audit")}
+        description={t("Security and resource changes.")}
         scope={scope}
       />
       <div className="obs-toolbar">
         <label className="obs-search">
           <Search size={16} />
-          <span className="sr-only">Search audit events</span>
+          <span className="sr-only">{t("Search audit events")}</span>
           <input
             className="input"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            placeholder="Search action, actor, or resource"
+            placeholder={t("Search action, actor, or resource")}
           />
         </label>
         <select
           className="select"
-          aria-label="Filter audit events by resource type"
+          aria-label={t("Filter audit events by resource type")}
           value={resourceType}
           onChange={(event) => onResourceType(event.target.value)}
         >
-          <option value="">All resource types</option>
+          <option value="">{t("All resource types")}</option>
           {resourceTypes.map((type) => (
             <option key={type} value={type}>
               {resourceLabel(type)}
@@ -1305,7 +1302,7 @@ function AuditSurface({
       </div>
       {error && (
         <QueryNotice
-          title="Audit unavailable"
+          title={t("Audit unavailable")}
           error={errorMessage(
             error,
             "You may not have permission to view audit events.",
@@ -1317,12 +1314,12 @@ function AuditSurface({
         <LoadingRows count={6} />
       ) : logs.length === 0 ? (
         <EmptyState
-          title="No matching audit events"
-          description="Write operations and governed system changes will appear here."
+          title={t("No matching audit events")}
+          description={t("Write operations and governed system changes will appear here.")}
         />
       ) : (
         <ObjectWorkspace
-          label="Audit events"
+          label={t("Audit events")}
           inspector={inspector}
           track={logs.map((log) => (
             <button
@@ -1366,10 +1363,11 @@ function JobInspector({
   historyControls: ReactNode;
   error: Error | null;
 }) {
-  if (!job) return <InspectorEmpty title="No job selected" />;
+  useLocale();
+  if (!job) return <InspectorEmpty title={t("No job selected")} />;
   return (
     <InspectorShell
-      eyebrow="JOB INSPECTOR"
+      eyebrow={t("JOB INSPECTOR")}
       title={humanize(job.job_type)}
       status={job.status}
     >
@@ -1387,37 +1385,37 @@ function JobInspector({
         <div className="obs-error-block">
           <AlertTriangle size={17} />
           <div>
-            <strong>{job.error_code || "Job failed"}</strong>
+            <strong>{job.error_code || t("Job failed")}</strong>
             <p>{job.error_message}</p>
           </div>
         </div>
       )}
       {Object.keys(job.result_json || {}).length > 0 && (
         <section className="obs-inspector-section">
-          <h3>Key result</h3>
+          <h3>{t("Key result")}</h3>
           <KeyValueGrid value={job.result_json} />
         </section>
       )}
       <section className="obs-inspector-section">
-        <h3>Event timeline</h3>
-        {error && <p role="alert">Job history could not be loaded. Refresh to retry.</p>}
+        <h3>{t("Event timeline")}</h3>
+        {error && <p role="alert">{t("Job history could not be loaded. Refresh to retry.")}</p>}
         {historyControls}
         {loading ? (
           <LoadingRows count={2} />
         ) : events.length === 0 ? (
-          <p className="obs-muted-copy">No recorded events.</p>
+          <p className="obs-muted-copy">{t("No recorded events.")}</p>
         ) : (
           <EventTimeline events={events} />
         )}
       </section>
       <TechnicalDetails>
-        <Detail label="Job ID" value={job.id} mono />
+        <Detail label={t("Job ID")} value={job.id} mono />
         <Detail
-          label="Celery task ID"
+          label={t("Celery task ID")}
           value={job.celery_task_id || "Not available"}
           mono
         />
-        <p>Raw job inputs and results are excluded from this operational index.</p>
+        <p>{t("Raw job inputs and results are excluded from this operational index.")}</p>
       </TechnicalDetails>
     </InspectorShell>
   );
@@ -1436,16 +1434,17 @@ function AlertInspector({
   onDelete: (rule: AlertRule) => void;
   busy: boolean;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const page = useCursorPage([apiContext, rule?.id]);
   const history = useQuery({ queryKey: ["alert-events", apiContext, rule?.id, page.cursor],
     queryFn: ({ signal }) => api.monitoringPage<AlertEvent>(apiContext, "alerts/events", { rule: rule!.id, cursor: page.cursor }, signal),
     enabled: !!rule, refetchInterval: 30_000 });
   const events = history.isError ? [] : history.data?.items ?? [];
-  if (!rule) return <InspectorEmpty title="No accessible alert selected" />;
+  if (!rule) return <InspectorEmpty title={t("No accessible alert selected")} />;
   return (
     <InspectorShell
-      eyebrow="ALERT RULE"
+      eyebrow={t("ALERT RULE")}
       title={metricLabel(rule.metric)}
       status={rule.status}
     >
@@ -1469,42 +1468,38 @@ function AlertInspector({
           onClick={() => onTest(rule.id)}
           disabled={busy}
         >
-          <Bell size={15} />
-          Send test
-        </button>
+          <Bell size={15} />{t("Send test")}</button>
         <button
           className="btn obs-danger-quiet"
           type="button"
           onClick={() => onDelete(rule)}
           disabled={busy}
-          aria-label={`Delete alert for ${metricLabel(rule.metric)}`}
+          aria-label={t("Delete alert for {{0}}", { 0: metricLabel(rule.metric) })}
         >
-          <Trash2 size={15} />
-          Delete
-        </button>
+          <Trash2 size={15} />{t("Delete")}</button>
       </div>}
-      {canManage && <MonitoringActions kind="rules" id={rule.id} actions={[{ action: rule.status === "active" ? "pause" : "resume", label: rule.status === "active" ? "Pause rule" : "Resume rule" }, { action: rule.muted_until ? "unmute" : "mute", label: rule.muted_until ? "Unmute" : "Mute for one hour" }]} />}
-      <p>Window: {rule.window_seconds}s · Cooldown: {rule.cooldown_seconds}s · Evaluation: {rule.last_error_code || "No recorded error"}</p>
+      {canManage && <MonitoringActions kind="rules" id={rule.id} actions={[{ action: rule.status === "active" ? "pause" : "resume", label: rule.status === "active" ? t("Pause rule") : t("Resume rule") }, { action: rule.muted_until ? "unmute" : "mute", label: rule.muted_until ? t("Unmute") : t("Mute for one hour") }]} />}
+      <p>{t("Window:")}{" "}{rule.window_seconds}{t("s · Cooldown:")}{" "}{rule.cooldown_seconds}{t("s · Evaluation:")}{" "}{rule.last_error_code || t("No recorded error")}</p>
       <section className="obs-inspector-section">
-        <h3>Event history</h3>
-        {history.isError && <p role="alert">Event history unavailable. <button className="btn" onClick={() => void history.refetch()}>Retry</button></p>}
-        <MonitoringPager label="Rule events" control={page} data={history.data} busy={history.isFetching} />
+        <h3>{t("Event history")}</h3>
+        {history.isError && <p role="alert">{t("Event history unavailable.")}{" "}<button className="btn" onClick={() => void history.refetch()}>{t("Retry")}</button></p>}
+        <MonitoringPager label={t("Rule events")} control={page} data={history.data} busy={history.isFetching} />
         {events.length ? (
           <AlertEventTimeline events={events} canManage={canManage} />
         ) : (
-          <p className="obs-muted-copy">This rule has no events yet.</p>
+          <p className="obs-muted-copy">{t("This rule has no events yet.")}</p>
         )}
       </section>
       <TechnicalDetails>
-        <Detail label="Rule ID" value={rule.id} mono />
-        <Detail label="Metric key" value={rule.metric} mono />
+        <Detail label={t("Rule ID")} value={rule.id} mono />
+        <Detail label={t("Metric key")} value={rule.metric} mono />
         <Detail
-          label="Resource ID"
+          label={t("Resource ID")}
           value={rule.resource_id || "Not scoped"}
           mono
         />
         <JsonBlock
-          label="Notification channels"
+          label={t("Notification channels")}
           value={rule.notification_channels}
         />
       </TechnicalDetails>
@@ -1525,16 +1520,17 @@ function ReportInspector({
   onDelete: (schedule: ReportSchedule) => void;
   busy: boolean;
 }) {
+  useLocale();
   const { apiContext } = useAuth();
   const page = useCursorPage([apiContext, schedule?.id]);
   const history = useQuery({ queryKey: ["report-deliveries", apiContext, schedule?.id, page.cursor],
     queryFn: ({ signal }) => api.monitoringPage<ReportDelivery>(apiContext, "reports/deliveries", { schedule: schedule!.id, cursor: page.cursor }, signal),
     enabled: !!schedule, refetchInterval: 30_000 });
   const deliveries = history.isError ? [] : history.data?.items ?? [];
-  if (!schedule) return <InspectorEmpty title="No accessible report selected" />;
+  if (!schedule) return <InspectorEmpty title={t("No accessible report selected")} />;
   return (
     <InspectorShell
-      eyebrow="REPORT SCHEDULE"
+      eyebrow={t("REPORT SCHEDULE")}
       title={schedule.email}
       status={schedule.status}
     >
@@ -1552,33 +1548,29 @@ function ReportInspector({
           onClick={() => onSend(schedule.id)}
           disabled={busy}
         >
-          <Send size={15} />
-          Send now
-        </button>
+          <Send size={15} />{t("Send now")}</button>
         <button
           className="btn obs-danger-quiet"
           type="button"
           onClick={() => onDelete(schedule)}
           disabled={busy}
-          aria-label={`Delete report schedule for ${schedule.email}`}
+          aria-label={t("Delete report schedule for {{0}}", { 0: schedule.email })}
         >
-          <Trash2 size={15} />
-          Delete
-        </button>
+          <Trash2 size={15} />{t("Delete")}</button>
       </div>}
       <section className="obs-inspector-section">
-        <h3>Delivery history</h3>
-        <p>Sent means accepted by the email transport, not confirmed receipt. Retried SMTP delivery may duplicate email after a crash.</p>
-        {history.isError && <p role="alert">Delivery history unavailable. <button className="btn" onClick={() => void history.refetch()}>Retry</button></p>}
-        <MonitoringPager label="Report deliveries" control={page} data={history.data} busy={history.isFetching} />
+        <h3>{t("Delivery history")}</h3>
+        <p>{t("Sent means accepted by the email transport, not confirmed receipt. Retried SMTP delivery may duplicate email after a crash.")}</p>
+        {history.isError && <p role="alert">{t("Delivery history unavailable.")}{" "}<button className="btn" onClick={() => void history.refetch()}>{t("Retry")}</button></p>}
+        <MonitoringPager label={t("Report deliveries")} control={page} data={history.data} busy={history.isFetching} />
         {deliveries.length ? (
           <DeliveryTimeline deliveries={deliveries} canManage={canManage} />
         ) : (
-          <p className="obs-muted-copy">No report has been delivered yet.</p>
+          <p className="obs-muted-copy">{t("No report has been delivered yet.")}</p>
         )}
       </section>
       <TechnicalDetails>
-        <Detail label="Schedule ID" value={schedule.id} mono />
+        <Detail label={t("Schedule ID")} value={schedule.id} mono />
       </TechnicalDetails>
     </InspectorShell>
   );
@@ -1593,18 +1585,17 @@ function AuditInspector({
   loading: boolean;
   onCopy: (value: string) => Promise<void>;
 }) {
-  if (!log) return <InspectorEmpty title="No audit event selected" />;
+  useLocale();
+  if (!log) return <InspectorEmpty title={t("No audit event selected")} />;
   return (
     <InspectorShell
-      eyebrow="AUDIT EVENT"
+      eyebrow={t("AUDIT EVENT")}
       title={humanize(log.action)}
       status={auditResult(log)}
     >
       {loading && (
         <p className="obs-inline-loading">
-          <Loader2 size={15} className="animate-spin" />
-          Loading complete event
-        </p>
+          <Loader2 size={15} className="animate-spin" />{t("Loading complete event")}</p>
       )}
       <InspectorFacts
         facts={[
@@ -1615,39 +1606,37 @@ function AuditInspector({
       />
       <div className="obs-request-id">
         <span>
-          <small>REQUEST ID</small>
-          <strong style={{ overflowWrap: "anywhere" }}>{log.request_id || "Not available"}</strong>
+          <small>{t("REQUEST ID")}</small>
+          <strong style={{ overflowWrap: "anywhere" }}>{log.request_id || t("Not available")}</strong>
         </span>
         <button
           className="btn"
           type="button"
           onClick={() => void onCopy(log.request_id)}
           disabled={!log.request_id}
-          aria-label="Copy request ID"
+          aria-label={t("Copy request ID")}
         >
-          <Copy size={15} />
-          Copy
-        </button>
+          <Copy size={15} />{t("Copy")}</button>
       </div>
       <TechnicalDetails>
         <Detail
-          label="Full request ID"
+          label={t("Full request ID")}
           value={log.request_id || "Not available"}
           mono
         />
         <Detail
-          label="Resource ID"
+          label={t("Resource ID")}
           value={log.resource_id || "Not available"}
           mono
         />
         <Detail
-          label="IP address"
+          label={t("IP address")}
           value={log.ip_address || "Not recorded"}
           mono
         />
-        <JsonBlock label="Before" value={log.before_snapshot} />
-        <JsonBlock label="After" value={log.after_snapshot} />
-        <JsonBlock label="Metadata" value={log.metadata} />
+        <JsonBlock label={t("Before")} value={log.before_snapshot} />
+        <JsonBlock label={t("After")} value={log.after_snapshot} />
+        <JsonBlock label={t("Metadata")} value={log.metadata} />
       </TechnicalDetails>
     </InspectorShell>
   );
@@ -1686,6 +1675,7 @@ function AlertForm({
   isPending: boolean;
   onSubmit: () => void;
 }) {
+  useLocale();
   const sentence = `Notify when ${metricLabel(form.metric)} ${conditionLabel(form.operator)} ${formatThreshold(form.metric, form.threshold || "0")}.`;
   return (
     <form
@@ -1696,11 +1686,11 @@ function AlertForm({
       }}
     >
       <div className="obs-rule-preview">
-        <span>RULE PREVIEW</span>
+        <span>{t("RULE PREVIEW")}</span>
         <strong>{sentence}</strong>
       </div>
-      <fieldset className="ops-form-section"><legend>Measure and condition</legend><div className="obs-form-grid">
-        <Field label="Measure">
+      <fieldset className="ops-form-section"><legend>{t("Measure and condition")}</legend><div className="obs-form-grid">
+        <Field label={t("Measure")}>
           <select
             className="select"
             value={form.metric}
@@ -1715,7 +1705,7 @@ function AlertForm({
             ))}
           </select>
         </Field>
-        <Field label="Condition">
+        <Field label={t("Condition")}>
           <select
             className="select"
             value={form.operator}
@@ -1730,7 +1720,7 @@ function AlertForm({
             ))}
           </select>
         </Field>
-        <Field label="Threshold">
+        <Field label={t("Threshold")}>
           <input
             className="input"
             inputMode="decimal"
@@ -1743,59 +1733,57 @@ function AlertForm({
         </Field>
       </div>
       </fieldset>
-      <fieldset className="ops-form-section"><legend>Evaluation</legend><div className="obs-form-grid">
-        <Field label="Evaluation window (seconds)"><input className="input" type="number" min="1" max="604800" required value={form.window_seconds} onChange={(event) => setForm({ ...form, window_seconds: event.target.value })} /></Field>
-        <Field label="Cooldown (seconds)"><input className="input" type="number" min="0" required value={form.cooldown_seconds} onChange={(event) => setForm({ ...form, cooldown_seconds: event.target.value })} /></Field>
+      <fieldset className="ops-form-section"><legend>{t("Evaluation")}</legend><div className="obs-form-grid">
+        <Field label={t("Evaluation window (seconds)")}><input className="input" type="number" min="1" max="604800" required value={form.window_seconds} onChange={(event) => setForm({ ...form, window_seconds: event.target.value })} /></Field>
+        <Field label={t("Cooldown (seconds)")}><input className="input" type="number" min="0" required value={form.cooldown_seconds} onChange={(event) => setForm({ ...form, cooldown_seconds: event.target.value })} /></Field>
       </div>
       </fieldset>
-      <fieldset className="ops-form-section"><legend>Notification</legend>
-      <Field label="Notification email">
+      <fieldset className="ops-form-section"><legend>{t("Notification")}</legend>
+      <Field label={t("Notification email")}>
         <input
           className="input"
           type="email"
           value={form.email}
           onChange={(event) => setForm({ ...form, email: event.target.value })}
-          placeholder="Optional"
+          placeholder={t("Optional")}
         />
       </Field>
-      <p className="ops-form-hint">Leave empty to record alerts without email.</p></fieldset>
+      <p className="ops-form-hint">{t("Leave empty to record alerts without email.")}</p></fieldset>
       <details className="obs-form-advanced">
-        <summary>Advanced scope</summary>
+        <summary>{t("Advanced scope")}</summary>
         <div>
-          <Field label="Internal metric key">
+          <Field label={t("Internal metric key")}>
             <input className="input font-mono" value={form.metric} readOnly />
           </Field>
-          <Field label="Resource type">
+          <Field label={t("Resource type")}>
             <input
               className="input"
               value={form.resource_type}
               onChange={(event) =>
                 setForm({ ...form, resource_type: event.target.value })
               }
-              placeholder="Optional"
+              placeholder={t("Optional")}
             />
           </Field>
-          <Field label="Resource ID">
+          <Field label={t("Resource ID")}>
             <input
               className="input font-mono"
               value={form.resource_id}
               onChange={(event) =>
                 setForm({ ...form, resource_id: event.target.value })
               }
-              placeholder="Optional"
+              placeholder={t("Optional")}
             />
           </Field>
         </div>
       </details>
       {error && <p className="ops-form-error" role="alert">{error}</p>}
-      <div className="ops-form-footer"><button className="btn" type="button" onClick={onCancel} disabled={isPending}>Cancel</button><button
+      <div className="ops-form-footer"><button className="btn" type="button" onClick={onCancel} disabled={isPending}>{t("Cancel")}</button><button
         className="btn btn-primary obs-form-submit"
         type="submit"
         disabled={isPending}
       >
-        {isPending && <Loader2 size={16} className="animate-spin" />}Create
-        alert
-      </button></div>
+        {isPending && <Loader2 size={16} className="animate-spin" />}{t("Create alert")}</button></div>
     </form>
   );
 }
@@ -1813,6 +1801,7 @@ function ReportForm({
   isPending: boolean;
   onSubmit: () => void;
 }) {
+  useLocale();
   return (
     <form
       className="obs-task-form"
@@ -1822,13 +1811,12 @@ function ReportForm({
       }}
     >
       <div className="obs-rule-preview">
-        <span>SCHEDULE PREVIEW</span>
-        <strong>
-          Send a {form.interval} workspace-wide operational report to{" "}
-          {form.email || "the selected email"}.
+        <span>{t("SCHEDULE PREVIEW")}</span>
+        <strong>{t("Send a")}{" "}{form.interval}{" "}{t("workspace-wide operational report to")}{" "}
+          {form.email || t("the selected email")}.
         </strong>
       </div>
-      <Field label="Email">
+      <Field label={t("Email")}>
         <input
           className="input"
           type="email"
@@ -1837,7 +1825,7 @@ function ReportForm({
           required
         />
       </Field>
-      <Field label="Cadence">
+      <Field label={t("Cadence")}>
         <select
           className="select"
           value={form.interval}
@@ -1845,20 +1833,18 @@ function ReportForm({
             setForm({ ...form, interval: event.target.value })
           }
         >
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
+          <option value="daily">{t("Daily")}</option>
+          <option value="weekly">{t("Weekly")}</option>
+          <option value="monthly">{t("Monthly")}</option>
         </select>
       </Field>
       {error && <p className="ops-form-error" role="alert">{error}</p>}
-      <div className="ops-form-footer"><button className="btn" type="button" onClick={onCancel} disabled={isPending}>Cancel</button><button
+      <div className="ops-form-footer"><button className="btn" type="button" onClick={onCancel} disabled={isPending}>{t("Cancel")}</button><button
         className="btn btn-primary obs-form-submit"
         type="submit"
         disabled={isPending}
       >
-        {isPending && <Loader2 size={16} className="animate-spin" />}Save
-        schedule
-      </button></div>
+        {isPending && <Loader2 size={16} className="animate-spin" />}{t("Save schedule")}</button></div>
     </form>
   );
 }
@@ -1874,6 +1860,7 @@ function ModeHeader({
   scope: string;
   children?: ReactNode;
 }) {
+  useLocale();
   return (
     <header className="obs-mode-header">
       <div>
@@ -1904,6 +1891,7 @@ function SurfaceAction({
   icon: ReactNode;
   onAction: () => void;
 }) {
+  useLocale();
   return (
     <div className="obs-surface-action">
       <div>
@@ -1927,12 +1915,13 @@ function ObjectWorkspace({
   inspector: ReactNode;
   label: string;
 }) {
+  useLocale();
   return (
     <div className="obs-object-workspace">
       <div className="obs-object-track" aria-label={label}>
         {track}
       </div>
-      <aside className="obs-inspector" aria-label={`${label} inspector`}>
+      <aside className="obs-inspector" aria-label={t("{{0}} inspector", { 0: label })}>
         {inspector}
       </aside>
     </div>
@@ -1949,6 +1938,7 @@ function InspectorShell({
   status: string;
   children: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="obs-inspector-shell">
       <header>
@@ -1963,15 +1953,17 @@ function InspectorShell({
   );
 }
 function InspectorEmpty({ title }: { title: string }) {
+  useLocale();
   return (
     <div className="obs-inspector-empty">
       <Gauge size={24} />
       <strong>{title}</strong>
-      <p>Select an item from the object track to inspect it.</p>
+      <p>{t("Select an item from the object track to inspect it.")}</p>
     </div>
   );
 }
 function InspectorFacts({ facts }: { facts: Array<[string, string]> }) {
+  useLocale();
   return (
     <dl className="obs-inspector-facts">
       {facts.map(([label, value]) => (
@@ -1984,9 +1976,10 @@ function InspectorFacts({ facts }: { facts: Array<[string, string]> }) {
   );
 }
 function TechnicalDetails({ children }: { children: ReactNode }) {
+  useLocale();
   return (
     <details className="obs-technical-details">
-      <summary>Technical details</summary>
+      <summary>{t("Technical details")}</summary>
       <div>{children}</div>
     </details>
   );
@@ -2000,6 +1993,7 @@ function Detail({
   value: string;
   mono?: boolean;
 }) {
+  useLocale();
   return (
     <div className="obs-detail">
       <span>{label}</span>
@@ -2014,6 +2008,7 @@ function JsonBlock({
   label: string;
   value: Record<string, unknown>;
 }) {
+  useLocale();
   return (
     <div className="obs-json">
       <span>{label}</span>
@@ -2022,15 +2017,13 @@ function JsonBlock({
   );
 }
 function KeyValueGrid({ value }: { value: Record<string, unknown> }) {
+  useLocale();
   const entries = Object.entries(value)
     .filter(([, item]) => item === null || typeof item !== "object")
     .slice(0, 12);
   if (!entries.length)
     return (
-      <p className="obs-muted-copy">
-        No safe summary fields were returned. Open Technical details to view the
-        raw snapshot.
-      </p>
+      <p className="obs-muted-copy">{t("No safe summary fields were returned. Open Technical details to view the raw snapshot.")}</p>
     );
   return (
     <dl className="obs-key-values">
@@ -2044,6 +2037,7 @@ function KeyValueGrid({ value }: { value: Record<string, unknown> }) {
   );
 }
 function EventTimeline({ events }: { events: JobEvent[] }) {
+  useLocale();
   return (
     <ol className="obs-timeline">
       {events.map((event) => (
@@ -2051,7 +2045,7 @@ function EventTimeline({ events }: { events: JobEvent[] }) {
           <span />
           <div>
             <strong>{humanize(event.event_type)}</strong>
-            <p>{event.message || "No message"}</p>
+            <p>{event.message || t("No message")}</p>
             <time>{formatDate(event.created_at)}</time>
           </div>
         </li>
@@ -2060,6 +2054,7 @@ function EventTimeline({ events }: { events: JobEvent[] }) {
   );
 }
 function AlertEventTimeline({ events, canManage }: { events: AlertEvent[]; canManage: boolean }) {
+  useLocale();
   return (
     <ol className="obs-timeline">
       {events.map((event) => (
@@ -2067,17 +2062,16 @@ function AlertEventTimeline({ events, canManage }: { events: AlertEvent[]; canMa
           <span />
           <div>
             <strong>
-              {event.is_test ? "Test event (not an incident)" : event.status === "firing"
-                ? "Alert firing"
+              {event.is_test ? t("Test event (not an incident)") : event.status === "firing"
+                ? t("Alert firing")
                 : humanize(event.status)}
             </strong>
-            <p>
-              Observed {event.value}; threshold {event.threshold}.
+            <p>{t("Observed")}{" "}{event.value}{t("; threshold")}{" "}{event.threshold}.
             </p>
             <time>{formatDate(event.triggered_at)}</time>
-            {event.acknowledged_at && <p>Acknowledged {formatDate(event.acknowledged_at)}</p>}
-            {canManage && !event.is_test && !event.acknowledged_at && <MonitoringActions kind="incidents" id={event.id} actions={[{ action: "acknowledge", label: "Acknowledge incident" }]} />}
-            {event.notifications?.map((notification) => <div key={notification.id}><p>Notification: {notification.delivery_status}</p>{canManage && notification.delivery_status === "failed" && <MonitoringActions kind="notifications" id={notification.id} actions={[{ action: "retry", label: "Retry notification" }]} />}</div>)}
+            {event.acknowledged_at && <p>{t("Acknowledged")}{" "}{formatDate(event.acknowledged_at)}</p>}
+            {canManage && !event.is_test && !event.acknowledged_at && <MonitoringActions kind="incidents" id={event.id} actions={[{ action: "acknowledge", label: t("Acknowledge incident") }]} />}
+            {event.notifications?.map((notification) => <div key={notification.id}><p>{t("Notification:")}{" "}{notification.delivery_status}</p>{canManage && notification.delivery_status === "failed" && <MonitoringActions kind="notifications" id={notification.id} actions={[{ action: "retry", label: t("Retry notification") }]} />}</div>)}
           </div>
         </li>
       ))}
@@ -2085,6 +2079,7 @@ function AlertEventTimeline({ events, canManage }: { events: AlertEvent[]; canMa
   );
 }
 function DeliveryTimeline({ deliveries, canManage }: { deliveries: ReportDelivery[]; canManage: boolean }) {
+  useLocale();
   return (
     <ol className="obs-timeline">
       {deliveries.map((delivery) => (
@@ -2094,11 +2089,11 @@ function DeliveryTimeline({ deliveries, canManage }: { deliveries: ReportDeliver
             <strong>{humanize(delivery.delivery_status)}</strong>
             <p>
               {delivery.error_message ||
-                `${humanize(delivery.interval)} report to ${delivery.email}`}
+                t("{{0}} report to {{1}}", { 0: humanize(delivery.interval), 1: delivery.email })}
             </p>
             <time>{formatDate(delivery.sent_at || delivery.created_at)}</time>
             <p>{formatDate(delivery.period_start)} – {formatDate(delivery.period_end)}</p>
-            {canManage && delivery.delivery_status === "failed" && <MonitoringActions kind="deliveries" id={delivery.id} actions={[{ action: "retry", label: "Retry report delivery" }]} />}
+            {canManage && delivery.delivery_status === "failed" && <MonitoringActions kind="deliveries" id={delivery.id} actions={[{ action: "retry", label: t("Retry report delivery") }]} />}
           </div>
         </li>
       ))}
@@ -2116,6 +2111,7 @@ function SectionHeading({
   count?: number;
   id?: string;
 }) {
+  useLocale();
   return (
     <header className="obs-section-heading">
       <div>
@@ -2127,6 +2123,7 @@ function SectionHeading({
   );
 }
 function ScopeBadge({ children }: { children: ReactNode }) {
+  useLocale();
   return (
     <span className="obs-scope-badge">
       <ShieldCheck size={13} />
@@ -2135,16 +2132,17 @@ function ScopeBadge({ children }: { children: ReactNode }) {
   );
 }
 function MonitoringUnavailable({ pending, error, onRetry }: { pending: boolean; error: Error | null; onRetry: () => void }) {
+  useLocale();
   const status = (error as (Error & { status?: number }) | null)?.status;
   const permission = status === 403 || /permission|forbidden/i.test(error?.message ?? "");
   const reference = (error as (Error & { requestId?: string }) | null)?.requestId ?? "";
   const safeReference = /^[a-zA-Z0-9_-]{1,80}$/.test(reference) ? reference : "";
-  return <section className="ops-unavailable" aria-label="Monitoring access" role={pending ? "status" : "alert"}>
+  return <section className="ops-unavailable" aria-label={t("Monitoring access")} role={pending ? "status" : "alert"}>
     <Gauge size={28} aria-hidden="true" />
-    <h2>{pending ? "Checking monitoring access" : "Monitoring unavailable"}</h2>
-    <p>{pending ? "Checking access for the selected organization and project…" : permission ? "Monitoring access is not allowed in this scope. Choose an authorized project or ask your administrator." : error ? "We couldn’t load monitoring for this workspace. Retry, or contact support if this continues." : "Monitoring permission is required for this scope."}</p>
-    {!pending && <button className="btn" onClick={onRetry}>Retry monitoring</button>}
-    {!pending && safeReference && <p className="data-freshness-time">Support reference: <code>{safeReference}</code></p>}
+    <h2>{pending ? t("Checking monitoring access") : t("Monitoring unavailable")}</h2>
+    <p>{pending ? t("Checking access for the selected organization and project…") : permission ? t("Monitoring access is not allowed in this scope. Choose an authorized project or ask your administrator.") : error ? t("We couldn’t load monitoring for this workspace. Retry, or contact support if this continues.") : t("Monitoring permission is required for this scope.")}</p>
+    {!pending && <button className="btn" onClick={onRetry}>{t("Retry monitoring")}</button>}
+    {!pending && safeReference && <p className="data-freshness-time">{t("Support reference:")}{" "}<code>{safeReference}</code></p>}
   </section>;
 }
 function QueryNotice({
@@ -2156,6 +2154,7 @@ function QueryNotice({
   error: string;
   onRetry: () => void;
 }) {
+  useLocale();
   return (
     <div className="obs-query-notice" role="alert">
       <AlertTriangle size={18} />
@@ -2163,15 +2162,14 @@ function QueryNotice({
         <strong>{title}</strong>
         <p>{error}</p>
       </div>
-      <button className="btn" type="button" onClick={onRetry}>
-        Retry
-      </button>
+      <button className="btn" type="button" onClick={onRetry}>{t("Retry")}</button>
     </div>
   );
 }
 function LoadingRows({ count }: { count: number }) {
+  useLocale();
   return (
-    <div className="obs-loading-rows" aria-label="Loading">
+    <div className="obs-loading-rows" aria-label={t("Loading")}>
       {Array.from({ length: count }, (_, index) => (
         <span key={index} />
       ))}
@@ -2179,6 +2177,7 @@ function LoadingRows({ count }: { count: number }) {
   );
 }
 function JobShape({ status }: { status: string }) {
+  useLocale();
   return (
     <span className={`obs-node obs-node--job is-${status}`}>
       <Clock3 />
@@ -2186,6 +2185,7 @@ function JobShape({ status }: { status: string }) {
   );
 }
 function AlertShape() {
+  useLocale();
   return (
     <span className="obs-node obs-node--alert">
       <Bell />
@@ -2193,6 +2193,7 @@ function AlertShape() {
   );
 }
 function ReportShape() {
+  useLocale();
   return (
     <span className="obs-node obs-node--report">
       <FileClock />
@@ -2200,6 +2201,7 @@ function ReportShape() {
   );
 }
 function AuditShape() {
+  useLocale();
   return (
     <span className="obs-node obs-node--audit">
       <ShieldCheck />
@@ -2235,8 +2237,8 @@ function buildIssues(
       result.push({
         id: `alert-${event.id}`,
         kind: "alert",
-        title: `${metricLabel(event.metric)} alert is firing`,
-        detail: `Observed ${event.value}; threshold ${event.threshold}.`,
+        title: t("{{0}} alert is firing", { 0: metricLabel(event.metric) }),
+        detail: t("Observed {{0}}; threshold {{1}}.", { 0: event.value, 1: event.threshold }),
         status: "firing",
         timestamp: event.triggered_at,
         targetId: event.rule,
@@ -2250,7 +2252,7 @@ function buildIssues(
       result.push({
         id: `job-${job.id}`,
         kind: "job",
-        title: `${humanize(job.job_type)} failed`,
+        title: t("{{0}} failed", { 0: humanize(job.job_type) }),
         detail:
           job.error_message ||
           `${resourceLabel(job.resource_type)} ${compactId(job.resource_id)}`,
@@ -2268,10 +2270,10 @@ function buildIssues(
         result.push({
           id: `notification-${notification.id}`,
           kind: "delivery",
-          title: "Alert notification failed",
+          title: t("Alert notification failed"),
           detail:
             notification.error_message ||
-            `${notification.channel} delivery to ${notification.target}`,
+            t("{{0}} delivery to {{1}}", { 0: notification.channel, 1: notification.target }),
           status: "failed",
           timestamp: event.updated_at,
           targetId: event.rule,
@@ -2286,8 +2288,8 @@ function buildIssues(
       result.push({
         id: `delivery-${delivery.id}`,
         kind: "delivery",
-        title: "Report delivery failed",
-        detail: delivery.error_message || `Delivery to ${delivery.email}`,
+        title: t("Report delivery failed"),
+        detail: delivery.error_message || t("Delivery to {{0}}", { 0: delivery.email }),
         status: "failed",
         timestamp: delivery.sent_at || delivery.created_at,
         targetId: delivery.schedule,

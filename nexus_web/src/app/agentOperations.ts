@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import type { Agent } from "../lib/types";
 import type { AgentPublicationPolicy } from "./resourcePublishing";
 
@@ -27,20 +28,20 @@ export function getAgentNextAction(agent: Agent, publication?: Pick<AgentPublica
 } {
   if (!hasRuntimeTarget(agent))
     return {
-      label: "Configure runtime",
-      description: "Choose a Nexus Container or bind an OpenWrt Agent.",
+      label: t("Configure runtime"),
+      description: t("Choose a Nexus Container or bind an OpenWrt Agent."),
       section: "runtime",
     };
   if (agent.configuration_drift)
     return {
-      label: "Deploy update",
-      description: "The selected runtime image differs from production.",
+      label: t("Deploy update"),
+      description: t("The selected runtime image differs from production."),
       section: "runtime",
     };
   if (!isAgentRunning(agent))
     return {
-      label: "Deploy Agent",
-      description: "Start the production Runtime before connecting callers.",
+      label: t("Deploy Agent"),
+      description: t("Start the production Runtime before connecting callers."),
       section: "runtime",
     };
   if (
@@ -49,27 +50,27 @@ export function getAgentNextAction(agent: Agent, publication?: Pick<AgentPublica
     )
   )
     return {
-      label: "Check runtime health",
-      description: "Verify the active Runtime before accepting new calls.",
+      label: t("Check runtime health"),
+      description: t("Verify the active Runtime before accepting new calls."),
       section: "runtime",
     };
   const recommendation = publication?.recommend(agent);
   if (recommendation) return recommendation;
   return {
-    label: "View Runs",
-    description: "Review recent Trace, Memory, and Output lineage.",
+    label: t("View Runs"),
+    description: t("Review recent Trace, Memory, and Output lineage."),
     section: "observability",
   };
 }
 
 export function getAgentSections(publication?: Pick<AgentPublicationPolicy, "sectionLabel">) {
   const sections: Array<{ value: AgentSection; label: string }> = [
-    { value: "overview", label: "Overview" },
-    { value: "runtime", label: "Runtime" },
-    { value: "access", label: "Access" },
-    { value: "observability", label: "Observability" },
-    { value: "publish", label: publication?.sectionLabel ?? "Test" },
-    { value: "settings", label: "Settings" },
+    { value: "overview", label: t("Overview") },
+    { value: "runtime", label: t("Runtime") },
+    { value: "access", label: t("Access") },
+    { value: "observability", label: t("Observability") },
+    { value: "publish", label: publication?.sectionLabel ?? t("Test") },
+    { value: "settings", label: t("Settings") },
   ];
   return sections;
 }

@@ -1,0 +1,17 @@
+{
+  "Edit message": "编辑消息",
+  "Move earlier": "提前移动",
+  "Move later": "稍后移动",
+  "Remove message": "删除消息",
+  "Change not confirmed. Review the refreshed queue before trying again.": "更改未确认。在重试之前查看刷新的队列。",
+  "Edit queued message": "编辑排队消息",
+  "Only messages that have not started can be changed. Nothing is sent as a new turn.": "只能更改尚未启动的消息。没有任何内容作为新回合发送。",
+  "Queued message": "排队消息",
+  "/ 8,000 characters": "/ 8,000 个字符",
+  "The queue changed or saving could not be confirmed. Your changes are kept; review the current message before saving again.": "队列已更改或无法确认保存。您的更改将被保留；再次保存之前查看当前消息。",
+  "Current message:": "当前消息：",
+  "I reviewed the current queue": "我查看了当前队列",
+  "Actions for queued message: {{0}}": "排队消息的操作：{{0}}",
+  "Saving…": "正在保存……",
+  "This message can no longer be edited. Your changes are kept here for review.": "无法再编辑此消息。您的更改将保存在此处以供审核。"
+}

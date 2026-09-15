@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { ChevronDown, Monitor, Smartphone } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ComposerOverlay } from "./PrivateDisplayComposerTools";
@@ -12,6 +13,7 @@ export function ComposerDeviceMenu({ computer, mobile, onComputer, onMobile }: {
   computer?: DeviceSummary; mobile?: DeviceSummary;
   onComputer: () => void; onMobile: () => void;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -37,14 +39,14 @@ export function ComposerDeviceMenu({ computer, mobile, onComputer, onMobile }: {
   }, [open]);
   if (!devices.length) return null;
   return <div ref={anchor} className="shrink-0">
-    <button ref={button} type="button" aria-label="Devices" aria-haspopup="menu" aria-controls={open ? id : undefined} aria-expanded={open}
-      title={attention ? "Devices · Needs attention" : "Devices · Ready"}
+    <button ref={button} type="button" aria-label={t("Devices")} aria-haspopup="menu" aria-controls={open ? id : undefined} aria-expanded={open}
+      title={attention ? t("Devices · Needs attention") : t("Devices · Ready")}
       onClick={() => setOpen(value => !value)} onKeyDown={event => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); } }}
       className={`relative inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-xs hover:bg-black/5 ${attention ? "text-amber-800" : "text-[#535350]"}`}>
-      <Monitor size={16} /><span className="hidden xl:inline">Devices</span><ChevronDown size={12} />
-      {attention ? <><span aria-hidden="true" className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-600" /><span className="sr-only">Needs attention</span></> : null}
+      <Monitor size={16} /><span className="hidden xl:inline">{t("Devices")}</span><ChevronDown size={12} />
+      {attention ? <><span aria-hidden="true" className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-600" /><span className="sr-only">{t("Needs attention")}</span></> : null}
     </button>
-    {open ? <ComposerOverlay anchor={anchor}><div ref={menu} id={id} role="menu" aria-label="Attached devices" className="max-h-[inherit] overflow-auto rounded-xl border border-black/15 bg-white p-2 shadow-lg"
+    {open ? <ComposerOverlay anchor={anchor}><div ref={menu} id={id} role="menu" aria-label={t("Attached devices")} className="max-h-[inherit] overflow-auto rounded-xl border border-black/15 bg-white p-2 shadow-lg"
       onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== button.current) setOpen(false); }}
       onKeyDown={event => {
         if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -57,9 +59,9 @@ export function ComposerDeviceMenu({ computer, mobile, onComputer, onMobile }: {
         onClick={() => { setOpen(false); button.current?.focus(); action(); }} className="flex min-h-11 w-full items-start gap-3 rounded-lg p-2 text-left hover:bg-black/5">
         <Icon size={17} className="mt-1 shrink-0" />
         <span className="grid min-w-0 flex-1 gap-1">
-          <span className="flex items-center justify-between gap-2 text-sm font-medium"><span>{name}</span><span className="text-xs">{data!.attached ? "Change" : "Attach"}</span></span>
-          <span className="truncate text-xs text-[#535350]" title={data!.device_name}>{data!.device_name || "Not attached"}{data!.platform ? ` · ${data!.platform}` : ""}</span>
-          <span className={`text-xs ${data!.ready ? "text-[#535350]" : "text-amber-800"}`}>{data!.attached && data!.ready ? "Connected" : data!.message || (data!.attached ? "Unavailable · Review connection or permissions" : data!.requirement === "optional" ? "Optional · Not attached" : "Attach and approve the requested permissions")}{data!.device_status ? ` · ${data!.device_status}` : ""}{data!.browser_name ? ` · ${data!.browser_name}` : data!.browser_available === false ? " · Browser unavailable" : ""}</span>
+          <span className="flex items-center justify-between gap-2 text-sm font-medium"><span>{name}</span><span className="text-xs">{data!.attached ? t("Change") : t("Attach")}</span></span>
+          <span className="truncate text-xs text-[#535350]" title={data!.device_name}>{data!.device_name || t("Not attached")}{data!.platform ? ` · ${data!.platform}` : ""}</span>
+          <span className={`text-xs ${data!.ready ? "text-[#535350]" : "text-amber-800"}`}>{data!.attached && data!.ready ? t("Connected") : data!.message || (data!.attached ? t("Unavailable · Review connection or permissions") : data!.requirement === "optional" ? t("Optional · Not attached") : t("Attach and approve the requested permissions"))}{data!.device_status ? ` · ${data!.device_status}` : ""}{data!.browser_name ? ` · ${data!.browser_name}` : data!.browser_available === false ? t("· Browser unavailable") : ""}</span>
         </span>
       </button>)}
     </div></ComposerOverlay> : null}

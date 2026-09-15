@@ -1,6 +1,8 @@
+import { t, useLocale } from "../localization";
 type MarkTone = "lume" | "ink";
 
 export function NexilumeMark({ className = "h-9 w-9", tone = "lume" }: { className?: string; tone?: MarkTone }) {
+  useLocale();
   return (
     <img
       className={className}
@@ -14,17 +16,18 @@ export function NexilumeMark({ className = "h-9 w-9", tone = "lume" }: { classNa
 export function NexilumeBrand({
   className = "",
   dark = false,
-  subtitle = "AI operations workspace"
+  subtitle = t("AI operations workspace")
 }: {
   className?: string;
   dark?: boolean;
   subtitle?: string;
 }) {
+  useLocale();
   return (
-    <span className={`flex min-w-0 items-center gap-3 ${className}`} aria-label="Nexilume AI">
+    <span className={`flex min-w-0 items-center gap-3 ${className}`} aria-label={t("Nexilume AI")}>
       <NexilumeMark tone={dark ? "lume" : "ink"} />
       <span className="min-w-0">
-        <span className={`block truncate text-sm font-bold tracking-[0.08em] ${dark ? "text-white" : "text-ink"}`}>NEXILUME AI</span>
+        <span className={`block truncate text-sm font-bold tracking-[0.08em] ${dark ? "text-white" : "text-ink"}`}>{t("NEXILUME AI")}</span>
         {subtitle ? <span className={`block truncate text-xs ${dark ? "text-[#9eb0a8]" : "text-muted"}`}>{subtitle}</span> : null}
       </span>
     </span>

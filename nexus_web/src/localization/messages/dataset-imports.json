@@ -1,0 +1,17 @@
+{
+  "Results pagination": "结果分页",
+  "records · server paginated": "记录·服务器分页",
+  "First page": "首页",
+  "Import activity": "导入活动",
+  "Imports continue in the background. Refreshing this page does not cancel them.": "导入在后台继续进行。刷新此页面不会取消它们。",
+  "Loading imports…": "正在加载导入...",
+  "Import activity unavailable.": "导入活动不可用。",
+  "No imports submitted by you for this collection.": "您没有为此集合提交任何导入。",
+  "Import jobs": "导入作业",
+  "Cancel import": "取消导入",
+  "Retry import": "重试导入",
+  "Waiting for an import Worker.": "正在等待导入 Worker。",
+  "MiB": "MiB",
+  "{{0}} import progress": "{{0}} 导入进度",
+  "Import could not finish.": "导入无法完成。"
+}

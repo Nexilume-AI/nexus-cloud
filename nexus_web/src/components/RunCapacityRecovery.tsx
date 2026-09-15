@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -21,6 +22,7 @@ export function isConcurrentRunQuota(error: unknown) {
 export function RunCapacityRecovery({ context, agentId, runId, message, onChanged }: {
   context: ApiContext; agentId: string; runId: string; message: string; onChanged: () => void;
 }) {
+  useLocale();
   const presentation = useApplicationDistribution().runPresentation;
   const copy = presentation ? presentation.capacityRecovery : personalCapacityCopy;
   if (!copy || ![copy.usageSuffix,copy.reviewDescription,copy.reviewedScope,copy.emptyDescription].every(value => typeof value === 'string' && value.trim())) {
@@ -49,29 +51,29 @@ export function RunCapacityRecovery({ context, agentId, runId, message, onChange
   }
   return <>
     <div role="alert" className="mx-3 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-[#535350]">
-      <div className="min-w-0 flex-1"><p className="font-semibold">{free ? "Run capacity available" : "Concurrent Run limit reached"}</p>
+      <div className="min-w-0 flex-1"><p className="font-semibold">{free ? t("Run capacity available") : t("Concurrent Run limit reached")}</p>
         <p>{preview.data ? `${preview.data.capacity.used} / ${preview.data.capacity.limit ?? "Unlimited"} ${copy.usageSuffix}` : message}</p>
-        <p>{free ? "Your draft is kept. Send it when you are ready; it was not retried automatically." : "Stop your other active Runs to free capacity. Deleting completed history does not free Run slots."}</p>
+        <p>{free ? t("Your draft is kept. Send it when you are ready; it was not retried automatically.") : t("Stop your other active Runs to free capacity. Deleting completed history does not free Run slots.")}</p>
       </div>
-      <button type="button" className={buttonClass} onClick={() => void review()}>Manage active runs</button>
+      <button type="button" className={buttonClass} onClick={() => void review()}>{t("Manage active runs")}</button>
     </div>
-    {createPortal(<NexilumeDialog open={open} busy={stop.isPending} onClose={() => { if (!stop.isPending) setOpen(false); }} title="Free Run capacity" description={copy.reviewDescription}>
+    {createPortal(<NexilumeDialog open={open} busy={stop.isPending} onClose={() => { if (!stop.isPending) setOpen(false); }} title={t("Free Run capacity")} description={copy.reviewDescription}>
       <div className="grid gap-3 text-sm text-[#535350]">
-        {preview.isLoading ? <p role="status">Loading active Runs…</p> : null}
-        {preview.isError ? <p role="alert">Unable to load active Runs. Nothing was stopped.<button className={`${buttonClass} ml-2`} onClick={() => void review()}>Retry review</button></p> : null}
+        {preview.isLoading ? <p role="status">{t("Loading active Runs…")}</p> : null}
+        {preview.isError ? <p role="alert">{t("Unable to load active Runs. Nothing was stopped.")}<button className={`${buttonClass} ml-2`} onClick={() => void review()}>{t("Retry review")}</button></p> : null}
         {reviewed ? <>
-          <p>{reviewed.eligible_count} {copy.reviewedScope}{reviewed.has_more ? ` The next batch contains ${reviewed.batch_count} Runs.` : ""}</p>
-          {reviewed.runs.length ? <ul aria-label="Runs to stop" className="max-h-52 overflow-y-auto rounded-md border border-black/10 divide-y divide-black/10">
-            {reviewed.runs.map(item => <li key={item.id} className="break-words p-2"><span className="font-medium">{item.title}</span><p className="text-xs">{item.agent_name}{item.hidden ? " · Previously removed from history" : ""}</p></li>)}
+          <p>{reviewed.eligible_count} {copy.reviewedScope}{reviewed.has_more ? t("The next batch contains {{0}} Runs.", { 0: reviewed.batch_count }) : ""}</p>
+          {reviewed.runs.length ? <ul aria-label={t("Runs to stop")} className="max-h-52 overflow-y-auto rounded-md border border-black/10 divide-y divide-black/10">
+            {reviewed.runs.map(item => <li key={item.id} className="break-words p-2"><span className="font-medium">{item.title}</span><p className="text-xs">{item.agent_name}{item.hidden ? t("· Previously removed from history") : ""}</p></li>)}
           </ul> : <p>{copy.emptyDescription}</p>}
-          <p>Stopping requests cancellation. Running work may take time to acknowledge; capacity is only released once the Run actually ends.</p>
+          <p>{t("Stopping requests cancellation. Running work may take time to acknowledge; capacity is only released once the Run actually ends.")}</p>
         </> : null}
-        {stop.isError ? <p role="alert">{stop.error instanceof Error ? stop.error.message : "Stopping failed."} Some requests may have completed. Review the current state before retrying.<button className={`${buttonClass} ml-2`} onClick={() => void review()}>Review again</button></p> : null}
-        {stop.data ? <p role="status">{stop.data.stopped} stopped · {stop.data.pending} awaiting cancellation · {stop.data.failed} failed · {stop.data.skipped} already ended or changed. History and files were not deleted.</p> : null}
+        {stop.isError ? <p role="alert">{stop.error instanceof Error ? stop.error.message : t("Stopping failed.")}{" "}{t("Some requests may have completed. Review the current state before retrying.")}<button className={`${buttonClass} ml-2`} onClick={() => void review()}>{t("Review again")}</button></p> : null}
+        {stop.data ? <p role="status">{stop.data.stopped}{" "}{t("stopped ·")}{" "}{stop.data.pending}{" "}{t("awaiting cancellation ·")}{" "}{stop.data.failed}{" "}{t("failed ·")}{" "}{stop.data.skipped}{" "}{t("already ended or changed. History and files were not deleted.")}</p> : null}
         <div className="flex flex-wrap justify-end gap-2">
-          <button className={buttonClass} disabled={stop.isPending} onClick={() => setOpen(false)}>Close</button>
-          {stop.data ? <button className={buttonClass} onClick={() => void review()}>Review remaining runs</button> : null}
-          <button className="min-h-11 min-w-40 rounded-md bg-[#9b2c2c] px-3 text-sm font-semibold text-white disabled:opacity-50" disabled={stop.isPending || stop.isError || preview.isError || !reviewToken || !reviewed?.batch_count} onClick={() => stop.mutate()}>{stop.isPending ? "Requesting stop…" : "Stop other runs"}</button>
+          <button className={buttonClass} disabled={stop.isPending} onClick={() => setOpen(false)}>{t("Close")}</button>
+          {stop.data ? <button className={buttonClass} onClick={() => void review()}>{t("Review remaining runs")}</button> : null}
+          <button className="min-h-11 min-w-40 rounded-md bg-[#9b2c2c] px-3 text-sm font-semibold text-white disabled:opacity-50" disabled={stop.isPending || stop.isError || preview.isError || !reviewToken || !reviewed?.batch_count} onClick={() => stop.mutate()}>{stop.isPending ? t("Requesting stop…") : t("Stop other runs")}</button>
         </div>
       </div>
     </NexilumeDialog>, document.body)}

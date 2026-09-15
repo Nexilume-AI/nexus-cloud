@@ -1,0 +1,10 @@
+{
+  "Connected · Sync needs attention": "已连接·同步需要注意",
+  "Router heartbeat is current, but this instance rejected an Agent registration. Review the registration settings and the Connector diagnostics.": "路由器心跳是当前的，但此实例拒绝智能体注册。查看注册设置和连接器诊断。",
+  "Router heartbeat is current, but the Connector reported an incomplete sync. No specific failure has been recorded yet; inspect the Connector status for the affected Agent or transport.": "路由器心跳是最新的，但连接器报告同步不完整。尚未记录具体故障；检查受影响的智能体或传输的连接器状态。",
+  "Last rejected attempt:": "上次被拒绝的尝试：",
+  "· HTTP": "·HTTP",
+  "Offline · Upgrade required": "离线·需要升级",
+  "Degraded · Sync needs attention": "降级·同步需要注意",
+  "Agent registration rejected": "智能体注册被拒绝"
+}

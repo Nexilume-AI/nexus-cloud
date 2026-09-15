@@ -1,3 +1,4 @@
+import { t, useLocale, getLocale } from "../localization";
 import { DataAssetsWorkspace, DataLibraryNavigation } from "../components/DataLibrary";
 import { LoadingState, ErrorState, datasetOwnershipLabel, humanizeLifecycle, Detail, formatBytes, downloadApiFile } from "../components/DataAssetPresentation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -91,10 +92,12 @@ type AssetFileLike = {
 };
 
 export function DataAssetsPage() {
+  useLocale();
   return <DataAssetsWorkspace collections={<OwnedCollectionsWorkspace />} />;
 }
 
 function OwnedCollectionsWorkspace() {
+  useLocale();
   const {
     apiContext,
     isContextReady,
@@ -278,7 +281,7 @@ function OwnedCollectionsWorkspace() {
         ownership: datasetOwnership,
       }),
     onSuccess: async (dataset) => {
-      toast.success("Collection created");
+      toast.success(t("Collection created"));
       setSelectedDatasetId(dataset.id);
                       setSelectionRevision((current) => current + 1);
       setDatasetForm((current) => ({
@@ -291,7 +294,7 @@ function OwnedCollectionsWorkspace() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to create collection",
+        error instanceof Error ? error.message : t("Failed to create collection"),
       ),
   });
 
@@ -301,27 +304,27 @@ function OwnedCollectionsWorkspace() {
         name: datasetForm.rename,
       }),
     onSuccess: async () => {
-      toast.success("Collection renamed");
+      toast.success(t("Collection renamed"));
       setActiveModal(null);
       await refreshDatasets();
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to rename collection",
+        error instanceof Error ? error.message : t("Failed to rename collection"),
       ),
   });
 
   const deleteDataset = useMutation({
     mutationFn: () => api.deleteDataset(apiContext, selectedDataset!.id),
     onSuccess: async () => {
-      toast.success("Collection deleted");
+      toast.success(t("Collection deleted"));
       setSelectedDatasetId("");
       setActiveModal(null);
       await refreshDatasets();
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete collection",
+        error instanceof Error ? error.message : t("Failed to delete collection"),
       ),
   });
 
@@ -332,14 +335,14 @@ function OwnedCollectionsWorkspace() {
         run_id: assetForm.run_id,
       }),
     onSuccess: async () => {
-      toast.success("Trace import queued — follow Import activity");
+      toast.success(t("Trace import queued — follow Import activity"));
       setActiveModal(null);
       await queryClient.invalidateQueries({ queryKey: ["dataset-imports"] });
       await refreshDatasets();
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to export Agent trace",
+        error instanceof Error ? error.message : t("Failed to export Agent trace"),
       ),
   });
 
@@ -351,12 +354,12 @@ function OwnedCollectionsWorkspace() {
         assetForm.run_id,
       ),
     onSuccess: async () => {
-      toast.success("Trace redaction completed");
+      toast.success(t("Trace redaction completed"));
       await queryClient.invalidateQueries({ queryKey: ["agent-display-runs"] });
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to redact trace",
+        error instanceof Error ? error.message : t("Failed to redact trace"),
       ),
   });
 
@@ -367,7 +370,7 @@ function OwnedCollectionsWorkspace() {
         memory_item_ids: selectedMemoryItemIds,
       }),
     onSuccess: async () => {
-      toast.success("Memory import queued — follow Import activity");
+      toast.success(t("Memory import queued — follow Import activity"));
       setActiveModal(null);
       await queryClient.invalidateQueries({ queryKey: ["dataset-imports"] });
       await refreshDatasets();
@@ -376,7 +379,7 @@ function OwnedCollectionsWorkspace() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to export Agent memory",
+          : t("Failed to export Agent memory"),
       ),
   });
 
@@ -387,7 +390,7 @@ function OwnedCollectionsWorkspace() {
         artifact_id: selectedOutputArtifactId,
       }),
     onSuccess: async () => {
-      toast.success("Output import queued — follow Import activity");
+      toast.success(t("Output import queued — follow Import activity"));
       setActiveModal(null);
       await queryClient.invalidateQueries({ queryKey: ["dataset-imports"] });
       await refreshDatasets();
@@ -396,7 +399,7 @@ function OwnedCollectionsWorkspace() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to capture Agent artifact",
+          : t("Failed to capture Agent artifact"),
       ),
   });
 
@@ -409,14 +412,14 @@ function OwnedCollectionsWorkspace() {
         selectedOutputArtifactId,
       ),
     onSuccess: async () => {
-      toast.success("Output scan completed");
+      toast.success(t("Output scan completed"));
       await queryClient.invalidateQueries({
         queryKey: ["agent-output-artifacts"],
       });
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to scan output file",
+        error instanceof Error ? error.message : t("Failed to scan output file"),
       ),
   });
 
@@ -424,7 +427,7 @@ function OwnedCollectionsWorkspace() {
     mutationFn: () =>
       api.createDatasetVersion(apiContext, selectedDataset!.id, releaseNotes),
     onSuccess: async (version) => {
-      toast.success(`Created release ${version.version}`);
+      toast.success(t("Created release {{0}}", { 0: version.version }));
       setSelectedReleaseId(version.id);
       setReleaseNotes("");
       setActiveModal(null);
@@ -432,7 +435,7 @@ function OwnedCollectionsWorkspace() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to create release",
+        error instanceof Error ? error.message : t("Failed to create release"),
       ),
   });
 
@@ -442,12 +445,12 @@ function OwnedCollectionsWorkspace() {
         max_size: datasetForm.max_size,
       }),
     onSuccess: async () => {
-      toast.success("Collection quota updated");
+      toast.success(t("Collection quota updated"));
       await refreshDatasets();
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to update quota",
+        error instanceof Error ? error.message : t("Failed to update quota"),
       ),
   });
 
@@ -456,7 +459,7 @@ function OwnedCollectionsWorkspace() {
       api.searchDatasets(apiContext, searchForm.q, searchForm.scope),
     onSuccess: (payload) => setSearchPayload(payload),
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Search failed"),
+      toast.error(error instanceof Error ? error.message : t("Search failed")),
   });
 
   async function refreshDatasets() {
@@ -471,24 +474,24 @@ function OwnedCollectionsWorkspace() {
   const fileColumns = useMemo<Array<ColumnDef<DatasetFile, unknown>>>(
     () => [
       {
-        header: "File",
+        header: t("File"),
         cell: ({ row }) => (
           <div className="font-medium text-ink">{row.original.file_name}</div>
         ),
       },
       {
-        header: "Source",
+        header: t("Source"),
         cell: ({ row }) => (
           <AssetSourceBadge source={assetSource(row.original.metadata_json)} />
         ),
       },
-      { header: "Type", cell: ({ row }) => row.original.content_type || "-" },
+      { header: t("Type"), cell: ({ row }) => row.original.content_type || "-" },
       {
-        header: "Size",
+        header: t("Size"),
         cell: ({ row }) => formatBytes(row.original.size_bytes),
       },
       {
-        header: "Status",
+        header: t("Status"),
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
@@ -498,7 +501,7 @@ function OwnedCollectionsWorkspace() {
           <DatasetImagePreview context={apiContext} file={row.original} />
           <button
             className="btn min-h-11"
-            aria-label={`Download ${row.original.file_name}`}
+            aria-label={t("Download {{0}}", { 0: row.original.file_name })}
             onClick={() =>
               void downloadApiFile(
                 row.original.download_url,
@@ -513,13 +516,13 @@ function OwnedCollectionsWorkspace() {
         ),
       },
     ],
-    [apiContext],
+    [apiContext, getLocale()],
   );
 
   const versionColumns = useMemo<Array<ColumnDef<DatasetVersion, unknown>>>(
     () => [
       {
-        header: "Release",
+        header: t("Release"),
         cell: ({ row }) => (
           <div>
             <div className="font-medium text-ink">{row.original.version}</div>
@@ -530,7 +533,7 @@ function OwnedCollectionsWorkspace() {
         ),
       },
       {
-        header: "Assets",
+        header: t("Assets"),
         cell: ({ row }) => {
           if (row.original.snapshot_json.paginated) return `${row.original.file_count} files`;
           const stats = countAssetSources(
@@ -540,7 +543,7 @@ function OwnedCollectionsWorkspace() {
         },
       },
       {
-        header: "Readiness",
+        header: t("Readiness"),
         cell: ({ row }) => {
           if (row.original.snapshot_json.paginated) return "Review manifest";
           const readiness = releaseReadinessForFiles(
@@ -554,15 +557,15 @@ function OwnedCollectionsWorkspace() {
         },
       },
       {
-        header: "Size",
+        header: t("Size"),
         cell: ({ row }) => formatBytes(row.original.size_bytes),
       },
       {
-        header: "Status",
+        header: t("Status"),
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
-        header: "Created",
+        header: t("Created"),
         cell: ({ row }) => formatDate(row.original.created_at),
       },
       {
@@ -572,13 +575,11 @@ function OwnedCollectionsWorkspace() {
             className="btn h-8 px-2"
             onClick={() => openReleaseManifest(row.original)}
           >
-            <FileSearch size={14} />
-            View
-          </button>
+            <FileSearch size={14} />{t("View")}</button>
         ),
       },
     ],
-    [],
+    [getLocale()],
   );
 
   const datasetFiles = datasetPull.data?.files ?? [];
@@ -659,18 +660,17 @@ function OwnedCollectionsWorkspace() {
         role="tabpanel"
         aria-labelledby="data-assets-view-tab-collections"
       >
-        <aside className="data-object-track" aria-label="Owned collections">
+        <aside className="data-object-track" aria-label={t("Owned collections")}>
           <div className="data-object-track__header">
             <div>
-              <span>COLLECTION INDEX</span>
+              <span>{t("COLLECTION INDEX")}</span>
               <strong>
-                {formatNumber(filteredCollections.length)} visible
-              </strong>
+                {formatNumber(filteredCollections.length)}{" "}{t("visible")}</strong>
             </div>
             <button
               className="icon-btn"
               onClick={() => setActiveModal("collectionSearch")}
-              aria-label="Search Data Assets"
+              aria-label={t("Search Data Assets")}
             >
               <Search size={16} />
             </button>
@@ -680,28 +680,28 @@ function OwnedCollectionsWorkspace() {
             <input
               value={collectionFilter}
               onChange={(event) => setCollectionFilter(event.target.value)}
-              placeholder="Find a collection"
-              aria-label="Find a collection"
+              placeholder={t("Find a collection")}
+              aria-label={t("Find a collection")}
             />
           </label>
           {datasets.isLoading ? (
-            <LoadingState label="Loading collections" />
+            <LoadingState label={t("Loading collections")} />
           ) : datasets.isError ? (
             <ErrorState
-              label="Collections could not be loaded."
+              label={t("Collections could not be loaded.")}
               onRetry={() => void datasets.refetch()}
             />
           ) : filteredCollections.length === 0 ? (
             <EmptyState
               title={
                 allCollections.length
-                  ? "No matching collections"
-                  : "No collections"
+                  ? t("No matching collections")
+                  : t("No collections")
               }
               description={
                 allCollections.length
-                  ? "Try a different name."
-                  : "Create a governed collection to begin."
+                  ? t("Try a different name.")
+                  : t("Create a governed collection to begin.")
               }
             />
           ) : (
@@ -732,9 +732,8 @@ function OwnedCollectionsWorkspace() {
                       </strong>
                       <ResourceOwnershipBadge ownership={dataset.ownership} />
                       <span>
-                        {dataset.current_version || "Draft"} ·{" "}
-                        {formatNumber(dataset.file_count)} assets
-                      </span>
+                        {dataset.current_version || t("Draft")} ·{" "}
+                        {formatNumber(dataset.file_count)}{" "}{t("assets")}</span>
                     </span>
                     <span className="data-object-row__state">
                       {humanizeLifecycle(dataset.lifecycle_status)}
@@ -751,13 +750,11 @@ function OwnedCollectionsWorkspace() {
           <main className="data-lifecycle-workbench">
             <header className="data-workbench-header">
               <div>
-                <span className="data-fabric-eyebrow">
-                  COLLECTION · {compactId(selectedDataset.id)}
+                <span className="data-fabric-eyebrow">{t("COLLECTION ·")}{" "}{compactId(selectedDataset.id)}
                 </span>
                 <h2>{selectedDataset.name}</h2>
                 <p>
-                  {humanizeLifecycle(selectedDataset.lifecycle_status)} ·
-                  Updated {formatDate(selectedDataset.updated_at)}
+                  {humanizeLifecycle(selectedDataset.lifecycle_status)}{" "}{t("· Updated")}{" "}{formatDate(selectedDataset.updated_at)}
                 </p>
               </div>
               <button
@@ -770,29 +767,29 @@ function OwnedCollectionsWorkspace() {
             </header>
             <NexilumeTabs<CollectionStage>
               idBase="data-asset-lifecycle"
-              label="Collection lifecycle"
+              label={t("Collection lifecycle")}
               variant="stage"
               value={collectionStage}
               options={[
                 {
                   value: "collect",
-                  label: "Collect",
+                  label: t("Collect"),
                   eyebrow: "01",
                   count: selectedDataset.file_count,
                 },
                 {
                   value: "govern",
-                  label: "Govern",
+                  label: t("Govern"),
                   eyebrow: "02",
                   count: currentReleaseReadiness.reasons.length,
                 },
                 {
                   value: "release",
-                  label: "Release",
+                  label: t("Release"),
                   eyebrow: "03",
                   count: datasetVersions.data?.length ?? 0,
                 },
-                { value: "distribute", label: "Distribute", eyebrow: "04" },
+                { value: "distribute", label: t("Distribute"), eyebrow: "04" },
               ]}
               onChange={setCollectionStage}
             />
@@ -805,40 +802,40 @@ function OwnedCollectionsWorkspace() {
               {collectionStage === "collect" && (
                 <>
                   <StageHeading
-                    eyebrow="COLLECT / ASSETS"
-                    title="Current assets"
-                    description="Import checked files and images, or archive governed Agent traces, memory and outputs."
+                    eyebrow={t("COLLECT / ASSETS")}
+                    title={t("Current assets")}
+                    description={t("Import checked files and images, or archive governed Agent traces, memory and outputs.")}
                   />
                   <div className="data-evidence-strip">
-                    <Detail label="Imported files" value={formatNumber(selectedAssetCounts.upload)} />
+                    <Detail label={t("Imported files")} value={formatNumber(selectedAssetCounts.upload)} />
                     <Detail
-                      label="Trace"
+                      label={t("Trace")}
                       value={formatNumber(selectedAssetCounts.trace)}
                     />
                     <Detail
-                      label="Memory"
+                      label={t("Memory")}
                       value={formatNumber(selectedAssetCounts.memory)}
                     />
                     <Detail
-                      label="Output"
+                      label={t("Output")}
                       value={formatNumber(selectedAssetCounts.artifact)}
                     />
                     <Detail
-                      label="Total size"
+                      label={t("Total size")}
                       value={formatBytes(selectedDataset.size_bytes)}
                     />
                   </div>
                   {datasetPull.isLoading ? (
-                    <LoadingState label="Loading current assets" />
+                    <LoadingState label={t("Loading current assets")} />
                   ) : datasetPull.isError ? (
                     <ErrorState
-                      label="Current assets could not be loaded."
+                      label={t("Current assets could not be loaded.")}
                       onRetry={() => void datasetPull.refetch()}
                     />
                   ) : datasetFiles.length === 0 ? (
                     <EmptyState
-                      title="Import your first asset"
-                      description="Import a file or image, or archive a governed Agent trace, memory or output."
+                      title={t("Import your first asset")}
+                      description={t("Import a file or image, or archive a governed Agent trace, memory or output.")}
                     />
                   ) : (
                     <DataTable data={datasetFiles} columns={fileColumns} />
@@ -850,9 +847,9 @@ function OwnedCollectionsWorkspace() {
               {collectionStage === "govern" && (
                 <>
                   <StageHeading
-                    eyebrow="GOVERN / POLICY GATES"
-                    title="Release readiness"
-                    description="License, sensitivity, consent, provenance, and scan state decide whether this collection can advance."
+                    eyebrow={t("GOVERN / POLICY GATES")}
+                    title={t("Release readiness")}
+                    description={t("License, sensitivity, consent, provenance, and scan state decide whether this collection can advance.")}
                   />
                   <ReleaseReadinessPanel
                     readiness={currentReleaseReadiness}
@@ -860,38 +857,34 @@ function OwnedCollectionsWorkspace() {
                   />
                   <div className="data-stage-next">
                     <div>
-                      <span>NEXT OPERATION</span>
+                      <span>{t("NEXT OPERATION")}</span>
                       <strong>
                         {currentReleaseReadiness.status === "ready"
-                          ? "Create immutable release"
-                          : "Resolve the named blockers"}
+                          ? t("Create immutable release")
+                          : t("Resolve the named blockers")}
                       </strong>
                     </div>
                     <button
                       className="btn"
                       disabled={currentReleaseReadiness.status !== "ready"}
                       onClick={() => setCollectionStage("release")}
-                    >
-                      Continue to Release
-                    </button>
+                    >{t("Continue to Release")}</button>
                   </div>
                 </>
               )}
               {collectionStage === "release" && (
                 <>
                   <StageHeading
-                    eyebrow="RELEASE / IMMUTABLE SNAPSHOT"
-                    title="Version history"
-                    description="A release freezes the exact governed manifest. Later collection changes never alter it."
+                    eyebrow={t("RELEASE / IMMUTABLE SNAPSHOT")}
+                    title={t("Version history")}
+                    description={t("A release freezes the exact governed manifest. Later collection changes never alter it.")}
                     action={
                       <button
                         className="btn btn-primary min-h-11"
                         onClick={() => setActiveModal("createRelease")}
                         disabled={datasetFiles.length === 0}
                       >
-                        <FileArchive size={15} />
-                        Create release
-                      </button>
+                        <FileArchive size={15} />{t("Create release")}</button>
                     }
                   />
                   <LatestReleaseInline
@@ -901,11 +894,11 @@ function OwnedCollectionsWorkspace() {
                     }
                   />
                   {datasetVersions.isLoading ? (
-                    <LoadingState label="Loading releases" />
+                    <LoadingState label={t("Loading releases")} />
                   ) : (datasetVersions.data ?? []).length === 0 ? (
                     <EmptyState
-                      title="No immutable release yet"
-                      description="Review the current governed manifest, then create the first release."
+                      title={t("No immutable release yet")}
+                      description={t("Review the current governed manifest, then create the first release.")}
                     />
                   ) : (
                     <DataTable
@@ -918,7 +911,7 @@ function OwnedCollectionsWorkspace() {
               )}
               {collectionStage === "distribute" && (
                 <DatasetPublicationPanel variant="workspace" onShare={() => setShareTarget(datasetShareTarget(selectedDataset))} capacityControl={
-<Field label="Download quota">
+<Field label={t("Download quota")}>
                       <div className="data-inline-control">
                         <input
                           className="input"
@@ -934,9 +927,7 @@ function OwnedCollectionsWorkspace() {
                           className="btn"
                           onClick={() => setQuota.mutate()}
                           disabled={setQuota.isPending}
-                        >
-                          Save
-                        </button>
+                        >{t("Save")}</button>
                       </div>
                     </Field>
 } />
@@ -946,15 +937,15 @@ function OwnedCollectionsWorkspace() {
         ) : (
           <main className="data-lifecycle-workbench">
             <EmptyState
-              title="No collection selected"
-              description="Create or select a collection to manage its lifecycle."
+              title={t("No collection selected")}
+              description={t("Create or select a collection to manage its lifecycle.")}
             />
           </main>
         )}
 
         {selectedDataset && (
-          <aside className="data-inspector" aria-label="Collection inspector">
-            <div className="data-inspector__eyebrow">INSPECTOR / OWNED</div>
+          <aside className="data-inspector" aria-label={t("Collection inspector")}>
+            <div className="data-inspector__eyebrow">{t("INSPECTOR / OWNED")}</div>
             <div className="data-inspector__identity">
               <DataAssetShape state={selectedDataset.lifecycle_status} />
               <div>
@@ -964,26 +955,26 @@ function OwnedCollectionsWorkspace() {
             </div>
             <div className="data-inspector__facts">
               <Detail
-                label="Release"
+                label={t("Release")}
                 value={selectedDataset.current_version || "Draft"}
               />
               <Detail
-                label="Ownership"
+                label={t("Ownership")}
                 value={datasetOwnershipLabel(selectedDataset)}
               />
               <DatasetPublicationSummary surface="inspector" dataset={selectedDataset} />
               <Detail
-                label="Quota"
+                label={t("Quota")}
                 value={selectedDataset.quota?.max_size || "Not set"}
               />
               <Detail
-                label="Status"
+                label={t("Status")}
                 value={humanizeLifecycle(selectedDataset.lifecycle_status)}
               />
             </div>
             <div className="data-inspector__section">
-              <span>IDENTITY</span>
-              <Field label="Collection name">
+              <span>{t("IDENTITY")}</span>
+              <Field label={t("Collection name")}>
                 <div className="data-inline-control">
                   <input
                     className="input"
@@ -1002,14 +993,12 @@ function OwnedCollectionsWorkspace() {
                       !datasetForm.rename.trim() || renameDataset.isPending
                     }
                   >
-                    <Pencil size={14} />
-                    Save
-                  </button>
+                    <Pencil size={14} />{t("Save")}</button>
                 </div>
               </Field>
             </div>
             <div className="data-inspector__section data-inspector__danger">
-              <span>DANGER ZONE</span>
+              <span>{t("DANGER ZONE")}</span>
               <p>
                 {management.deletionSummary}
               </p>
@@ -1017,8 +1006,8 @@ function OwnedCollectionsWorkspace() {
                 className="input"
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder={`Type ${selectedDataset.name}`}
-                aria-label="Confirm collection deletion"
+                placeholder={t("Type {{0}}", { 0: selectedDataset.name })}
+                aria-label={t("Confirm collection deletion")}
               />
               <button
                 className="btn text-red-700"
@@ -1028,9 +1017,7 @@ function OwnedCollectionsWorkspace() {
                   deleteDataset.isPending
                 }
               >
-                <Trash2 size={14} />
-                Delete collection
-              </button>
+                <Trash2 size={14} />{t("Delete collection")}</button>
             </div>
           </aside>
         )}
@@ -1044,45 +1031,36 @@ function OwnedCollectionsWorkspace() {
       <>
           <header className="data-fabric-header">
             <div>
-              <div className="data-fabric-eyebrow">
-                AI Resources · Data Asset Fabric
-              </div>
-              <h1>Data Assets</h1>
-              <p>
-                Collect Agent evidence, govern it, create immutable releases,
-                and distribute trusted data.
-              </p>
+              <div className="data-fabric-eyebrow">{t("AI Resources · Data Asset Fabric")}</div>
+              <h1>{t("Data Assets")}</h1>
+              <p>{t("Collect Agent evidence, govern it, create immutable releases, and distribute trusted data.")}</p>
             </div>
             <div className="data-fabric-header__actions">
               <button
                 className="btn"
                 onClick={() => void refreshDatasets()}
-                aria-label="Refresh Data Assets"
+                aria-label={t("Refresh Data Assets")}
               >
-                <RefreshCw size={16} />
-                Refresh
-              </button>
+                <RefreshCw size={16} />{t("Refresh")}</button>
               <button
                 className="btn btn-primary"
                 onClick={() => setActiveModal("createCollection")}
                 disabled={datasetCapabilities.data?.can_create === false}
               >
-                <Plus size={16} />
-                New collection
-              </button>
+                <Plus size={16} />{t("New collection")}</button>
             </div>
           </header>
           <div
             className="data-fabric-status"
-            aria-label="Data Asset workspace summary"
+            aria-label={t("Data Asset workspace summary")}
           >
             <DataStatus
-              label="Collections"
+              label={t("Collections")}
               value={formatNumber(collectionTotal)}
-              detail="Owned"
+              detail={t("Owned")}
             />
             <DataStatus
-              label="Assets"
+              label={t("Assets")}
               value={formatNumber(
                 datasetPage.data?.summary.files ?? 0,
               )}
@@ -1090,9 +1068,9 @@ function OwnedCollectionsWorkspace() {
             />
             <DatasetPublicationSummary publishedCount={datasetPage.data?.summary.published ?? 0} />
             <DataStatus
-              label="Drafts"
+              label={t("Drafts")}
               value={formatNumber(draftCollectionCount)}
-              detail="No assets yet"
+              detail={t("No assets yet")}
               tone={draftCollectionCount ? "warning" : "healthy"}
             />
 
@@ -1106,8 +1084,8 @@ function OwnedCollectionsWorkspace() {
         <>
           <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
             <Card
-              title="Collections"
-              description="Select a collection to manage its governed assets."
+              title={t("Collections")}
+              description={t("Select a collection to manage its governed assets.")}
               action={
                 <button
                   className="btn btn-primary min-h-11 px-3"
@@ -1119,9 +1097,7 @@ function OwnedCollectionsWorkspace() {
                       : undefined
                   }
                 >
-                  <Plus size={14} />
-                  New
-                </button>
+                  <Plus size={14} />{t("New")}</button>
               }
             >
               <div className="relative mb-3">
@@ -1133,25 +1109,25 @@ function OwnedCollectionsWorkspace() {
                   className="input pl-9"
                   value={collectionFilter}
                   onChange={(event) => setCollectionFilter(event.target.value)}
-                  placeholder="Find a collection"
+                  placeholder={t("Find a collection")}
                 />
               </div>
               {datasets.isLoading ? (
-                <LoadingState label="Loading collections" />
+                <LoadingState label={t("Loading collections")} />
               ) : datasets.isError ? (
                 <ErrorState
-                  label="Collections could not be loaded."
+                  label={t("Collections could not be loaded.")}
                   onRetry={() => void datasets.refetch()}
                 />
               ) : allCollections.length === 0 ? (
                 <EmptyState
-                  title="No collections"
-                  description="Create a collection before importing files, images or Agent assets."
+                  title={t("No collections")}
+                  description={t("Create a collection before importing files, images or Agent assets.")}
                 />
               ) : filteredCollections.length === 0 ? (
                 <EmptyState
-                  title="No matching collections"
-                  description="Try a different collection name."
+                  title={t("No matching collections")}
+                  description={t("Try a different collection name.")}
                 />
               ) : (
                 <div className="grid max-h-[680px] gap-2 overflow-y-auto pr-1">
@@ -1191,9 +1167,9 @@ function OwnedCollectionsWorkspace() {
                       <div
                         className={`mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs ${selectedDataset?.id === dataset.id ? "text-slate-300" : "text-muted"}`}
                       >
-                        <span>{formatNumber(dataset.file_count)} assets</span>
+                        <span>{formatNumber(dataset.file_count)}{" "}{t("assets")}</span>
                         <span>{formatBytes(dataset.size_bytes)}</span>
-                        <span>{dataset.current_version || "No release"}</span>
+                        <span>{dataset.current_version || t("No release")}</span>
                       </div>
                     </button>
                   ))}
@@ -1205,7 +1181,7 @@ function OwnedCollectionsWorkspace() {
               <div className="grid gap-6">
                 <Card
                   title={selectedDataset.name}
-                  description={`${humanizeLifecycle(selectedDataset.lifecycle_status)} · Updated ${formatDate(selectedDataset.updated_at)}`}
+                  description={t("{{0}} · Updated {{1}}", { 0: humanizeLifecycle(selectedDataset.lifecycle_status), 1: formatDate(selectedDataset.updated_at) })}
                   action={
                     <div className="flex flex-wrap justify-end gap-2">
                       <button
@@ -1214,24 +1190,18 @@ function OwnedCollectionsWorkspace() {
                           setShareTarget(datasetShareTarget(selectedDataset))
                         }
                       >
-                        <Share2 size={14} />
-                        Share
-                      </button>
+                        <Share2 size={14} />{t("Share")}</button>
                       <button
                         className="btn min-h-11 px-3"
                         onClick={openCollectionSettings}
                       >
-                        <Settings size={14} />
-                        Settings
-                      </button>
+                        <Settings size={14} />{t("Settings")}</button>
                       <button
                         className="btn min-h-11 px-3"
                         onClick={() => setActiveModal("releaseHistory")}
                         disabled={(datasetVersions.data ?? []).length === 0}
                       >
-                        <FileSearch size={14} />
-                        Releases
-                      </button>
+                        <FileSearch size={14} />{t("Releases")}</button>
                     </div>
                   }
                 >
@@ -1243,7 +1213,7 @@ function OwnedCollectionsWorkspace() {
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-ink">
                           {selectedDataset.current_version ||
-                            "Draft collection"}
+                            t("Draft collection")}
                         </div>
                         <div className="text-sm text-muted">
                           {compactId(selectedDataset.id)}
@@ -1255,35 +1225,33 @@ function OwnedCollectionsWorkspace() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
                       <Detail
-                        label="Files"
+                        label={t("Files")}
                         value={formatNumber(selectedDataset.file_count)}
                       />
                       <Detail
-                        label="Size"
+                        label={t("Size")}
                         value={formatBytes(selectedDataset.size_bytes)}
                       />
                       <Detail
-                        label="Trace"
+                        label={t("Trace")}
                         value={formatNumber(selectedAssetCounts.trace)}
                       />
                       <Detail
-                        label="Memory"
+                        label={t("Memory")}
                         value={formatNumber(selectedAssetCounts.memory)}
                       />
                       <Detail
-                        label="Output"
+                        label={t("Output")}
                         value={formatNumber(selectedAssetCounts.artifact)}
                       />
                       <Detail
-                        label="Quota"
+                        label={t("Quota")}
                         value={selectedDataset.quota?.max_size || "Not set"}
                       />
                     </div>
                     <div className="data-stage-next">
                       <div>
-                        <div className="data-fabric-eyebrow">
-                          Next operation
-                        </div>
+                        <div className="data-fabric-eyebrow">{t("Next operation")}</div>
                         <div className="mt-1 font-semibold text-slate-950">
                           {nextAction.label}
                         </div>
@@ -1310,8 +1278,8 @@ function OwnedCollectionsWorkspace() {
 
                 <div className="grid gap-6 2xl:grid-cols-[1fr_360px]">
                   <Card
-                    title="Current assets"
-                    description="Checked files, images, and governed Agent traces, memory and outputs."
+                    title={t("Current assets")}
+                    description={t("Checked files, images, and governed Agent traces, memory and outputs.")}
                     action={
                       <button
                         className="btn min-h-11 px-3"
@@ -1320,22 +1288,20 @@ function OwnedCollectionsWorkspace() {
                           setActiveModal("importAsset");
                         }}
                       >
-                        <Upload size={14} />
-                        Import
-                      </button>
+                        <Upload size={14} />{t("Import")}</button>
                     }
                   >
                     {datasetPull.isLoading ? (
-                      <LoadingState label="Loading current assets" />
+                      <LoadingState label={t("Loading current assets")} />
                     ) : datasetPull.isError ? (
                       <ErrorState
-                        label="Current assets could not be loaded."
+                        label={t("Current assets could not be loaded.")}
                         onRetry={() => void datasetPull.refetch()}
                       />
                     ) : datasetFiles.length === 0 ? (
                       <EmptyState
-                        title="No assets"
-                        description="Import files, images or Agent outputs to start this collection."
+                        title={t("No assets")}
+                        description={t("Import files, images or Agent outputs to start this collection.")}
                       />
                     ) : (
                       <DataTable data={datasetFiles} columns={fileColumns} />
@@ -1343,17 +1309,15 @@ function OwnedCollectionsWorkspace() {
                   </Card>
 
                   <Card
-                    title="Release readiness"
-                    description="Create immutable releases after current assets pass publication gates."
+                    title={t("Release readiness")}
+                    description={t("Create immutable releases after current assets pass publication gates.")}
                     action={
                       <button
                         className="btn btn-primary h-8 px-2"
                         onClick={() => setActiveModal("createRelease")}
                         disabled={datasetFiles.length === 0}
                       >
-                        <FileArchive size={14} />
-                        Review
-                      </button>
+                        <FileArchive size={14} />{t("Review")}</button>
                     }
                   >
                     <ReleaseReadinessPanel
@@ -1364,10 +1328,10 @@ function OwnedCollectionsWorkspace() {
                 </div>
               </div>
             ) : (
-              <Card title="Selected collection">
+              <Card title={t("Selected collection")}>
                 <EmptyState
-                  title="No collection selected"
-                  description="Create or select a collection to manage files, images and Agent assets."
+                  title={t("No collection selected")}
+                  description={t("Create or select a collection to manage files, images and Agent assets.")}
                 />
               </Card>
             )}
@@ -1377,7 +1341,7 @@ function OwnedCollectionsWorkspace() {
 
       <Modal
         open={activeModal === "collectionSearch"}
-        title="Collection search"
+        title={t("Collection search")}
         onClose={() => setActiveModal(null)}
         size="wide"
       >
@@ -1392,7 +1356,7 @@ function OwnedCollectionsWorkspace() {
                   q: event.target.value,
                 }))
               }
-              placeholder="Search keyword"
+              placeholder={t("Search keyword")}
             />
             <select
               className="select"
@@ -1404,9 +1368,9 @@ function OwnedCollectionsWorkspace() {
                 }))
               }
             >
-              <option value="all">all</option>
-              <option value="metadata">metadata</option>
-              <option value="content">content</option>
+              <option value="all">{t("all")}</option>
+              <option value="metadata">{t("metadata")}</option>
+              <option value="content">{t("content")}</option>
             </select>
             <button
               className="btn btn-primary"
@@ -1417,21 +1381,19 @@ function OwnedCollectionsWorkspace() {
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Search size={16} />
-              )}
-              Search
-            </button>
+              )}{t("Search")}</button>
           </div>
           {searchPayload ? (
             <div className="grid gap-4 md:grid-cols-2">
               <SearchPanel
-                title="Collection matches"
+                title={t("Collection matches")}
                 icon={<Database size={16} />}
                 items={searchResults.datasets.map(
                   (dataset) => `${dataset.name} (${compactId(dataset.id)})`,
                 )}
               />
               <SearchPanel
-                title="Content matches"
+                title={t("Content matches")}
                 icon={<FileSearch size={16} />}
                 items={searchResults.content.map(
                   (item) =>
@@ -1440,16 +1402,14 @@ function OwnedCollectionsWorkspace() {
               />
             </div>
           ) : (
-            <p className="text-sm text-muted">
-              Search public collection metadata, indexed file content, or both.
-            </p>
+            <p className="text-sm text-muted">{t("Search public collection metadata, indexed file content, or both.")}</p>
           )}
         </div>
       </Modal>
 
       <Modal
         open={activeModal === "createCollection"}
-        title="Create collection"
+        title={t("Create collection")}
         onClose={() => setActiveModal(null)}
       >
         <form
@@ -1459,7 +1419,7 @@ function OwnedCollectionsWorkspace() {
             createDataset.mutate();
           }}
         >
-          <Field label="Name">
+          <Field label={t("Name")}>
             <input
               className="input"
               value={datasetForm.name}
@@ -1469,7 +1429,7 @@ function OwnedCollectionsWorkspace() {
                   name: event.target.value,
                 }))
               }
-              placeholder="customer-support-assets"
+              placeholder={t("customer-support-assets")}
               required
             />
           </Field>
@@ -1483,9 +1443,7 @@ function OwnedCollectionsWorkspace() {
               type="button"
               className="btn"
               onClick={() => setActiveModal(null)}
-            >
-              Cancel
-            </button>
+            >{t("Cancel")}</button>
             <button
               type="submit"
               className="btn btn-primary"
@@ -1495,9 +1453,7 @@ function OwnedCollectionsWorkspace() {
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Plus size={16} />
-              )}
-              Create
-            </button>
+              )}{t("Create")}</button>
           </div>
         </form>
       </Modal>
@@ -1511,12 +1467,12 @@ function OwnedCollectionsWorkspace() {
         <div className="grid gap-6">
           <section className="grid gap-4 rounded-lg border border-line p-4">
             <div>
-              <h3 className="font-semibold text-ink">Collection details</h3>
+              <h3 className="font-semibold text-ink">{t("Collection details")}</h3>
               <p className="mt-1 text-sm text-muted">
                 {management.settingsDescription}
               </p>
             </div>
-            <Field label="Name">
+            <Field label={t("Name")}>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   className="input"
@@ -1540,15 +1496,13 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Pencil size={16} />
-                  )}
-                  Rename
-                </button>
+                  )}{t("Rename")}</button>
               </div>
             </Field>
           </section>
 
           {selectedDataset && <DatasetPublicationPanel variant="settings" onShare={() => setShareTarget(datasetShareTarget(selectedDataset))} capacityControl={
-<Field label="Collection capacity">
+<Field label={t("Collection capacity")}>
                 <div className="flex gap-2">
                   <select
                     className="select"
@@ -1570,20 +1524,16 @@ function OwnedCollectionsWorkspace() {
                     className="btn"
                     onClick={() => setQuota.mutate()}
                     disabled={setQuota.isPending || !datasetForm.max_size}
-                  >
-                    Save
-                  </button>
+                  >{t("Save")}</button>
                 </div>
               </Field>
 } />}
 
           <section className="grid gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
-            <div className="text-sm font-semibold text-red-900">
-              Delete collection
-            </div>
+            <div className="text-sm font-semibold text-red-900">{t("Delete collection")}</div>
             <div className="text-sm text-red-900">
               {management.deletionBlockReason
-                ?? `Type “${selectedDataset?.name}” to confirm permanent removal of the collection and its release records.`}
+                ?? t("Type “{{0}}” to confirm permanent removal of the collection and its release records.", { 0: selectedDataset?.name })}
             </div>
             {!management.deletionBlockReason && (
               <input
@@ -1591,7 +1541,7 @@ function OwnedCollectionsWorkspace() {
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
                 placeholder={selectedDataset?.name}
-                aria-label="Confirm collection name"
+                aria-label={t("Confirm collection name")}
               />
             )}
             <button
@@ -1608,22 +1558,20 @@ function OwnedCollectionsWorkspace() {
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Trash2 size={16} />
-              )}
-              Delete collection
-            </button>
+              )}{t("Delete collection")}</button>
           </section>
         </div>
       </Modal>
 
       <Modal
         open={activeModal === "importAsset" && Boolean(selectedDataset)}
-        title="Import assets"
+        title={t("Import assets")}
         busy={fileImportBusy}
         onClose={() => { if (!fileImportBusy) setActiveModal(null); }}
         size="wide"
       >
         <div className="grid gap-5">
-          <NexilumeTabs label="Import source" options={[{ value: "files", label: "Files & images" }, { value: "agent", label: "Agent assets" }]}
+          <NexilumeTabs label={t("Import source")} options={[{ value: "files", label: t("Files & images") }, { value: "agent", label: t("Agent assets") }]}
             value={importSource} onChange={value => { if (!fileImportBusy) setImportSource(value); }} variant="compact" idBase="asset-import-source" />
           {importSource === "files" && selectedDataset && <div role="tabpanel" id="asset-import-source-panel-files" aria-labelledby="asset-import-source-tab-files">
             <DatasetFileImport key={`${selectedDataset.id}|${apiContext.tenantId}`} context={apiContext} datasetId={selectedDataset.id}
@@ -1640,7 +1588,7 @@ function OwnedCollectionsWorkspace() {
 
           {importStep === 1 && (
             <div className="grid gap-5 rounded-lg border border-line p-5 lg:grid-cols-[minmax(240px,340px)_1fr]">
-              <Field label="Agent">
+              <Field label={t("Agent")}>
                 <select
                   className="select"
                   value={assetForm.agent_id}
@@ -1654,7 +1602,7 @@ function OwnedCollectionsWorkspace() {
                     }));
                   }}
                 >
-                  <option value="">Select Agent</option>
+                  <option value="">{t("Select Agent")}</option>
                   {(agents.data ?? []).map((agent) => (
                     <option key={agent.id} value={agent.id}>
                       {agent.name}
@@ -1665,22 +1613,22 @@ function OwnedCollectionsWorkspace() {
               <div className="grid gap-3 md:grid-cols-4">
                 <AssetStat
                   icon={<MessageSquareText size={16} />}
-                  label="Trace"
-                  detail="AG-UI run events"
+                  label={t("Trace")}
+                  detail={t("AG-UI run events")}
                 />
                 <AssetStat
                   icon={<Brain size={16} />}
-                  label="Memory"
-                  detail={`${selectedAgentMemory.data?.length ?? 0} items`}
+                  label={t("Memory")}
+                  detail={t("{{0}} items", { 0: selectedAgentMemory.data?.length ?? 0 })}
                 />
                 <AssetStat
                   icon={<FileOutput size={16} />}
-                  label="Output"
-                  detail="Run files and generated images"
+                  label={t("Output")}
+                  detail={t("Run files and generated images")}
                 />
                 <AssetStat
                   icon={<Database size={16} />}
-                  label="Collection"
+                  label={t("Collection")}
                   detail={selectedDataset?.name ?? "-"}
                 />
               </div>
@@ -1690,9 +1638,7 @@ function OwnedCollectionsWorkspace() {
                   className="btn btn-primary min-h-11"
                   onClick={() => setImportStep(2)}
                   disabled={!selectedAgent}
-                >
-                  Continue
-                </button>
+                >{t("Continue")}</button>
               </div>
             </div>
           )}
@@ -1702,38 +1648,33 @@ function OwnedCollectionsWorkspace() {
               <div className="grid gap-3 md:grid-cols-3">
                 <button
                   type="button"
+                  data-selected-label={t("Selected")}
                   className={`data-import-choice${assetImportMode === "trace" ? " is-selected" : ""}`}
                   onClick={() => setAssetImportMode("trace")}
                 >
                   <MessageSquareText size={15} />
-                  <span className="mt-3 block font-semibold">
-                    Conversation Trace
-                  </span>
-                  <span className="mt-1 block text-xs text-muted">
-                    Completed AG-UI events with redaction.
-                  </span>
+                  <span className="mt-3 block font-semibold">{t("Conversation Trace")}</span>
+                  <span className="mt-1 block text-xs text-muted">{t("Completed AG-UI events with redaction.")}</span>
                 </button>
                 <button
                   type="button"
+                  data-selected-label={t("Selected")}
                   className={`data-import-choice${assetImportMode === "memory" ? " is-selected" : ""}`}
                   onClick={() => setAssetImportMode("memory")}
                 >
                   <Brain size={15} />
-                  <span className="mt-3 block font-semibold">Agent Memory</span>
-                  <span className="mt-1 block text-xs text-muted">
-                    Explicitly selected, consented memory.
-                  </span>
+                  <span className="mt-3 block font-semibold">{t("Agent Memory")}</span>
+                  <span className="mt-1 block text-xs text-muted">{t("Explicitly selected, consented memory.")}</span>
                 </button>
                 <button
                   type="button"
+                  data-selected-label={t("Selected")}
                   className={`data-import-choice${assetImportMode === "artifact" ? " is-selected" : ""}`}
                   onClick={() => setAssetImportMode("artifact")}
                 >
                   <FileOutput size={15} />
-                  <span className="mt-3 block font-semibold">Output files & images</span>
-                  <span className="mt-1 block text-xs text-muted">
-                    Scanned files and output.image() pictures from a run.
-                  </span>
+                  <span className="mt-3 block font-semibold">{t("Output files & images")}</span>
+                  <span className="mt-1 block text-xs text-muted">{t("Scanned files and output.image() pictures from a run.")}</span>
                 </button>
               </div>
               <div className="flex justify-between gap-2">
@@ -1741,16 +1682,12 @@ function OwnedCollectionsWorkspace() {
                   type="button"
                   className="btn min-h-11"
                   onClick={() => setImportStep(1)}
-                >
-                  Back
-                </button>
+                >{t("Back")}</button>
                 <button
                   type="button"
                   className="btn btn-primary min-h-11"
                   onClick={() => setImportStep(3)}
-                >
-                  Continue
-                </button>
+                >{t("Continue")}</button>
               </div>
             </div>
           )}
@@ -1761,9 +1698,7 @@ function OwnedCollectionsWorkspace() {
                 type="button"
                 className="btn w-fit min-h-11"
                 onClick={() => setImportStep(2)}
-              >
-                Back to asset types
-              </button>
+              >{t("Back to asset types")}</button>
               <RunSelect
                 runs={selectedAgentRuns.data ?? []}
                 value={assetForm.run_id}
@@ -1788,9 +1723,7 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <CheckCircle2 size={16} />
-                  )}
-                  Run redaction
-                </button>
+                  )}{t("Run redaction")}</button>
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -1805,9 +1738,7 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Upload size={16} />
-                  )}
-                  Export approved trace
-                </button>
+                  )}{t("Export approved trace")}</button>
               </div>
             </div>
           )}
@@ -1818,13 +1749,8 @@ function OwnedCollectionsWorkspace() {
                 type="button"
                 className="btn w-fit min-h-11"
                 onClick={() => setImportStep(2)}
-              >
-                Back to asset types
-              </button>
-              <div className="rounded-md border border-line bg-white p-3 text-sm text-muted">
-                Select the exact memory items to export. Empty selection never
-                exports data.
-              </div>
+              >{t("Back to asset types")}</button>
+              <div className="rounded-md border border-line bg-white p-3 text-sm text-muted">{t("Select the exact memory items to export. Empty selection never exports data.")}</div>
               <div className="flex flex-wrap justify-between gap-2">
                 <button
                   type="button"
@@ -1832,8 +1758,7 @@ function OwnedCollectionsWorkspace() {
                   onClick={() => setSelectedMemoryItemIds(eligibleMemoryIds)}
                   disabled={eligibleMemoryIds.length === 0}
                 >
-                  <ListChecks size={16} />
-                  Select all eligible ({eligibleMemoryIds.length})
+                  <ListChecks size={16} />{t("Select all eligible (")}{eligibleMemoryIds.length})
                 </button>
                 <button
                   type="button"
@@ -1849,9 +1774,7 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Upload size={16} />
-                  )}
-                  Export {selectedMemoryItemIds.length || ""} selected
-                </button>
+                  )}{t("Export")}{" "}{selectedMemoryItemIds.length || ""}{" "}{t("selected")}</button>
               </div>
               {selectedAgent && (
                 <MemoryPreview
@@ -1875,9 +1798,7 @@ function OwnedCollectionsWorkspace() {
                 type="button"
                 className="btn w-fit min-h-11"
                 onClick={() => setImportStep(2)}
-              >
-                Back to asset types
-              </button>
+              >{t("Back to asset types")}</button>
               <RunSelect
                 runs={selectedAgentRuns.data ?? []}
                 value={assetForm.run_id}
@@ -1912,9 +1833,7 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <FileSearch size={16} />
-                  )}
-                  Scan output
-                </button>
+                  )}{t("Scan output")}</button>
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -1929,9 +1848,7 @@ function OwnedCollectionsWorkspace() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Upload size={16} />
-                  )}
-                  Capture approved output
-                </button>
+                  )}{t("Capture approved output")}</button>
               </div>
             </div>
           )}
@@ -1941,7 +1858,7 @@ function OwnedCollectionsWorkspace() {
 
       <Modal
         open={activeModal === "createRelease" && Boolean(selectedDataset)}
-        title="Create release"
+        title={t("Create release")}
         onClose={() => setActiveModal(null)}
       >
         <div className="grid gap-4">
@@ -1949,13 +1866,13 @@ function OwnedCollectionsWorkspace() {
             readiness={currentReleaseReadiness}
             fileCount={datasetFiles.length}
           />
-          <Field label="Release notes (optional)">
+          <Field label={t("Release notes (optional)")}>
             <textarea
               className="textarea min-h-32"
               maxLength={20000}
               value={releaseNotes}
               onChange={(event) => setReleaseNotes(event.target.value)}
-              placeholder="Summarize what changed in this immutable release using Markdown."
+              placeholder={t("Summarize what changed in this immutable release using Markdown.")}
             />
           </Field>
           <div className="flex justify-end gap-2">
@@ -1963,9 +1880,7 @@ function OwnedCollectionsWorkspace() {
               type="button"
               className="btn"
               onClick={() => setActiveModal(null)}
-            >
-              Cancel
-            </button>
+            >{t("Cancel")}</button>
             <button
               type="button"
               className="btn btn-primary"
@@ -1979,23 +1894,21 @@ function OwnedCollectionsWorkspace() {
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <FileArchive size={16} />
-              )}
-              Create release
-            </button>
+              )}{t("Create release")}</button>
           </div>
         </div>
       </Modal>
 
       <Modal
         open={activeModal === "releaseHistory" && Boolean(selectedDataset)}
-        title="Release history"
+        title={t("Release history")}
         onClose={() => setActiveModal(null)}
         size="wide"
       >
         {(datasetVersions.data ?? []).length === 0 ? (
           <EmptyState
-            title="No releases"
-            description="Create a release after imported files and Agent assets pass the readiness checks."
+            title={t("No releases")}
+            description={t("Create a release after imported files and Agent assets pass the readiness checks.")}
           />
         ) : (
           <DataTable
@@ -2007,7 +1920,7 @@ function OwnedCollectionsWorkspace() {
 
       <Modal
         open={activeModal === "releaseManifest" && Boolean(selectedRelease)}
-        title="Release manifest"
+        title={t("Release manifest")}
         onClose={() => setActiveModal(null)}
         size="wide"
       >
@@ -2029,8 +1942,9 @@ function sortedUnique(values: string[]) {
 }
 
 function WizardSteps({ current, steps }: { current: number; steps: string[] }) {
+  useLocale();
   return (
-    <ol className="grid gap-2 sm:grid-cols-3" aria-label="Import progress">
+    <ol className="grid gap-2 sm:grid-cols-3" aria-label={t("Import progress")}>
       {steps.map((step, index) => {
         const number = index + 1;
         const active = number === current;
@@ -2073,11 +1987,12 @@ function Modal({
   size?: "default" | "wide";
   busy?: boolean;
 }) {
+  useLocale();
   return (
     <NexilumeDialog
       open={open}
       title={title}
-      eyebrow="DATA ASSET TASK"
+      eyebrow={t("DATA ASSET TASK")}
       onClose={onClose}
       busy={busy}
       size={size === "wide" ? "large" : "medium"}
@@ -2094,12 +2009,13 @@ function LatestReleaseInline({
   release: DatasetVersion | null;
   onView: () => void;
 }) {
+  useLocale();
   if (!release) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-slate-50 px-3 py-2">
         <div>
-          <span className="label">Latest release</span>
-          <span className="ml-2 text-sm text-muted">None</span>
+          <span className="label">{t("Latest release")}</span>
+          <span className="ml-2 text-sm text-muted">{t("None")}</span>
         </div>
       </div>
     );
@@ -2109,12 +2025,11 @@ function LatestReleaseInline({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-slate-50 px-3 py-2">
       <div className="min-w-0">
-        <div className="label">Latest release</div>
+        <div className="label">{t("Latest release")}</div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <span className="font-medium text-ink">{release.version}</span>
           <span className="text-sm text-muted">
-            {formatNumber(release.file_count)} files
-          </span>
+            {formatNumber(release.file_count)}{" "}{t("files")}</span>
           <span className="text-sm text-muted">
             {formatDate(release.created_at)}
           </span>
@@ -2125,9 +2040,7 @@ function LatestReleaseInline({
           status={release.snapshot_json.paginated ? "Immutable" : readiness.status === "ready" ? "Ready" : "Blocked"}
         />
         <button className="btn h-8 px-2" onClick={onView}>
-          <FileSearch size={14} />
-          Manifest
-        </button>
+          <FileSearch size={14} />{t("Manifest")}</button>
       </div>
     </div>
   );
@@ -2140,6 +2053,7 @@ function ReleaseConfirmPanel({
   readiness: ReturnType<typeof releaseReadinessForFiles>;
   fileCount: number;
 }) {
+  useLocale();
   const ready = readiness.status === "ready";
   return (
     <div
@@ -2148,11 +2062,10 @@ function ReleaseConfirmPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-semibold text-ink">
-            {ready ? "Ready to create release" : "Release is blocked"}
+            {ready ? t("Ready to create release") : t("Release is blocked")}
           </div>
           <div className="mt-1 text-sm text-muted">
-            {formatNumber(fileCount)} current asset files will be snapshotted.
-          </div>
+            {formatNumber(fileCount)}{" "}{t("current asset files will be snapshotted.")}</div>
         </div>
         <StatusBadge status={ready ? "Ready" : "Blocked"} />
       </div>
@@ -2182,6 +2095,7 @@ function ReleaseManifest({
   apiContext: ReturnType<typeof useAuth>["apiContext"];
   datasetId: string;
 }) {
+  useLocale();
   const [cursor, setCursor] = useState("");
   const manifest = useQuery({
     queryKey: ["dataset-version-files", apiContext, datasetId, release?.id, cursor],
@@ -2195,7 +2109,7 @@ function ReleaseManifest({
   >(
     () => [
       {
-        header: "File",
+        header: t("File"),
         cell: ({ row }) => (
           <div>
             <div className="font-medium text-ink">{row.original.file_name}</div>
@@ -2206,13 +2120,13 @@ function ReleaseManifest({
         ),
       },
       {
-        header: "Source",
+        header: t("Source"),
         cell: ({ row }) => (
           <AssetSourceBadge source={assetSource(row.original.metadata_json)} />
         ),
       },
       {
-        header: "Agent",
+        header: t("Agent"),
         cell: ({ row }) => (
           <span className="font-mono text-xs">
             {compactId(stringMeta(row.original.metadata_json, "agent_id")) ||
@@ -2221,7 +2135,7 @@ function ReleaseManifest({
         ),
       },
       {
-        header: "Run",
+        header: t("Run"),
         cell: ({ row }) => (
           <span className="font-mono text-xs">
             {compactId(stringMeta(row.original.metadata_json, "run_id")) || "-"}
@@ -2229,7 +2143,7 @@ function ReleaseManifest({
         ),
       },
       {
-        header: "Gate",
+        header: t("Gate"),
         cell: ({ row }) => (
           <StatusBadge
             status={
@@ -2241,10 +2155,10 @@ function ReleaseManifest({
         ),
       },
       {
-        header: "Size",
+        header: t("Size"),
         cell: ({ row }) => formatBytes(row.original.size_bytes),
       },
-      { header: "SHA256", cell: ({ row }) => compactId(row.original.sha256) },
+      { header: t("SHA256"), cell: ({ row }) => compactId(row.original.sha256) },
       {
         header: "",
         cell: ({ row }) => (
@@ -2252,7 +2166,7 @@ function ReleaseManifest({
           <DatasetImagePreview context={apiContext} file={row.original} />
           <button
             className="btn min-h-11"
-            aria-label={`Download ${row.original.file_name}`}
+            aria-label={t("Download {{0}}", { 0: row.original.file_name })}
             onClick={() =>
               void downloadApiFile(
                 row.original.download_url,
@@ -2267,23 +2181,22 @@ function ReleaseManifest({
         ),
       },
     ],
-    [apiContext],
+    [apiContext, getLocale()],
   );
 
   if (!release) return null;
-  if (manifest.isPending) return <LoadingState label="Loading immutable manifest" />;
-  if (manifest.isError) return <ErrorState label="Manifest unavailable" onRetry={() => void manifest.refetch()} />;
+  if (manifest.isPending) return <LoadingState label={t("Loading immutable manifest")} />;
+  if (manifest.isError) return <ErrorState label={t("Manifest unavailable")} onRetry={() => void manifest.refetch()} />;
 
   return (
     <div className="grid gap-3 rounded-md border border-line bg-slate-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-ink">
-            Release manifest: {release.version}
+          <div className="text-sm font-semibold text-ink">{t("Release manifest:")}{" "}{release.version}
           </div>
           <div className="mt-1 text-xs text-muted">
-            {formatNumber(manifest.data?.total ?? 0)} files -{" "}
-            {formatBytes(release.size_bytes)} - created{" "}
+            {formatNumber(manifest.data?.total ?? 0)}{" "}{t("files -")}{" "}
+            {formatBytes(release.size_bytes)}{" "}{t("- created")}{" "}
             {formatDate(release.created_at)}
           </div>
         </div>
@@ -2305,7 +2218,7 @@ function ReleaseManifest({
         </div>
       )}
       <DataTable data={files} columns={columns} />
-      {manifest.data?.warning_code === "LEGACY_MANIFEST_INCOMPLETE" && <p role="status" className="text-sm text-amber-900">Historical manifest details are unavailable for {manifest.data.unavailable_entries} files. The original records have been preserved; no download identity or checksum has been guessed.</p>}
+      {manifest.data?.warning_code === "LEGACY_MANIFEST_INCOMPLETE" && <p role="status" className="text-sm text-amber-900">{t("Historical manifest details are unavailable for")}{" "}{manifest.data.unavailable_entries}{" "}{t("files. The original records have been preserved; no download identity or checksum has been guessed.")}</p>}
       <DatasetPageControls total={manifest.data?.total ?? 0} next={manifest.data?.next_cursor} loading={manifest.isFetching} previous={!!cursor} onFirst={() => setCursor("")} onNext={setCursor} />
     </div>
   );
@@ -2318,6 +2231,7 @@ function ReleaseReadinessPanel({
   readiness: ReturnType<typeof releaseReadinessForFiles>;
   fileCount: number;
 }) {
+  useLocale();
   const stats = readiness.counts;
   const ready = readiness.status === "ready";
   return (
@@ -2332,11 +2246,10 @@ function ReleaseReadinessPanel({
             {ready ? <CheckCircle2 size={17} /> : <ListChecks size={17} />}
           </div>
           <div>
-            <div className="font-semibold text-ink">Release readiness</div>
+            <div className="font-semibold text-ink">{t("Release readiness")}</div>
             <div className="mt-1 text-sm text-muted">
-              {formatNumber(fileCount)} files - {stats.trace} trace /{" "}
-              {stats.memory} memory / {stats.artifact} output
-            </div>
+              {formatNumber(fileCount)}{" "}{t("files -")}{" "}{stats.trace}{" "}{t("trace /")}{" "}
+              {stats.memory}{" "}{t("memory /")}{" "}{stats.artifact}{" "}{t("output")}</div>
           </div>
         </div>
         <StatusBadge status={ready ? "Ready" : "Blocked"} />
@@ -2367,6 +2280,7 @@ function SearchPanel({
   icon: React.ReactNode;
   items: string[];
 }) {
+  useLocale();
   return (
     <div className="rounded-md border border-line bg-white p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
@@ -2374,7 +2288,7 @@ function SearchPanel({
         {title}
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">No matches</p>
+        <p className="text-sm text-muted">{t("No matches")}</p>
       ) : (
         <div className="grid gap-2">
           {items.map((item, index) => (
@@ -2400,6 +2314,7 @@ function AssetStat({
   label: string;
   detail: string;
 }) {
+  useLocale();
   return (
     <div className="rounded-md border border-line bg-white p-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -2426,8 +2341,9 @@ function RunSelect({
   requireApprovedTrace?: boolean;
   labelMode?: "trace" | "output";
 }) {
+  useLocale();
   return (
-    <Field label={optional ? "Source run" : "Run"}>
+    <Field label={optional ? t("Source run") : t("Run")}>
       <select
         className="select"
         value={value}
@@ -2435,10 +2351,10 @@ function RunSelect({
       >
         <option value="">
           {runs.length === 0
-            ? "No Agent runs available"
+            ? t("No Agent runs available")
             : optional
-              ? "No source run"
-              : "Select Agent run"}
+              ? t("No source run")
+              : t("Select Agent run")}
         </option>
         {runs.map((run) => (
           <option key={run.id} value={run.id}>
@@ -2447,16 +2363,14 @@ function RunSelect({
         ))}
       </select>
       {requireApprovedTrace && runs.length > 0 && !runs.some(traceRunReady) && (
-        <div className="mt-1 text-xs text-muted">
-          Select a completed run, run redaction, then export after redaction
-          passes.
-        </div>
+        <div className="mt-1 text-xs text-muted">{t("Select a completed run, run redaction, then export after redaction passes.")}</div>
       )}
     </Field>
   );
 }
 
 function TraceReadiness({ run }: { run: AgentDisplayRun }) {
+  useLocale();
   const ready = traceRunReady(run);
   const canRedact = traceRunCanRedact(run);
   return (
@@ -2466,12 +2380,11 @@ function TraceReadiness({ run }: { run: AgentDisplayRun }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-semibold text-ink">
-            {ready ? "Trace ready for export" : "Trace needs redaction"}
+            {ready ? t("Trace ready for export") : t("Trace needs redaction")}
           </div>
           <div className="mt-1 text-xs text-muted">
-            {run.status} - redaction {run.redaction_status} -{" "}
-            {formatNumber(run.latest_seq)} events
-          </div>
+            {run.status}{" "}{t("- redaction")}{" "}{run.redaction_status} -{" "}
+            {formatNumber(run.latest_seq)}{" "}{t("events")}</div>
         </div>
         <StatusBadge
           status={ready ? "Ready" : canRedact ? "Can redact" : "Blocked"}
@@ -2497,18 +2410,17 @@ function OutputArtifactPicker({
   loading: boolean;
   onSelect: (artifactId: string) => void;
 }) {
+  useLocale();
   if (loading) {
     return (
-      <div className="rounded-md border border-line bg-white p-3 text-sm text-muted">
-        Loading output files...
-      </div>
+      <div className="rounded-md border border-line bg-white p-3 text-sm text-muted">{t("Loading output files...")}</div>
     );
   }
   if (artifacts.length === 0) {
     return (
       <EmptyState
-        title="No output files"
-        description="This run has not reported Agent-generated output files."
+        title={t("No output files")}
+        description={t("This run has not reported Agent-generated output files.")}
       />
     );
   }
@@ -2539,9 +2451,9 @@ function OutputArtifactPicker({
               </div>
             </div>
             <div className="mt-2 text-xs text-muted">
-              {artifact.content_type || "unknown type"} -{" "}
+              {artifact.content_type || t("unknown type")} -{" "}
               {formatBytes(artifact.size_bytes)} -{" "}
-              {artifact.sha256 ? compactId(artifact.sha256) : "not hashed"}
+              {artifact.sha256 ? compactId(artifact.sha256) : t("not hashed")}
             </div>
           </button>
         );
@@ -2551,6 +2463,7 @@ function OutputArtifactPicker({
 }
 
 function OutputReadiness({ artifact }: { artifact: AgentOutputArtifact }) {
+  useLocale();
   const ready = outputArtifactReady(artifact);
   return (
     <div
@@ -2560,12 +2473,10 @@ function OutputReadiness({ artifact }: { artifact: AgentOutputArtifact }) {
         <div>
           <div className="text-sm font-semibold text-ink">
             {ready
-              ? "Output ready for capture"
-              : "Output needs scan or policy approval"}
+              ? t("Output ready for capture")
+              : t("Output needs scan or policy approval")}
           </div>
-          <div className="mt-1 text-xs text-muted">
-            scan {artifact.scan_status} - policy {artifact.policy_status} -
-            license {artifact.license_status}
+          <div className="mt-1 text-xs text-muted">{t("scan")}{" "}{artifact.scan_status}{" "}{t("- policy")}{" "}{artifact.policy_status}{" "}{t("- license")}{" "}{artifact.license_status}
           </div>
         </div>
         <StatusBadge status={ready ? "Ready" : "Blocked"} />
@@ -2588,11 +2499,10 @@ function MemoryPreview({
   selectedIds: string[];
   onToggle: (memoryId: string) => void;
 }) {
+  useLocale();
   if (items.length === 0) {
     return (
-      <p className="text-sm text-muted">
-        No memory items for the selected Agent.
-      </p>
+      <p className="text-sm text-muted">{t("No memory items for the selected Agent.")}</p>
     );
   }
   return (
@@ -2611,7 +2521,7 @@ function MemoryPreview({
                 item.consent_status !== "approved" ||
                 !["approved", "internal"].includes(item.license_status)
               }
-              aria-label={`Select memory ${compactId(item.id)}`}
+              aria-label={t("Select memory {{0}}", { 0: compactId(item.id) })}
             />
             <span className="font-mono text-xs text-muted">
               {compactId(item.id)}
@@ -2627,19 +2537,17 @@ function MemoryPreview({
       ))}
       {items.length > 4 && (
         <div className="text-xs text-muted">
-          {items.length - 4} more memory items
-        </div>
+          {items.length - 4}{" "}{t("more memory items")}</div>
       )}
       {selectedIds.length === 0 && (
-        <div className="text-xs text-amber-700">
-          Select at least one eligible memory item to continue.
-        </div>
+        <div className="text-xs text-amber-700">{t("Select at least one eligible memory item to continue.")}</div>
       )}
     </div>
   );
 }
 
 function AssetSourceBadge({ source }: { source: AgentAssetSource | string }) {
+  useLocale();
   const labels: Record<string, string> = {
     agent_trace: "Trace",
     agent_memory: "Memory",
@@ -2756,12 +2664,12 @@ function runLabel(run: AgentDisplayRun, mode: "trace" | "output" = "trace") {
       run.status === "completed"
         ? "ready to scan outputs"
         : "run not completed";
-    return `${title} - ${run.status} - ${run.latest_seq} events - ${readiness}`;
+    return t("{{0}} - {{1}} - {{2}} events - {{3}}", { 0: title, 1: run.status, 2: run.latest_seq, 3: readiness });
   }
   const readiness = traceRunReady(run)
     ? "ready"
     : `blocked: ${traceRunBlockReason(run)}`;
-  return `${title} - ${run.status} - redaction ${run.redaction_status} - ${run.latest_seq} events - ${readiness}`;
+  return t("{{0}} - {{1}} - redaction {{2}} - {{3}} events - {{4}}", { 0: title, 1: run.status, 2: run.redaction_status, 3: run.latest_seq, 4: readiness });
 }
 
 function traceRunReady(run: AgentDisplayRun | undefined) {
@@ -2778,10 +2686,10 @@ function traceRunCanRedact(run: AgentDisplayRun | undefined) {
 }
 
 function traceRunBlockReason(run: AgentDisplayRun) {
-  if (run.status !== "completed") return "run not completed";
-  if (run.redaction_status !== "passed") return "redaction not passed";
-  if (run.latest_seq <= 0) return "no events";
-  return "not ready";
+  if (run.status !== "completed") return t("run not completed");
+  if (run.redaction_status !== "passed") return t("redaction not passed");
+  if (run.latest_seq <= 0) return t("no events");
+  return t("not ready");
 }
 
 function outputArtifactReady(artifact: AgentOutputArtifact | null | undefined) {
@@ -2795,12 +2703,12 @@ function outputArtifactReady(artifact: AgentOutputArtifact | null | undefined) {
 }
 
 function outputArtifactBlockReason(artifact: AgentOutputArtifact) {
-  if (artifact.scan_status !== "passed") return "system scan not passed";
-  if (artifact.policy_status !== "approved") return "policy not approved";
+  if (artifact.scan_status !== "passed") return t("system scan not passed");
+  if (artifact.policy_status !== "approved") return t("policy not approved");
   if (!["approved", "internal"].includes(artifact.license_status))
-    return "license not approved or internal";
-  if (!artifact.sha256) return "missing scanned hash";
-  return "not ready";
+    return t("license not approved or internal");
+  if (!artifact.sha256) return t("missing scanned hash");
+  return t("not ready");
 }
 
 function normalizeSearchResults(

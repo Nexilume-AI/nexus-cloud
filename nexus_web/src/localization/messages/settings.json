@@ -1,0 +1,22 @@
+{
+  "Settings sections": "设置部分",
+  "Organization": "组织",
+  "Loading personal settings": "加载个人设置",
+  "Personal settings could not be loaded": "无法加载个人设置",
+  "Profile status may be out of date": "个人资料状态可能已过时",
+  "Last sign-in": "上次登录",
+  "Phone": "电话",
+  "Company": "公司",
+  "Account security": "账户安全",
+  "Change password": "更改密码",
+  "Current password": "当前密码",
+  "New password": "新密码",
+  "Confirm new password": "确认新密码",
+  "New passwords do not match.": "新密码不匹配。",
+  "ACCOUNT AND STRUCTURE": "账户和结构",
+  "Keep your personal identity separate from Organization and Project administration.": "将您的个人身份与组织和项目管理分开。",
+  "Manage your personal profile and account security.": "管理您的个人资料和账号安全。",
+  "Unsaved changes": "未保存的更改",
+  "Your profile is up to date.": "您的个人资料是最新的。",
+  "Password changed": "密码已更改"
+}

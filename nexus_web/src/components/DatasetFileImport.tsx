@@ -1,3 +1,4 @@
+import { t, useLocale } from "../localization";
 import { useState } from "react";
 import { Loader2, Upload } from "lucide-react";
 import { api, type ApiContext } from "../lib/api";
@@ -23,6 +24,7 @@ export function DatasetFileImport({
   onComplete: () => Promise<void>;
   onBusy: (busy: boolean) => void;
 }) {
+  useLocale();
   const [items, setItems] = useState<Item[]>([]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,13 +43,13 @@ export function DatasetFileImport({
         if (item.file.size <= 0 || item.file.size > policy.max_bytes) {
           update(item.key, {
             state: "failed",
-            message: "File is empty or exceeds the import size limit.",
+            message: t("File is empty or exceeds the import size limit."),
           });
           continue;
         }
         update(item.key, {
           state: "importing",
-          message: "Uploading and scanning…",
+          message: t("Uploading and scanning…"),
         });
         try {
           await api.pushDatasetFile(context, datasetId, item.file, {
@@ -56,7 +58,7 @@ export function DatasetFileImport({
           });
           update(item.key, {
             state: "saved",
-            message: "Imported · checks passed",
+            message: t("Imported · checks passed"),
           });
         } catch (reason) {
           update(item.key, {
@@ -64,7 +66,7 @@ export function DatasetFileImport({
             message:
               reason instanceof Error
                 ? reason.message
-                : "Import failed. Retry this file.",
+                : t("Import failed. Retry this file."),
           });
         }
       }
@@ -80,20 +82,13 @@ export function DatasetFileImport({
   }
   if (!policy)
     return (
-      <p role="status">
-        File import is unavailable. Refresh or upgrade the Cloud server.
-      </p>
+      <p role="status">{t("File import is unavailable. Refresh or upgrade the Cloud server.")}</p>
     );
   const pending = items.filter((row) => row.state !== "saved").length;
   return (
-    <section aria-label="Import files" className="grid min-w-0 gap-4">
-      <p className="text-sm text-muted">
-        Import images or text files into this collection. Existing permissions,
-        storage limits and release rules still apply.
-      </p>
-      <label className="grid gap-2 text-sm font-medium">
-        Choose files
-        <input
+    <section aria-label={t("Import files")} className="grid min-w-0 gap-4">
+      <p className="text-sm text-muted">{t("Import images or text files into this collection. Existing permissions, storage limits and release rules still apply.")}</p>
+      <label className="grid gap-2 text-sm font-medium">{t("Choose files")}<input
           className="input min-h-11 w-full min-w-0"
           type="file"
           multiple
@@ -105,7 +100,7 @@ export function DatasetFileImport({
                 file,
                 key: crypto.randomUUID(),
                 state: "pending",
-                message: "Ready to import",
+                message: t("Ready to import"),
               })),
             );
             setConsent(false);
@@ -114,14 +109,11 @@ export function DatasetFileImport({
         />
       </label>
       <p className="text-xs text-muted">
-        {policy.extensions.join(", ")} · Up to{" "}
-        {Math.floor(policy.max_bytes / 1024 ** 2)} MiB per file; images up to{" "}
-        {Math.floor(policy.image_max_bytes / 1024 ** 2)} MiB.
-      </p>
+        {policy.extensions.join(", ")}{" "}{t("· Up to")}{" "}
+        {Math.floor(policy.max_bytes / 1024 ** 2)}{" "}{t("MiB per file; images up to")}{" "}
+        {Math.floor(policy.image_max_bytes / 1024 ** 2)}{" "}{t("MiB.")}</p>
       <p className="text-xs text-muted">
-        {policy.scan_description} PDF, Office, archives and executable formats
-        require a dedicated scanner and are not accepted yet.
-      </p>
+        {policy.scan_description}{" "}{t("PDF, Office, archives and executable formats require a dedicated scanner and are not accepted yet.")}</p>
       <ul className="grid gap-2" aria-live="polite">
         {items.map((item) => (
           <li
@@ -146,10 +138,7 @@ export function DatasetFileImport({
           disabled={busy}
           onChange={(event) => setConsent(event.target.checked)}
         />
-        <span>
-          I have permission to store these files and share them with this
-          collection's authorized users. Publication remains a separate action.
-        </span>
+        <span>{t("I have permission to store these files and share them with this collection's authorized users. Publication remains a separate action.")}</span>
       </label>
       {error && (
         <p role="alert" className="text-sm text-red-700">
@@ -158,9 +147,8 @@ export function DatasetFileImport({
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted">
-          {items.filter((row) => row.state === "saved").length} imported ·{" "}
-          {pending} remaining
-        </p>
+          {items.filter((row) => row.state === "saved").length}{" "}{t("imported ·")}{" "}
+          {pending}{" "}{t("remaining")}</p>
         <button
           type="button"
           className="btn btn-primary min-h-11 min-w-40"
@@ -173,10 +161,10 @@ export function DatasetFileImport({
             <Upload size={16} />
           )}
           {busy
-            ? "Importing…"
+            ? t("Importing…")
             : items.some((row) => row.state === "failed")
-              ? "Retry remaining files"
-              : "Import files"}
+              ? t("Retry remaining files")
+              : t("Import files")}
         </button>
       </div>
     </section>
