@@ -30,4 +30,8 @@ The terminal remains a pipe-based shell, not a PTY. SOCKS support requires a rea
 - Linux SDK suite (Ubuntu 24.04 / Python 3.12): 345 passed, 29 skipped, including real shell execution using browser Enter.
 - Community signed enrollment, connection checks, ownership isolation and authenticated SSE: 11 passed.
 - Wheel and sdist pass metadata and source-content verification.
-- macOS is included in the SDK CI matrix. Local Linux/Windows verification does not establish real macOS proxy or launchd acceptance.
+- [All seven SDK CI jobs passed](https://github.com/Nexilume-AI/nexus-agent-sdk-python/actions/runs/34965351268): Python 3.12/3.14 on macOS, Linux and Windows, plus Python 3.9 core installation. This does not establish real macOS system-proxy or launchd acceptance.
+
+### Enterprise verification still pending
+
+The initial PostgreSQL suite passed 25 of 27 tests. Two upload tests could not write to the read-only test mount. A rerun moved uploads to `/tmp` and added an Enterprise SSE regression (28 tests total), but Docker Desktop exited before a final result was captured. Subsequent startup attempts failed on an inaccessible `dockerInference` socket. The final Enterprise rerun and removal of the dedicated `nexus-pr5-review-postgres` test container remain pending until Docker is available. No production database was used.
