@@ -1,0 +1,15 @@
+{
+  "license": "Apache-2.0",
+  "upstream": "Nexus OpenWrt Relay",
+  "files": {
+    "arpx-control.js": "9f19defe7edf85718df6c97eafb39988e40edce8bd4eb4892814141949310f48",
+    "arpx-reflector.js": "ea4f6aa1c901e8c7bcdefe1fc8a94db2bf3a0d67811f2cbc45ab2142f6b0e906",
+    "cloud-invoke.js": "687617a1a4f1d85462be9aea60493b6660e3a06f282972c6966b4eecfde3bf4e",
+    "nexus-relayd.js": "b27034dd286d643ed38ca6db1ad7255d3dd6406ac2d4d3aa7852c202ffb9d70e",
+    "relay-core.js": "3520d625198ae80d4a666863eaabe8b4f19252f1949a0cebc0148a72aef2a3f7",
+    "relay-federation-http2.js": "a4fe3619d3a877cbfd8bdad261d51f0305bc80d34d861f8c72562430c4ded1ee",
+    "relay-federation.js": "3bdba3216e07ea4fa5da34e911095926336857b9be7397c12a44ecc07fe84620",
+    "relay-ticket.js": "9361fd338401d3b9842811d87aedafb89ac83b7fe6271f270a905058ee46a6ec",
+    "relay-tunnel.js": "671306ea5626110bde41fe21592279ef0b0e43ccba98824d87261f6eb56e462f"
+  }
+}

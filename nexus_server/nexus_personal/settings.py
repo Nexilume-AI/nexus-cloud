@@ -76,7 +76,7 @@ REST_FRAMEWORK = {
         "nexus_personal.authentication.PersonalSessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_RENDERER_CLASSES": ["nexus_personal.renderers.PersonalJSONRenderer"],
 }
 NEXUS_JWT_ALGORITHM = "HS256"
 NEXUS_JWT_ISSUER = f"nexus-personal:{_host['instance_id']}"
@@ -117,6 +117,7 @@ NEXUS_WEBSOCKET_ROUTING_MODE = "redis"
 NEXUS_SHARED_STORAGE_ROOT = str(_host["state_dir"] / "storage")
 NEXUS_DATASET_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "datasets")
 NEXUS_MEDIA_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "media")
+MEDIA_ROOT = NEXUS_MEDIA_STORAGE_ROOT
 NEXUS_AGENT_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "agents")
 NEXUS_ROUTER_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "routers")
 NEXUS_PROVIDER_RUNTIME_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "provider-runtimes")
@@ -193,4 +194,7 @@ LOGGING = {"version": 1, "disable_existing_loggers": False,
     "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {"django.request": {"handlers": ["null"], "propagate": False},
                 "django.server": {"handlers": ["null"], "propagate": False}}}
+from .relay import settings_for as _relay_settings
+globals().update(_relay_settings(_host))
+del _relay_settings
 del _db, _host

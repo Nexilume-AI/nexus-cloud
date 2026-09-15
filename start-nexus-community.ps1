@@ -4,6 +4,7 @@ param(
     [ValidateRange(1024, 65535)][int]$BackendPort = 18080,
     [ValidateRange(1, 16)][int]$WebWorkers = 1,
     [string]$Python = "",
+    [string]$RelayAddress = "",
     [switch]$Restart,
     [switch]$StopOnly,
     [switch]$CheckOnly,
@@ -76,7 +77,10 @@ function Stop-CommunityProcesses {
         if (-not (Test-TrackedIdentity $entry)) {
             throw "COMMUNITY_PROCESS_IDENTITY_MISMATCH: PID $($entry.pid) was not stopped."
         }
-        Stop-Process -Id ([int]$entry.pid) -Force
+        if ($entry.service -eq 'relay') {
+            & taskkill.exe /PID ([int]$entry.pid) /T /F | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'COMMUNITY_RELAY_STOP_FAILED' }
+        } else { Stop-Process -Id ([int]$entry.pid) -Force }
     }
     Remove-Item -LiteralPath $pidPath -Force
 }
@@ -148,13 +152,20 @@ try {
         exit 0
     }
 
+    $relayArguments = @('-m', 'nexus_personal.relay', '--installation', $installationRoot)
+    if ($RelayAddress) { $relayArguments += @('--address', $RelayAddress) }
+    & $pythonPath @relayArguments
+    if ($LASTEXITCODE -ne 0) { throw 'COMMUNITY_RELAY_PREPARE_FAILED' }
+    foreach ($port in @(27444, 27445)) {
+        if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) { throw "COMMUNITY_RELAY_PORT_IN_USE: $port" }
+    }
     New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
     $check = & $pythonPath -m nexus_personal.install check --directory $installationRoot | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw "COMMUNITY_INSTALLATION_CHECK_FAILED" }
     $services = [Collections.Generic.List[string]]::new()
     foreach ($controller in @($check.controllers_configured)) { $services.Add("$controller-controller") }
     if ([bool]$check.python_builder_enabled) { $services.Add('python-builder') }
-    foreach ($service in @('worker', 'agent-worker', 'beat', 'web')) { $services.Add($service) }
+    foreach ($service in @('relay', 'worker', 'agent-worker', 'beat', 'web')) { $services.Add($service) }
 
     foreach ($service in $services) {
         $arguments = @('-m', 'nexus_personal.processes', $service)
@@ -175,6 +186,9 @@ try {
             throw "COMMUNITY_PROCESS_START_FAILED: $($entry.service); inspect $logRoot."
         }
     }
+
+    & $pythonPath -m nexus_personal.relay --installation $installationRoot --check
+    if ($LASTEXITCODE -ne 0) { throw 'COMMUNITY_RELAY_NOT_READY' }
 
     $hostConfig = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
     $origin = [Uri][string]$hostConfig.public_origin
@@ -208,7 +222,10 @@ try {
 catch {
     foreach ($entry in $started) {
         $process = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue
-        if ($process) { Stop-Process -Id $process.Id -Force }
+        if ($process) {
+            if ($entry.service -eq 'relay') { & taskkill.exe /PID $process.Id /T /F | Out-Null }
+            else { Stop-Process -Id $process.Id -Force }
+        }
     }
     throw
 }

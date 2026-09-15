@@ -30,7 +30,7 @@ class ContainerBootstrapTests(unittest.TestCase):
             bootstrap.mkdir()
             installation.parent.mkdir()
             with patch.multiple(container, BOOTSTRAP=bootstrap, INSTALLATION=installation), \
-                 patch.object(container, 'initialize_volumes'), \
+                 patch.object(container, 'initialize_volumes'), patch.object(container, 'prepare_relay'), \
                  patch.object(container, 'prepare') as prepare, patch.object(container, 'check') as check, \
                  patch.dict(os.environ, {'NEXUS_ORIGIN': 'http://127.0.0.1:18090', 'NEXUS_OWNER_EMAIL': 'owner@example.test'}):
                 container.prepare_installation()

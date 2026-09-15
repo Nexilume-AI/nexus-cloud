@@ -68,3 +68,14 @@ For code upgrades, back up first, rebuild the image, run the installation's
 reviewed migration procedure, and recreate all namespace-sharing services together.
 Do not independently recreate only the PostgreSQL namespace container. Existing
 installations deliberately refuse changed owner/origin or unreviewed schema upgrades.
+
+## Relay startup
+
+The normal startup now includes the bundled Relay. Credentials are generated per
+installation and reused on restart. Native launchers require Node.js on PATH.
+For router access, select a reachable IP on first start with `--relay-address`
+(Linux), `-RelayAddress` (Windows), or `NEXUS_RELAY_ADDRESS` plus
+`NEXUS_RELAY_BIND` (Compose). Without these options access is local-only.
+Tunnel port: 27444; mTLS/JWT Cloud ingress: 27445, internal only. No firewall,
+public IPv6, or verified-device-mTLS Cloud proxy is automatically configured.
+See the source README and HOST.md for onboarding prerequisites.

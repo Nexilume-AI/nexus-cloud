@@ -794,15 +794,18 @@ Production Edge settings explicitly require verified mTLS ingress headers and
 installation-local material under `state_dir/keys`: `edge-signing.pem`,
 `edge-device-ca.pem`, `edge-device-ca-key.pem`, `edge-ingress-ca.pem` and
 `edge-ingress-ca-key.pem`. The JWT issuer is the Personal public origin plus
-`/edge`. The future installer must provision protected keys and a proxy that
+`/edge`. The Relay bootstrap provisions the device CA and Edge signing key. Operators must still provision the ingress CA and a proxy that
 validates device certificates and strips/replaces client-supplied internal
-headers. These paths are configuration, not automatic key generation or a
-completed TLS installer. Never copy the formal Cloud's CA/device/signing keys
+headers. Relay bootstrap is not a completed HTTPS/mTLS ingress installer. Never copy the formal Cloud's CA/device/signing keys
 or turn off verification to make enrollment pass.
 
-No Personal Relay service is provisioned by these defaults. Its status reports
-unconfigured and Relay enrollment fails before consuming a pairing code. Missing
-signing/CA material also stays unavailable. Actual Direct IPv6 and Relay invoke,
+Community launchers now provision and start the bundled Relay, with installation-owned
+device CA, Edge signing key and Relay credentials. Relay settings are loaded from the
+protected installation relay/settings.json; inherited Enterprise variables are not used.
+Native launchers require Node.js on PATH. The Docker image includes the runtime.
+The tunnel defaults to local-only port 27444; Cloud invoke stays internal on 27445.
+See the source README for --relay-address / -RelayAddress and Docker address options.
+Existing installations without Relay settings still report unconfigured. Actual Direct IPv6 and Relay invoke,
 certificate provisioning/rotation, and independent deployment remain release
 gates. Backend tests with verified proxy headers and compiled-page tests with
 mocked HTTP are not evidence of real network TLS or router readiness.

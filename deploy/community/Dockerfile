@@ -23,7 +23,9 @@ RUN test -f server/LICENSE && test ! -d server/nexus_enterprise && \
     /opt/venv/bin/python -c "import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ('config', 'nexus_enterprise', 'apps.billing', 'apps.iam', 'apps.tokenbank', 'apps.marketplace', 'apps.api_keys'))"
 
 FROM ${PYTHON_IMAGE} AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 RUN groupadd --gid 10001 nexus && useradd --uid 10001 --gid nexus --create-home nexus
+COPY --from=web /usr/local/bin/node /usr/local/bin/node
 COPY --from=server /opt/venv /opt/venv
 COPY --from=web /build/nexus_web/dist/community /opt/nexus/web
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \

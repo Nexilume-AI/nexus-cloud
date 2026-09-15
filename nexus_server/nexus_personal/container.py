@@ -63,6 +63,7 @@ def prepare_installation():
         _write(receipt, _json({'origin': origin, 'email': os.environ.get('NEXUS_OWNER_EMAIL', 'owner@example.local')}))
     if INSTALLATION.exists():
         check(directory=INSTALLATION)
+        prepare_relay()
         return
     infrastructure = BOOTSTRAP / 'infrastructure.json'
     if not infrastructure.exists():
@@ -72,6 +73,14 @@ def prepare_installation():
             'redis_url': 'redis://127.0.0.1:6379/1'}))
     prepare(directory=INSTALLATION, origin=origin.replace('http://', 'https://', 1),
             infrastructure_file=infrastructure, web_bundle=BUNDLE)
+    prepare_relay()
+
+
+def prepare_relay():
+    from .relay import prepare as provision
+    from .host_config import load_config
+    provision(load_config({'NEXUS_PERSONAL_CONFIG': str(INSTALLATION / 'host.json')}),
+        os.environ.get('NEXUS_RELAY_ADDRESS'), '0.0.0.0')
 
 
 def initialize_database():
@@ -87,7 +96,7 @@ def initialize_database():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('service', choices=('prepare', 'initialize', 'web', 'worker', 'beat', 'agent-worker', 'status'))
+    parser.add_argument('service', choices=('relay', 'prepare', 'initialize', 'web', 'worker', 'beat', 'agent-worker', 'status'))
     args = parser.parse_args(argv)
     try:
         if args.service == 'prepare':

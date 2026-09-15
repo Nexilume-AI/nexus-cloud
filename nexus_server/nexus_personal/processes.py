@@ -10,7 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('service', choices=('web', 'worker', 'beat', 'agent-worker', 'python-builder', 'agent-controller', 'provider-controller'))
+    parser.add_argument('service', choices=('relay', 'web', 'worker', 'beat', 'agent-worker', 'python-builder', 'agent-controller', 'provider-controller'))
     parser.add_argument('--concurrency', type=int)
     parser.add_argument('--port', type=int, help='Web: explicit loopback listener port behind the HTTPS proxy.')
     parser.add_argument('--web-workers', type=int, help='Web: 1-16 ASGI processes (default 1).')
@@ -45,6 +45,9 @@ def main(argv=None):
         options.service if options.service in ('web', 'beat', 'agent-controller', 'provider-controller') else 'worker')
     if options.local_http:
         os.environ['NEXUS_PERSONAL_LOCAL_HTTP_PORT'] = str(options.port)
+    if options.service == 'relay':
+        from .relay import run
+        return run()
     if options.service == 'web':
         from .frontend import load_bundle
         try:

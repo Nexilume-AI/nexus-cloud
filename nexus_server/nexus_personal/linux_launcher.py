@@ -58,6 +58,7 @@ def main(argv=None):
     parser.add_argument('--installation', required=True, type=Path)
     parser.add_argument('--port', type=int, default=18080)
     parser.add_argument('--web-workers', type=int, default=1)
+    parser.add_argument('--relay-address', help='Advertised Relay IP on first start; defaults to loopback.')
     parser.add_argument('--local-http', action='store_true')
     args = parser.parse_args(argv)
     if sys.platform != 'linux' or not (1024 <= args.port <= 65535) or not (1 <= args.web_workers <= 16):
@@ -112,6 +113,14 @@ def main(argv=None):
         if args.action == 'check':
             print('Installation and migration checks passed; service health not checked.')
             return 0
+        from .relay import prepare
+        from .host_config import load_config
+        import shutil
+        if not shutil.which('node'):
+            raise RuntimeError('RELAY_NODE_REQUIRED')
+        prepare(load_config(env), args.relay_address)
+        check_port(27444)
+        check_port(27445)
         check_port(args.port)
         logs = run / 'logs'
         logs.mkdir(mode=0o700, exist_ok=True)
@@ -120,7 +129,7 @@ def main(argv=None):
         services = [f'{name}-controller' for name in result['controllers_configured']]
         if result.get('python_builder_enabled', False):
             services.append('python-builder')
-        services += ['web', 'worker', 'agent-worker', 'beat']
+        services += ['relay', 'web', 'worker', 'agent-worker', 'beat']
         started = []
         def save():
             temporary = run / 'community-linux-state.tmp'
@@ -163,6 +172,8 @@ def main(argv=None):
                 if time.monotonic() >= deadline:
                     raise RuntimeError('WEB_START_TIMEOUT: inspect run/logs')
                 time.sleep(.5)
+            from .relay import wait_ready
+            wait_ready(load_config(env))
             print(f'Community started; backend http://127.0.0.1:{args.port}; logs in {logs}')
         except BaseException:
             stop(started)

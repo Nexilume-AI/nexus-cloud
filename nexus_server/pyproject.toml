@@ -26,5 +26,8 @@ include = ["apps", "apps.*", "nexus_personal", "nexus_personal.*"]
 exclude = ["*.tests", "*.tests.*"]
 namespaces = true
 
+[tool.setuptools.package-data]
+nexus_personal = ["relay_runtime/*.js", "relay_runtime/SOURCE.json"]
+
 [tool.setuptools.dynamic]
 dependencies = {file = "nexus_personal/requirements.in"}

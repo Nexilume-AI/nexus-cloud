@@ -61,3 +61,15 @@ notices. Web builds generate bundled dependency notices, including PDF font
 attribution. Independently released OpenWrt, Mobile and SDK packages retain
 their own license files and upstream notices; this archive does not relicense
 or distribute those components.
+
+## Unreleased: bundled Relay startup
+
+Windows, Linux and Compose launchers now include a separately configured Relay
+runtime within the Community Server distribution. First start provisions
+installation-owned credentials; restarts preserve them. The tunnel is local-only
+by default. See README for first-start advertised IP and Docker bind settings.
+Verified locally: independent Docker build/start, Cloud Relay availability, TLS
+client-certificate and JWT rejection, credential reuse, and Relay restart.
+External router pairing and public ingress require the documented Edge mTLS and
+network setup. This working-tree change is not a new published source archive;
+community-source-manifest.json still describes the previous exported release.

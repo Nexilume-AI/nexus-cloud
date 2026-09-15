@@ -44,6 +44,7 @@ class PersonalEdgeHTTPTests(TestCase):
     def pairing(self):
         response = self.client.post('/api/v1/edge/pairing-codes/', {}, format='json', **self.csrf)
         self.assertEqual(response.status_code, 201, response.content)
+        self.assertIn('pairing_code', response.json())
         return response.data['pairing_code']
 
     def enroll(self, name='my-router'):
@@ -52,6 +53,7 @@ class PersonalEdgeHTTPTests(TestCase):
             'pairing_code': code, 'router_id': name, 'domain_id': 'personal.example',
             'device_cert_thumbprint': 'a' * 64, 'capabilities': {'router_presence_v1': True}}, format='json')
         self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()['data']['device_token'], response.data['device_token'])
         self.device.credentials(HTTP_AUTHORIZATION='Edge ' + response.data['device_token'],
             HTTP_X_NEXUS_CLIENT_CERT_SHA256='a' * 64)
         return response.data, code
@@ -60,6 +62,7 @@ class PersonalEdgeHTTPTests(TestCase):
         response = self.device.post('/api/v1/edge/v1/presence/', {
             'state': 'online', 'connectivity_mode': 'direct_ipv6', 'capabilities': {}}, format='json')
         self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['ok'])
 
     def payload(self, **overrides):
         origin = 'agent://local-personal/echo'

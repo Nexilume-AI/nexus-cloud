@@ -149,3 +149,14 @@ a system service supervisor: it does not restart crashed processes, rotate logs
 or configure boot startup. For production, supervise the documented
 `nexus-personal-process` roles with your service manager, retain the installation
 owner and environment, and provide HTTPS/WSS as described in [HOST.md](HOST.md).
+
+## Relay startup
+
+The normal startup now includes the bundled Relay. Credentials are generated per
+installation and reused on restart. Native launchers require Node.js on PATH.
+For router access, select a reachable IP on first start with `--relay-address`
+(Linux), `-RelayAddress` (Windows), or `NEXUS_RELAY_ADDRESS` plus
+`NEXUS_RELAY_BIND` (Compose). Without these options access is local-only.
+Tunnel port: 27444; mTLS/JWT Cloud ingress: 27445, internal only. No firewall,
+public IPv6, or verified-device-mTLS Cloud proxy is automatically configured.
+See the source README and HOST.md for onboarding prerequisites.

@@ -28,6 +28,7 @@ NEXUS_JWT_ISSUER = "personal-unit-tests"
 NEXUS_JWT_AUDIENCE = "personal-unit-tests-client"
 NEXUS_JWT_LEEWAY_SECONDS = 0
 REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": ["nexus_personal.renderers.PersonalJSONRenderer"],
     "EXCEPTION_HANDLER": "nexus_personal.exceptions.personal_exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "nexus_personal.authentication.PersonalBearerAuthentication",

@@ -1,6 +1,7 @@
 name: nexus-community
 
 x-environment: &environment
+  NEXUS_RELAY_ADDRESS: ${NEXUS_RELAY_ADDRESS:-127.0.0.1}
   NEXUS_ORIGIN: ${NEXUS_ORIGIN:-http://127.0.0.1:18090}
   NEXUS_OWNER_EMAIL: ${NEXUS_OWNER_EMAIL:-owner@example.local}
 
@@ -53,6 +54,7 @@ services:
       - bootstrap:/var/lib/nexus-bootstrap:ro
     # Sole network namespace; all other service ports remain loopback-only.
     ports:
+      - "${NEXUS_RELAY_BIND:-127.0.0.1}:27444:27444"
       - "127.0.0.1:${NEXUS_PORT:-18090}:8080"
     depends_on:
       prepare: {condition: service_completed_successfully}
@@ -96,6 +98,15 @@ services:
       timeout: 10s
       start_period: 30s
       retries: 5
+
+  relay:
+    <<: *service
+    command: [relay]
+    healthcheck:
+      test: [CMD, python, -m, nexus_personal.relay, --installation, /var/lib/nexus/installation, --check]
+      interval: 15s
+      timeout: 35s
+      retries: 3
 
   worker:
     <<: *service
