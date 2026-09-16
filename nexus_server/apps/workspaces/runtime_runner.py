@@ -156,6 +156,9 @@ def resolve_terminal_shell(*, session: WorkspaceTerminalSession) -> str:
         return WorkspaceTerminalSession.SHELL_POWERSHELL
     if session.shell != WorkspaceTerminalSession.SHELL_AUTO:
         return session.shell
+    if session.connection.connection_type == WorkspaceConnection.TYPE_RUNTIME:
+        # The local Runtime knows its OS; preserve auto for macOS zsh, Linux, etc.
+        return WorkspaceTerminalSession.SHELL_AUTO
     shell = str(facts.get("shell") or "").lower()
     if shell == "bash":
         return WorkspaceTerminalSession.SHELL_BASH

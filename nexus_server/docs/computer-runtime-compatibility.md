@@ -40,3 +40,9 @@ The terminal remains a pipe-based shell, not a PTY. SOCKS support requires a rea
 - Docker Desktop was restored by backing up and recreating stale socket-only runtime directories. The dedicated test database container was removed after verification; Docker remains available. No production database was used.
 
 The existing install-then-pair workflow and all Runtime authentication behavior remain unchanged.
+
+### macOS default shell (SDK 0.46.4)
+
+Cloud now forwards `auto` to Computer Runtime instead of choosing sh from cached host facts. SDK 0.46.4 selects zsh on macOS (falling back to `/bin/zsh` when PATH lookup fails), while preserving explicit bash/sh choices. Both the live terminal stream and command-RPC paths carry this setting. Legacy SSH resolution is unchanged.
+
+Deploy the updated Cloud code and upgrade the Computer Runtime to 0.46.4 in its existing Python environment. Restart Runtime, close existing terminal sessions and open a new terminal to use the new default. Upgrading only one side is insufficient for the default behavior. The terminal still uses pipes, not a PTY.
