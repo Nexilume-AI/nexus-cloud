@@ -22,7 +22,7 @@ export function ProtectedRunImage({ path, title, alt }: { path: string; title?: 
     if (runId && token.data?.display_token) {
       api.privateAgentRunDisplayAsset(apiContext, path, token.data.display_token).then((blob) => {
         if (!active) return;
-        if (!["image/png", "image/jpeg", "image/webp"].includes(blob.type)) throw new Error("Unsupported image");
+        if (!["image/png", "image/jpeg", "image/webp"].includes(blob.type)) throw new Error(t("Unsupported image"));
         objectUrl = URL.createObjectURL(blob); setUrl(objectUrl);
       }).catch(() => { if (active) setFailed(true); });
     }

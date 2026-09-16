@@ -1,5 +1,8 @@
 {
   "archived": "已存档",
   "Retry deploy": "重试部署",
-  "Project unavailable": "项目不可用"
+  "Project unavailable": "项目不可用",
+  "Nexus could not load this data. Retry now or review the technical details if the problem continues.": "Nexus 无法加载此数据。请立即重试；若问题持续，请查看技术详情。",
+  "Select a Docker image tar file first": "请先选择一个 Docker 镜像 tar 文件",
+  "This data could not be loaded. Please retry.": "此数据无法加载，请重试。"
 }

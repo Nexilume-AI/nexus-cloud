@@ -47,5 +47,10 @@
   "Gateway verified": "网关已验证",
   "Agent reported": "报告智能体",
   "Remove {{0}}": "删除 {{0}}",
-  "Next Run": "下一步运行"
+  "Next Run": "下一步运行",
+  "Audio verification failed.": "音频校验失败。",
+  "Recording exceeds 25 MiB.": "录音超过 25 MiB。",
+  "Cancel the active Run": "取消当前运行",
+  "Choose execution profile": "选择执行配置",
+  "Show available commands": "显示可用命令"
 }

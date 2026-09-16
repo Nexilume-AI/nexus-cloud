@@ -158,7 +158,7 @@ export function PrivateDisplayComposerTools({
     if (!active.current) return;
     setUploadingAudio(true);
     try {
-    if (file.size > 25 * 1024 * 1024) throw new Error("Recording exceeds 25 MiB.");
+    if (file.size > 25 * 1024 * 1024) throw new Error(t("Recording exceeds 25 MiB."));
     let state = await api.createAgentFile(apiContext, agentId, file, "audio");
     function remember() {
       if (!active.current) return;
@@ -185,7 +185,7 @@ export function PrivateDisplayComposerTools({
       remember();
     }
     if (!active.current) return;
-    if (state.state !== "ready") throw new Error("Audio verification failed.");
+    if (state.state !== "ready") throw new Error(t("Audio verification failed."));
     const previewUrl = URL.createObjectURL(file);
     audioPreviews.current.set(state.file_id, previewUrl);
     setAudio(current => {
@@ -340,7 +340,7 @@ export function PrivateDisplayComposerTools({
     </div></ComposerOverlay> : null}
     {slashMenuOpen ? <ComposerOverlay anchor={overlayAnchor}><div ref={commandList} role="listbox" aria-label={t("Slash commands")} onKeyDown={handleCommandListKeys} className="max-h-[inherit] overflow-auto rounded-lg border border-black/10 bg-white p-2 shadow-xl">
       <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Commands")}</div>
-      {slashItems.map(item => <button key={`${item.tool}:${item.name}`} type="button" role="option" aria-selected="false" disabled={item.disabled} onClick={() => chooseCommand(item)} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-[#f3f3f1] disabled:cursor-not-allowed disabled:opacity-45"><Slash size={14} /><span className="w-24 font-mono text-xs">/{item.name}</span><span className="min-w-0 flex-1 truncate text-xs text-[#6f6e69]">{item.description}</span></button>)}
+      {slashItems.map(item => <button key={`${item.tool}:${item.name}`} type="button" role="option" aria-selected="false" disabled={item.disabled} onClick={() => chooseCommand(item)} className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-[#f3f3f1] disabled:cursor-not-allowed disabled:opacity-45"><Slash size={14} /><span className="w-24 font-mono text-xs">/{item.name}</span><span className="min-w-0 flex-1 truncate text-xs text-[#6f6e69]">{t(item.description)}</span></button>)}
       {!slashItems.length ? <div role="status" className="px-2 py-3 text-xs text-[#6f6e69]">{t("No matching command. Use /help to review available commands.")}</div> : null}
     </div></ComposerOverlay> : null}
     {commandMode === "full" ? <>

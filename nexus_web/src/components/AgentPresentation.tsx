@@ -1,4 +1,4 @@
-import { t, useLocale } from "../localization";
+import { t, tToken, useLocale } from "../localization";
 import { useEffect, useId, useRef } from "react";
 
 import { Copy, X } from "lucide-react";
@@ -140,34 +140,30 @@ export function humanizeToken(value: string) {
   const known: Record<string, string> = {
     needs_setup: "Setup required",
     not_deployed: "Not deployed",
-    per_call: "Per call",
-    per_request: "Per request",
+    per_call: t("Per call"),
+    per_request: t("Per request"),
     tenant: "Organization",
     workspace_wide: "All projects",
   };
-  if (known[normalized]) return known[normalized];
-  return (
-    normalized
-      .replace(/[_-]+/g, " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Unknown"
-  );
+  if (known[normalized]) return t(known[normalized]);
+  return tToken(normalized) || t("Unknown");
 }
 
 export function workspaceScopeLabel(scope: string) {
   const labels: Record<string, string> = {
-    "connection.list": "List Computer connections",
-    "connection.create": "Create SSH connections",
-    "connection.update": "Update SSH connections",
-    "connection.delete": "Delete SSH connections",
-    "connection.test": "Test SSH connections",
-    "connection.bind": "Bind a Computer",
-    "files.list": "List Workspace files",
-    "files.read": "Read Workspace files",
-    "files.write": "Write Workspace files",
-    "command.execute": "Execute terminal commands",
-    "browser.control": "Control an isolated browser",
+    "connection.list": t("List Computer connections"),
+    "connection.create": t("Create SSH connections"),
+    "connection.update": t("Update SSH connections"),
+    "connection.delete": t("Delete SSH connections"),
+    "connection.test": t("Test SSH connections"),
+    "connection.bind": t("Bind a Computer"),
+    "files.list": t("List Workspace files"),
+    "files.read": t("Read Workspace files"),
+    "files.write": t("Write Workspace files"),
+    "command.execute": t("Execute terminal commands"),
+    "browser.control": t("Control an isolated browser"),
   };
-  return labels[scope] ?? humanizeToken(scope);
+  return labels[scope] ? t(labels[scope]) : humanizeToken(scope);
 }
 
 export async function copy(value: string) {

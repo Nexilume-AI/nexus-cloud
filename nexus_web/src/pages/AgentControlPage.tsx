@@ -1524,7 +1524,7 @@ function AgentComputerAccess({
                           checked={scopes.includes(scope)}
                           onChange={() => toggleScope(scope)}
                         />
-                        <span>{workspaceScopeLabels[scope]}</span>
+                        <span>{t(workspaceScopeLabels[scope])}</span>
                       </label>
                     ))}
                   </div>
@@ -1701,7 +1701,7 @@ function AgentMobileAccess({
                   onChange={() => toggleScope(scope)}
                 />
                 <span>
-                  <strong>{label}</strong>
+                  <strong>{t(label)}</strong>
                   <small>{scope}</small>
                 </span>
               </label>

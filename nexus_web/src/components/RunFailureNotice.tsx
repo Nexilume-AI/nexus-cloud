@@ -9,7 +9,7 @@ export function currentRunFailure(run?: PrivateAgentRunDisplay): RunFailure | nu
     domain: "cloud", code: run.execution_task.error_code || "RECOVERY_DECISION_REQUIRED",
     title: t("Recovery decision needed"),
     message: t("The Agent process stopped while an external operation may have been in flight."),
-    recovery_hint: "Check the external result first. Retry only if you accept the risk that an unconfirmed operation may run twice.",
+    recovery_hint: t("Check the external result first. Retry only if you accept the risk that an unconfirmed operation may run twice."),
     actions: ["check_status", "retry_operation", "cancel_turn"], outcome_unknown: true, automatic_retry: false,
   };
   if (run?.status !== "failed") return null;
@@ -17,7 +17,7 @@ export function currentRunFailure(run?: PrivateAgentRunDisplay): RunFailure | nu
   const raw = run.execution_task?.error_code || "";
   return { domain: "unknown", code: /^[A-Z][A-Z0-9_]{0,63}$/.test(raw) ? raw : "UNKNOWN_FAILURE",
     title: t("Failure source not confirmed"), message: t("This turn failed without structured failure details."),
-    recovery_hint: "Check status and inspect existing results before sending another instruction.",
+    recovery_hint: t("Check status and inspect existing results before sending another instruction."),
     actions: ["check_status", "continue_chat"], outcome_unknown: true, automatic_retry: false };
 }
 
@@ -43,7 +43,7 @@ export function RunFailureNotice({ failure, runId, ready, canResume, checking, o
     catch { setCopyState("failed"); }
   }
   return <section aria-label={t("Run failure recovery")} className="mx-4 mt-3 max-h-[40vh] shrink-0 overflow-y-auto rounded-md border border-[#e5b4b0] bg-[#fff1ef] px-3 py-3 text-sm text-[#8a2d27]">
-    <div role="alert"><div className="flex items-center gap-2 font-semibold"><AlertTriangle size={16} aria-hidden="true" /><span>{domains[failure.domain]} · {failure.title}</span></div>
+    <div role="alert"><div className="flex items-center gap-2 font-semibold"><AlertTriangle size={16} aria-hidden="true" /><span>{t(domains[failure.domain])} · {failure.title}</span></div>
       <p className="mt-1 leading-5">{failure.message}</p>
       {failure.outcome_unknown ? <p className="mt-1 text-xs leading-5">{t("Outcome unconfirmed. Check results before repeating an action.")}</p> : null}
     </div>
@@ -51,7 +51,7 @@ export function RunFailureNotice({ failure, runId, ready, canResume, checking, o
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {failure.actions.map(action => <button key={action} type="button" className="min-h-11 rounded-md border border-black/15 bg-white px-3 text-xs font-semibold text-[#535350] disabled:opacity-50"
         disabled={(action === "check_status" && checking) || (action === "continue_chat" && (!ready || !canResume))}
-        onClick={() => onAction(action)}>{action === "check_status" && checking ? <span className="inline-flex items-center gap-2"><Loader2 size={13} className="animate-spin" />{t("Checking")}</span> : labels[action]}</button>)}
+        onClick={() => onAction(action)}>{action === "check_status" && checking ? <span className="inline-flex items-center gap-2"><Loader2 size={13} className="animate-spin" />{t("Checking")}</span> : t(labels[action])}</button>)}
       {!canResume && !failure.actions.includes("new_run") ? <button className="min-h-11 rounded-md border border-black/15 bg-white px-3 text-xs" onClick={() => onAction("new_run")}>{t("Start a fresh Run")}</button> : null}
       <button className="min-h-11 px-2 text-xs underline" onClick={copy}><span className="inline-flex items-center gap-1">{copyState === "copied" ? <CheckCircle2 size={13} /> : <Copy size={13} />}{copyState === "copied" ? t("Copied") : t("Copy failure reference")}</span></button>
     </div>

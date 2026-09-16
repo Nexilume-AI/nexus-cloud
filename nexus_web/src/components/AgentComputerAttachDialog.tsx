@@ -124,10 +124,10 @@ export function AgentComputerAttachDialog({
   const attach = useMutation({
     mutationFn: async () => {
       if (!runtimeConnections.some((connection) => connection.id === selectedConnectionId && connection.availability?.available))
-        throw new Error("Select an online Nexus Computer Runtime.");
+        throw new Error(t("Select an online Nexus Computer Runtime."));
       if (!policyReady)
         throw new Error(
-          "Wait for the latest Computer policy before attaching.",
+          t("Wait for the latest Computer policy before attaching."),
         );
       if (!authorized)
         await api.setAgentWorkspaceGrant(

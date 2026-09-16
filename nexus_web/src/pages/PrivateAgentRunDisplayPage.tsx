@@ -157,7 +157,7 @@ export function PrivateAgentRunDisplayPage() {
       return { ...data, computer: { ...data.computer, attached: computer.attached, ready,
         device_name: computer.name, platform: computer.platform || "", browser_name: "",
         browser_available: computer.browser_available ?? null,
-        message: ready ? "" : data.computer.missing_scopes.length ? data.computer.message : t("{{0}} is offline or unavailable. Change Computer for this Run before continuing.", { 0: computer.name || "This Run's Computer" }) } };
+        message: ready ? "" : data.computer.missing_scopes.length ? data.computer.message : t("{{0}} is offline or unavailable. Change Computer for this Run before continuing.", { 0: computer.name || t("This Run's Computer") }) } };
     },
     enabled: Boolean(isContextReady && agentId),
     refetchInterval: (query) => runDisplayPolling({ status: run.data?.status, attached: false, shell: false, files: false, ready: query.state.data?.tools.some(tool => tool.availability.can_invoke) }).readiness,
@@ -576,9 +576,9 @@ export function PrivateAgentRunDisplayPage() {
       attachments: [...new Set([...imageAttachments.map(item => item.asset_id), ...recoveredFollowUp.filter(item => (item.kind === "image" || item.kind === "run_image")).map(item => item.id)])].map(asset_id => ({ asset_id })),
       files: [...new Set([...fileIds, ...computerFiles.map(item => item.file_id), ...recoveredFollowUp.filter(item => item.kind === "upload" || item.kind === "computer" || item.kind === "run_file").map(item => item.id)])],
     },
-    blocked: uploadingImage || uploadingFiles || mediaBusy ? "Wait for attachments to finish uploading, or remove them."
-      : restoredAssets.blocked ? "Check or remove saved attachments before sending this message."
-      : audioIds.length || recoveredFollowUp.some(item => item.kind === "audio") ? "Recordings cannot be sent while the Agent is working. Keep them for a later turn or remove them." : "",
+    blocked: uploadingImage || uploadingFiles || mediaBusy ? t("Wait for attachments to finish uploading, or remove them.")
+      : restoredAssets.blocked ? t("Check or remove saved attachments before sending this message.")
+      : audioIds.length || recoveredFollowUp.some(item => item.kind === "audio") ? t("Recordings cannot be sent while the Agent is working. Keep them for a later turn or remove them.") : "",
     onDelivered: input => {
       const ids = new Set([...(input.attachments || []).map(item => item.asset_id), ...(input.files || [])]);
       if (!ids.size) return;
@@ -774,7 +774,7 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
           : "";
   const composerRegion = useRef<HTMLDivElement>(null);
   const canResume = Boolean(run?.execution_task?.continuable ?? run?.tool_policy.continuable);
-  const quoteUnavailable = submitting ? "Wait for your message to send." : interaction ? "Answer the current question before quoting another message." : running && (!run?.follow_up || run.follow_up.mode === "none") ? "This Agent cannot receive messages while working." : run && !running && !canResume ? "Start a new Run to reply." : "";
+  const quoteUnavailable = submitting ? t("Wait for your message to send.") : interaction ? t("Answer the current question before quoting another message.") : running && (!run?.follow_up || run.follow_up.mode === "none") ? t("This Agent cannot receive messages while working.") : run && !running && !canResume ? t("Start a new Run to reply.") : "";
   useEffect(() => {
     fileReferenceHandler.current = (text: string, checkOnly = false) => {
       if (quoteUnavailable || followUp.draft.pending) {
@@ -1054,7 +1054,7 @@ function RunShellPanel({ runId, terminalEvents, sdkLines, terminal, connection, 
       tone="dark"
       action={<div className="flex items-center gap-1">
         <button type="button" onClick={() => downloadShellTranscript(runId, transcript.text)} disabled={!transcript.text} className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold normal-case text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-40" aria-label={t("Download Shell transcript")}><Download size={13} /> <span className="hidden md:inline">{t("Download")}</span></button>
-        <button type="button" onClick={() => copyShellTranscript(transcript.text)} disabled={!transcript.text} title={transcript.text ? "Copy the complete Shell transcript" : "No Shell output to copy yet"} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/15 px-2.5 text-[11px] font-semibold normal-case text-white/70 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40" aria-label={t("Copy Shell output")}><Copy size={13} />{" "}{t("Copy")}</button>
+        <button type="button" onClick={() => copyShellTranscript(transcript.text)} disabled={!transcript.text} title={transcript.text ? t("Copy the complete Shell transcript") : t("No Shell output to copy yet")} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/15 px-2.5 text-[11px] font-semibold normal-case text-white/70 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40" aria-label={t("Copy Shell output")}><Copy size={13} />{" "}{t("Copy")}</button>
       </div>}
     >
       <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-white/10 px-3 py-1.5 text-[11px] text-white/55">
@@ -1082,7 +1082,7 @@ function RunShellPanel({ runId, terminalEvents, sdkLines, terminal, connection, 
               {command.exitCode !== null ? <span className={command.exitCode === 0 ? "text-emerald-300" : "text-red-300"}>{t("Exit")}{" "}{command.exitCode}</span> : <span>{status === "active" ? t("Running") : t("No exit code")}</span>}
               <button type="button" onClick={() => copyShellTranscript(command.transcript.text)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10" aria-label={t("Copy output for {{0}}", { 0: command.command })}><Copy size={13} /></button>
             </header>
-            <pre className={`min-w-0 px-3 py-2 ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>{command.transcript.segments.filter((item) => item.stream !== "command" && !item.text.startsWith("Process exited with code ")).map((item) => <span key={item.id} aria-label={item.stream === "stderr" ? "Standard error" : undefined} className={item.stream === "stderr" ? "text-red-300" : item.stream === "system" ? "text-white/45" : ""}>{item.text}</span>)}</pre>
+            <pre className={`min-w-0 px-3 py-2 ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>{command.transcript.segments.filter((item) => item.stream !== "command" && !item.text.startsWith(t("Process exited with code "))).map((item) => <span key={item.id} aria-label={item.stream === "stderr" ? t("Standard error") : undefined} className={item.stream === "stderr" ? "text-red-300" : item.stream === "system" ? "text-white/45" : ""}>{item.text}</span>)}</pre>
           </section>)}
         </div>
         {newOutput > 0 ? <div className="sticky bottom-3 flex justify-center"><button type="button" onClick={() => { const element = viewport.current; if (element) element.scrollTop = element.scrollHeight; following.current = true; setNewOutput(0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-[#262626] px-4 font-sans text-xs text-white shadow-md"><ArrowDown size={14} />{" "}{t("New Shell output")}</button></div> : null}

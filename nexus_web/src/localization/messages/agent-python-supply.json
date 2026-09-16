@@ -71,5 +71,6 @@
   "Deploy version": "部署版本",
   "Uploading…": "正在上传…",
   "Build image": "构建镜像",
-  "requirements.txt": "requirements.txt"
+  "requirements.txt": "requirements.txt",
+  "Choose a .py file no larger than 1 MiB.": "请选择不超过 1 MiB 的 .py 文件。"
 }

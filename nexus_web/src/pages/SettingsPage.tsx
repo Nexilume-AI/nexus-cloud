@@ -342,7 +342,7 @@ function ChangePasswordDialog({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Password could not be changed",
+          : t("Password could not be changed"),
       ),
   });
   const mismatch = Boolean(confirmPassword && newPassword !== confirmPassword);

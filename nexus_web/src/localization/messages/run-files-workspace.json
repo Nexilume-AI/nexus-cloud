@@ -45,5 +45,17 @@
   "Output files": "输出文件",
   "Turn {{0}}": "转{{0}}",
   "Turn not recorded": "转弯未记录",
-  "{{0}} file pages": "{{0}} 文件页面"
+  "{{0}} file pages": "{{0}} 文件页面",
+  "Blocked by policy": "被策略阻止",
+  "Empty file": "空文件",
+  "File content does not match a supported preview format.": "文件内容与支持的预览格式不匹配。",
+  "Image could not be decoded. Download it instead.": "无法解码图片。请改为下载。",
+  "Original Computer": "原始电脑",
+  "Preparing snapshot": "正在准备快照",
+  "Preview is not supported for this file type. Download it to open locally.": "此文件类型不支持预览。请下载后在本地打开。",
+  "Preview unavailable.": "预览不可用。",
+  "Security scan in progress": "正在进行安全扫描",
+  "Snapshot failed": "快照失败",
+  "This file is not supported UTF-8 text. Download it instead.": "此文件不是受支持的 UTF-8 文本。请改为下载。",
+  "This file is too large to preview. Download it instead.": "此文件过大，无法预览。请改为下载。"
 }

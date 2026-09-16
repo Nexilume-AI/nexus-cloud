@@ -607,7 +607,7 @@ function TerminalWorkspace({
     terminal.open(terminalRef.current);
     xtermRef.current = terminal;
     fitAddon.fit();
-    terminal.writeln("Connecting to Nexus terminal gateway...");
+    terminal.writeln(t("Connecting to Nexus terminal gateway..."));
     const outputNormalizer = new TerminalOutputNormalizer();
 
     const writeOutput = (data: string) => {
@@ -689,7 +689,7 @@ function TerminalWorkspace({
     });
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.type === "keydown" && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && terminal.hasSelection()) {
-        void copyWorkspaceTerminalText(terminal.getSelection(), "Terminal selection copied");
+        void copyWorkspaceTerminalText(terminal.getSelection(), t("Terminal selection copied"));
         return false;
       }
       return true;
@@ -773,8 +773,8 @@ function TerminalWorkspace({
             onClick={() => {
               const terminal = xtermRef.current;
               const transcript = terminal ? terminalBufferText(terminal) : "";
-              if (transcript) void copyWorkspaceTerminalText(transcript, "Terminal output copied");
-              else toast.info("No terminal output to copy yet");
+              if (transcript) void copyWorkspaceTerminalText(transcript, t("Terminal output copied"));
+              else toast.info(t("No terminal output to copy yet"));
             }}
             aria-label={t("Copy terminal output")}
             title={t("Copy the complete terminal transcript")}
@@ -894,7 +894,7 @@ function LegacyToolSetupPanel({
 
   const applyToolConfig = useMutation({
     mutationFn: (body: Parameters<typeof api.applyWorkspaceToolConfig>[2]) => {
-      if (!activeSession) throw new Error("Open a terminal first.");
+      if (!activeSession) throw new Error(t("Open a terminal first."));
       return api.applyWorkspaceToolConfig(apiContext, activeSession.id, body);
     },
     onSuccess: async (result, variables) => {
@@ -911,7 +911,7 @@ function LegacyToolSetupPanel({
   });
   const rollbackToolConfig = useMutation({
     mutationFn: () => {
-      if (!activeSession) throw new Error("Open a terminal first.");
+      if (!activeSession) throw new Error(t("Open a terminal first."));
       return api.rollbackWorkspaceToolConfig(apiContext, activeSession.id, "codex");
     },
     onSuccess: async (result) => {
@@ -1379,12 +1379,12 @@ function configDownloadName(tool: ToolSetupForm["selectedTool"], config: ReturnT
 
 function toolOperationLabel(operation: string) {
   const labels: Record<string, string> = {
-    api_only: "Applied API provider",
-    full_profile: "Rebuilt Codex profile",
-    mcp_add: "Added MCP server",
-    mcp_replace: "Replaced MCP servers",
-    mcp_remove: "Removed MCP server",
-    mcp_clear: "Cleared MCP servers"
+    api_only: t("Applied API provider"),
+    full_profile: t("Rebuilt Codex profile"),
+    mcp_add: t("Added MCP server"),
+    mcp_replace: t("Replaced MCP servers"),
+    mcp_remove: t("Removed MCP server"),
+    mcp_clear: t("Cleared MCP servers")
   };
   return labels[operation] || t("Applied tool config");
 }
@@ -1533,7 +1533,7 @@ ${config.content}
 EOF
 ${envWrite}
 echo "Backup: $backup"
-${tool === "codex" ? `echo "Run: codex --profile ${config.profileName}"` : `echo "Rollback command is available from Nexus Tool Setup."`}
+${tool === "codex" ? `echo "Run: codex --profile ${config.profileName}"` : "echo \"Rollback command is available from Nexus Tool Setup.\""}
 `;
 }
 
@@ -1572,7 +1572,7 @@ ${config.content}
 '@ | Set-Content -Encoding UTF8 ${psQuoteLiteral(config.windowsTargetPath)}
 ${envWrite}
 Write-Host "Backup: $Backup"
-${tool === "codex" ? `Write-Host "Run: codex --profile ${config.profileName}"` : `Write-Host "Rollback command is available from Nexus Tool Setup."`}
+${tool === "codex" ? `Write-Host "Run: codex --profile ${config.profileName}"` : "Write-Host \"Rollback command is available from Nexus Tool Setup.\""}
 `;
 }
 
@@ -2413,11 +2413,11 @@ function formatTargetHealth(connection: WorkspaceConnection) {
     if (connection.runtime?.online) return "Online";
     return connection.runtime ? "Offline" : "Pairing";
   }
-  if (connection.connection_type === "ssh") return "Legacy disabled";
+  if (connection.connection_type === "ssh") return t("Legacy disabled");
   const status = String(connection.last_test_status || "").toLowerCase();
   if (["failed", "error"].includes(status)) return "Needs attention";
   if (!connection.last_test_at || !status || status === "untested") return "Not checked";
-  if (shouldRefreshTargetHealth(connection)) return "Check expired";
+  if (shouldRefreshTargetHealth(connection)) return t("Check expired");
   if (["succeeded", "success", "passed"].includes(status)) return "Reachable";
   return "Unknown";
 }
@@ -2429,9 +2429,9 @@ function TargetHealthBadge({ connection }: { connection: WorkspaceConnection }) 
   const tone =
     ["Reachable", "Online"].includes(label)
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : ["Needs attention", "Offline", "Revoked", "Legacy disabled"].includes(label)
+      : ["Needs attention", "Offline", "Revoked", t("Legacy disabled")].includes(label)
         ? "border-rose-200 bg-rose-50 text-rose-700"
-        : label === "Check expired"
+        : label === t("Check expired")
           ? "border-amber-200 bg-amber-50 text-amber-800"
           : "border-line bg-slate-50 text-slate-600";
   return <span className={`inline-flex min-h-6 shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
@@ -2440,9 +2440,9 @@ function TargetHealthBadge({ connection }: { connection: WorkspaceConnection }) 
 function formatRelativeTime(value: string) {
   const parsed = new Date(value);
   const timestamp = parsed.getTime();
-  if (Number.isNaN(timestamp)) return "Check time unavailable";
+  if (Number.isNaN(timestamp)) return t("Check time unavailable");
   const elapsedSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
-  if (elapsedSeconds < 45) return "Checked just now";
+  if (elapsedSeconds < 45) return t("Checked just now");
   const minutes = Math.round(elapsedSeconds / 60);
   if (minutes < 60) return `Checked ${minutes} min ago`;
   const hours = Math.round(minutes / 60);
@@ -2459,7 +2459,7 @@ function formatWorkspaceStatus(status: string) {
     succeeded: "Ready",
     success: "Ready",
     passed: "Ready",
-    untested: "Not tested",
+    untested: t("Not tested"),
     failed: "Needs attention",
     closed: "Ended",
     disconnected: "Disconnected",

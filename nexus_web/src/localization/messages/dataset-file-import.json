@@ -16,5 +16,6 @@
   "remaining": "剩余",
   "Import failed. Retry this file.": "导入失败。重试此文件。",
   "Importing…": "正在导入...",
-  "Retry remaining files": "重试剩余文件"
+  "Retry remaining files": "重试剩余文件",
+  "Imports finished, but the collection could not refresh. Reload the collection to see saved files.": "导入已完成，但集合未能刷新。请重新加载集合以查看已保存的文件。"
 }

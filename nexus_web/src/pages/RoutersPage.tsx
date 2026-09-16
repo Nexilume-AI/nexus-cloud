@@ -1030,11 +1030,11 @@ export function RoutersPage() {
 
 function strategyExplanation(strategy: string) {
   const descriptions: Record<string, string> = {
-    manual_priority: "Try Model Pools in the order shown. Each Pool uses its own Source fallback before the Router tries the next Pool.",
-    lowest_cost_pool: "Choose the Pool with the lowest currently available Source price, then let that Pool select its Source.",
-    lowest_latency_pool: "Choose the Pool with the fastest recent Source latency, then let that Pool select its Source.",
-    best_health_pool: "Choose the Pool with the strongest Source availability, then use that Pool's fallback policy.",
-    custom: "Use the deployed custom policy to order sanitized Model Pool summaries. The policy can return Pool IDs only.",
+    manual_priority: t("Try Model Pools in the order shown. Each Pool uses its own Source fallback before the Router tries the next Pool."),
+    lowest_cost_pool: t("Choose the Pool with the lowest currently available Source price, then let that Pool select its Source."),
+    lowest_latency_pool: t("Choose the Pool with the fastest recent Source latency, then let that Pool select its Source."),
+    best_health_pool: t("Choose the Pool with the strongest Source availability, then use that Pool's fallback policy."),
+    custom: t("Use the deployed custom policy to order sanitized Model Pool summaries. The policy can return Pool IDs only."),
   };
   return descriptions[strategy] || descriptions.manual_priority;
 }
@@ -1080,26 +1080,26 @@ function RouterReadiness({
   const hasChildOutputs = (router.child_bindings ?? []).some((binding) => binding.status !== "deleted" && binding.enabled);
   const hasTargets = hasPools || hasChildOutputs;
   let title = "Operational";
-  let message = "This Router is deployed and ready to receive requests.";
+  let message = t("This Router is deployed and ready to receive requests.");
   let action: ReactNode = <span className="router-operational"><CheckCircle2 size={16} />{t("Ready")}</span>;
 
   if (!hasTargets && !hasUnsavedChanges) {
-    title = "Add the first route target";
+    title = t("Add the first route target");
     message = router.router_type === "aggregation"
-      ? "Choose a deployed Execution Router output and give it a model name for downstream clients."
-      : "Choose the first Model Pool that this Router should execute against.";
+      ? t("Choose a deployed Execution Router output and give it a model name for downstream clients.")
+      : t("Choose the first Model Pool that this Router should execute against.");
     action = <button className="btn btn-primary" onClick={onAddTarget}><Plus size={15} />{router.router_type === "aggregation" ? t("Add child output") : t("Add Model Pool")}</button>;
   } else if (hasUnsavedChanges) {
-    title = "Review and apply changes";
-    message = "Your edits are local until they are applied together.";
+    title = t("Review and apply changes");
+    message = t("Your edits are local until they are applied together.");
     action = <button className="btn btn-primary" onClick={onApply} disabled={applying}>{applying && <Loader2 size={15} className="animate-spin" />}{t("Apply changes")}</button>;
   } else if (unavailablePoolCount > 0) {
-    title = "Bound Model Pools need attention";
+    title = t("Bound Model Pools need attention");
     message = `${unavailablePoolCount} bound Model Pool${unavailablePoolCount === 1 ? " is" : "s are"} unavailable in the current project. Switch project or remove the stale binding before testing.`;
     action = <span className="router-attention"><CircleAlert size={16} />{t("Needs attention")}</span>;
   } else if (router.status !== "deployed") {
-    title = deployBlockedReason ? "Router is not ready to deploy" : "Deploy this Router";
-    message = deployBlockedReason || "Deployment activates the Router endpoint and enables routing tests.";
+    title = deployBlockedReason ? t("Router is not ready to deploy") : t("Deploy this Router");
+    message = deployBlockedReason || t("Deployment activates the Router endpoint and enables routing tests.");
     action = <button className="btn btn-primary" onClick={onDeploy} disabled={deploying || Boolean(deployBlockedReason)} title={deployBlockedReason}>{deploying ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} />}{t("Deploy router")}</button>;
   }
 
@@ -1144,7 +1144,7 @@ function TraceDetails({ trace }: { trace: RouterTraceRecord }) {
   return (
     <div className={`router-trace-details ${trace.status === "failed" ? "is-error" : ""}`}>
       <strong>{trace.status === "failed" ? t("Why this request failed") : t("Selected route")}</strong>
-      <p>{trace.status === "failed" ? trace.error_code || t("The resolver did not return an error code.") : `${trace.selected_pool || "Unknown Pool"} → ${trace.selected_source || "Unknown Source"}`}</p>
+      <p>{trace.status === "failed" ? trace.error_code || t("The resolver did not return an error code.") : `${trace.selected_pool || t("Unknown Pool")} → ${trace.selected_source || t("Unknown Source")}`}</p>
       <dl><div><dt>{t("Model")}</dt><dd>{trace.model || "–"}</dd></div><div><dt>{t("Fallbacks")}</dt><dd>{trace.fallback_count}</dd></div><div><dt>{t("Latency")}</dt><dd>{trace.latency_ms}{" "}{t("ms")}</dd></div></dl>
     </div>
   );

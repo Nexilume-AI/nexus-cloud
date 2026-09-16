@@ -1304,7 +1304,7 @@ function AgentContainerModal({
 
   const uploadImage = useMutation({
     mutationFn: () => {
-      if (!imageFile) throw new Error("Select a Docker image tar file first");
+      if (!imageFile) throw new Error(t("Select a Docker image tar file first"));
       return api.uploadAgentRuntimeImage(
         apiContext,
         agent.id,
@@ -1654,7 +1654,7 @@ function AgentAccessModal({
         {(logs.data ?? []).length === 0 ? (
           <EmptyState
             title={t("No recent events")}
-            description={managementCopy.agentEventsEmpty}
+            description={t(managementCopy.agentEventsEmpty)}
           />
         ) : (
           <DataTable data={logs.data ?? []} columns={logColumns} />
@@ -2784,9 +2784,9 @@ function agentOwnershipLabel(agent: Agent) {
 
 function friendlyLoadError(description: string) {
   if (/internal server error/i.test(description)) {
-    return "Nexus could not load this data. Retry now or review the technical details if the problem continues.";
+    return t("Nexus could not load this data. Retry now or review the technical details if the problem continues.");
   }
-  return description || "This data could not be loaded. Please retry.";
+  return description || t("This data could not be loaded. Please retry.");
 }
 
 function formatFileSize(value: number) {

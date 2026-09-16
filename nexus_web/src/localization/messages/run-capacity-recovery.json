@@ -22,5 +22,8 @@
   "Stop your other active Runs to free capacity. Deleting completed history does not free Run slots.": "停止其他活动的运行记录以释放容量。删除已完成的历史记录不会释放运行槽。",
   "The next batch contains {{0}} Runs.": "下一批包含 {{0}} 运行记录。",
   "Stopping failed.": "停止失败。",
-  "Stop other runs": "停止其他运行"
+  "Stop other runs": "停止其他运行",
+  "Only your active Runs in this personal instance are included. The current Run, history and files are kept.": "仅包含此个人实例中你处于活动状态的运行。当前运行、历史记录和文件都会保留。",
+  "other active Runs in this review belong to this personal instance.": "本次检查中的其他活动运行属于此个人实例。",
+  "personal instance slots in use.": "个人实例槽位已使用。"
 }

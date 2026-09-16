@@ -96,8 +96,8 @@ export function SourceComposer({
   const selectedOffers = eligibleOffers.filter((offer) => selected[offer.id]);
   const create = useMutation({
     mutationFn: () => {
-      if (!origin) throw new Error("Provider Runtime is unavailable.");
-      if (!selectedOffers.length) throw new Error("Select at least one available Model Offer.");
+      if (!origin) throw new Error(t("Provider Runtime is unavailable."));
+      if (!selectedOffers.length) throw new Error(t("Select at least one available Model Offer."));
       return createSources(apiContext, { runtimeId: origin.id, offers: selectedOffers, targets, newPoolVisibility });
     },
     onSuccess: async (sources) => {
@@ -114,7 +114,7 @@ export function SourceComposer({
       ]);
     },
     onError: (value) => {
-      const message = value instanceof Error ? value.message : "Source creation failed";
+      const message = value instanceof Error ? value.message : t("Source creation failed");
       setError(message);
       toast.error(message);
     },
@@ -170,7 +170,7 @@ export function SourceComposer({
       }
     >
       <div className="source-task-steps" aria-label={t("Source creation progress")}>
-        {["Select Offers", "Choose Pools", "Connected"].map((label, index) => (
+        {[t("Select Offers"), "Choose Pools", "Connected"].map((label, index) => (
           <div key={label} className={step >= index + 1 ? "is-active" : ""}>
             <span>{String(index + 1).padStart(2, "0")}</span>{label}
           </div>

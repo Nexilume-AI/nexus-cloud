@@ -123,5 +123,16 @@
   "Nexus is tracking this operation. You may leave and return to this page.": "Nexus 正在跟踪此操作。您可以离开并返回此页面。",
   "Destructive action": "破坏性行动",
   "Confirm action": "确认操作",
-  "OpenWrt {{0}} · {{1}}": "OpenWrt {{0}} · {{1}}"
+  "OpenWrt {{0}} · {{1}}": "OpenWrt {{0}} · {{1}}",
+  "Capture the current screen": "截取当前屏幕",
+  "List connections": "列出连接",
+  "List files": "列出文件",
+  "Observe the accessibility state": "观察无障碍状态",
+  "Open an installed app": "打开已安装的应用",
+  "Read files": "读取文件",
+  "Swipe the screen": "滑动屏幕",
+  "Tap text or coordinates": "点击文本或坐标",
+  "Use Android Back": "使用 Android 返回键",
+  "Wait for a visible state": "等待可见状态",
+  "Write files": "写入文件"
 }

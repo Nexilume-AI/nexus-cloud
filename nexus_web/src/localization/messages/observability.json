@@ -175,5 +175,20 @@
   "Pause rule": "暂停规则",
   "Resume rule": "恢复规则",
   "Unmute": "取消静音",
-  "Mute for one hour": "静音一小时"
+  "Mute for one hour": "静音一小时",
+  "Failed to create alert": "创建告警失败",
+  "Failed to create schedule": "创建计划失败",
+  "Failed to delete alert": "删除告警失败",
+  "Failed to delete schedule": "删除计划失败",
+  "Failed to send report": "发送报告失败",
+  "Failed to test alert": "测试告警失败",
+  "Not started": "尚未开始",
+  "Available balance": "可用余额",
+  "Model pool": "模型池",
+  "is above": "高于",
+  "is at least": "至少为",
+  "is at most": "至多为",
+  "is below": "低于",
+  "API keys": "API 密钥",
+  "Agent runtime": "智能体运行时"
 }

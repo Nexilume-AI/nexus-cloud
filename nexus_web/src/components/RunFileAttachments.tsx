@@ -72,9 +72,9 @@ export const RunFileAttachments = forwardRef<AttachmentIntake, {
         state = await api.agentFileStatus(apiContext, state.file_id);
         update(entry.file, { transfer: state });
       }
-      if (state.state !== "ready") throw new Error("File verification failed. Retry or remove the upload.");
+      if (state.state !== "ready") throw new Error(t("File verification failed. Retry or remove the upload."));
     } catch (cause) {
-      update(entry.file, { error: cause instanceof Error ? cause.message : "Upload interrupted. Retry continues from the last confirmed chunk." });
+      update(entry.file, { error: cause instanceof Error ? cause.message : t("Upload interrupted. Retry continues from the last confirmed chunk.") });
     } finally {
       activeFile.current = null;
       if (active.current) { setWorking(false); const next = jobs.current.shift(); if (next) void transfer(next); }
@@ -82,7 +82,7 @@ export const RunFileAttachments = forwardRef<AttachmentIntake, {
   }
   useImperativeHandle(ref, () => ({ add(files) {
     if (disabled) return;
-    if (!maxBytes) { setError("File limits are not available yet. Wait or retry the file service, then select these files again."); return; }
+    if (!maxBytes) { setError(t("File limits are not available yet. Wait or retry the file service, then select these files again.")); return; }
     const rejected: string[] = [];
     for (const file of files) {
       if (file.size > maxBytes) { rejected.push(`${file.name}: exceeds the per-file limit.`); continue; }
@@ -99,7 +99,7 @@ export const RunFileAttachments = forwardRef<AttachmentIntake, {
     if (activeFile.current === entry.file) abort.current?.abort();
     if (entry.transfer) {
       try { await api.cancelAgentFile(apiContext, entry.transfer.file_id); }
-      catch { setError("Upload cancellation could not be confirmed; it expires automatically after 24 hours."); }
+      catch { setError(t("Upload cancellation could not be confirmed; it expires automatically after 24 hours.")); }
     }
     setEntries(current => current.filter(item => item.file !== entry.file));
   }

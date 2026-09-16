@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import type { AgentFileTransfer } from "./api";
 import type { AgentOutputArtifact, AgentRunMessage } from "./types";
 
@@ -10,7 +11,7 @@ export function runFiles(runId: string, inputs: AgentFileTransfer[], outputs: Ag
   const rows: RunFile[] = inputs.map(file => ({ key: `input:${file.file_id}`, id: file.file_id, kind: "input", name: file.name,
     mime: file.content_type || "application/octet-stream", size: file.size_bytes, turns: turn(file.turn_index),
     path: `/api/v1/agent-runs/${runId}/files/${file.file_id}/download/`, state: file.state,
-    source: file.source_label || (file.source_kind === "computer" ? "Computer import" : "Upload") }));
+    source: file.source_label || (file.source_kind === "computer" ? t("Computer import") : "Upload") }));
   rows.push(...outputs.map(file => ({ key: `output:${file.id}`, id: file.id, kind: "output" as const, name: file.original_file_name,
     mime: file.content_type, size: file.size_bytes, turns: turn(file.turn_index),
     path: `/api/v1/agent-runs/${runId}/outputs/${file.id}/download/`, state: file.policy_status === "blocked" || file.scan_status === "failed" ? "blocked" : file.scan_status === "pending" || file.policy_status === "pending" ? "scanning" : file.snapshot_status,
@@ -27,7 +28,7 @@ export function runFiles(runId: string, inputs: AgentFileTransfer[], outputs: Ag
     const id = block.url.split("/").filter(Boolean).at(-1)!;
     rows.push({ key: `image:${id}`, id, kind: message.role === "user" ? "input" : "output",
       name: block.title || block.alt || "Attached image", mime: "image/*", size: null, turns: turn(message.turn_index),
-      path: block.url, state: "ready", source: message.role === "user" ? "Message image" : "Agent image" });
+      path: block.url, state: "ready", source: message.role === "user" ? t("Message image") : "Agent image" });
   }
   return rows;
 }
@@ -42,5 +43,5 @@ export function filePreviewKind(file: Pick<RunFile, "name" | "mime">): "image" |
 }
 export function fileReference(file: RunFile): string {
   const name = file.name.replace(/[\r\n\u0000-\u001f]/g, " ").slice(0, 240);
-  return `> ${file.kind === "input" ? "Input file" : "Run output"}: ${name}\n> Reference: ${file.id}${file.turns.length ? ` · Turn ${file.turns.join(", ")}` : ""}`;
+  return `> ${file.kind === "input" ? t("Input file") : t("Run output")}: ${name}\n> Reference: ${file.id}${file.turns.length ? ` · Turn ${file.turns.join(", ")}` : ""}`;
 }

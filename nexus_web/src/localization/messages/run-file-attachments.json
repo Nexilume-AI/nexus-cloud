@@ -16,5 +16,9 @@
   "Download unavailable. Retry to renew access.": "下载不可用。重试更新访问权限。",
   "{{0}} per file": "每个文件 {{0}}",
   "Upload {{0}}": "上传 {{0}}",
-  "{{0}}% uploaded": "{{0}}% 已上传"
+  "{{0}}% uploaded": "{{0}}% 已上传",
+  "File limits are not available yet. Wait or retry the file service, then select these files again.": "文件限制尚不可用。请等待或重试文件服务，然后重新选择这些文件。",
+  "File verification failed. Retry or remove the upload.": "文件校验失败。请重试或移除该上传。",
+  "Upload cancellation could not be confirmed; it expires automatically after 24 hours.": "无法确认上传已取消；它将在 24 小时后自动过期。",
+  "Upload interrupted. Retry continues from the last confirmed chunk.": "上传已中断。重试将从最后确认的分块继续。"
 }

@@ -8,5 +8,8 @@
   "Message actions": "消息操作",
   "Message length": "消息长度",
   "Keep this message within {{0}} characters. Your full draft is kept.": "将此消息保留在 {{0}} 个字符内。您的完整草稿将被保留。",
-  "Reply to this Agent": "回复此智能体"
+  "Reply to this Agent": "回复此智能体",
+  "Agent event": "智能体事件",
+  "Agent Shell output": "智能体 Shell 输出",
+  "Shell output": "Shell 输出"
 }

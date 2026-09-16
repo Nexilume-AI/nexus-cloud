@@ -16,5 +16,8 @@
   "Recent": "最近",
   "Nothing needs your attention": "没有什么需要你注意的",
   "No work is running": "没有工作正在运行",
-  "No recent work": "最近没有工作"
+  "No recent work": "最近没有工作",
+  "Could not update Work Inbox.": "无法更新工作收件箱。",
+  "Current organization": "当前组织",
+  "This Inbox destination is unavailable.": "此收件箱目标不可用。"
 }

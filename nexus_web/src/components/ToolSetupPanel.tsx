@@ -8,6 +8,14 @@ import type { ToolSetupClient } from "../app/toolSetup";
 import type { WorkspaceConnection, WorkspaceTerminalSession, WorkspaceToolConfigChange, WorkspaceToolConfigPreview } from "../lib/types";
 import { ToolSetupPendingChange, type ToolRecoveryAction } from "./ToolSetupPendingChange";
 
+const credentialActionLabels: Record<string, string> = {
+  rotate: "Rotate credential",
+  reuse: "Reuse credential",
+  repair: "Repair credential",
+  create: "Create credential",
+  revoke: "Revoke credential"
+};
+
 export type ToolSetupForm = {
   selectedTool: "codex" | "claude_code";
   selectedRuntimeId: string;
@@ -86,8 +94,8 @@ export function ToolSetupPanel({
 
   const previewChange = useMutation({
     mutationFn: (change: WorkspaceToolConfigChange) => {
-      if (!activeSession || !remoteConfig) throw new Error("Reload the remote configuration before reviewing changes.");
-      if (!writesAllowed) throw new Error("Resolve the pending configuration or Computer status before reviewing changes.");
+      if (!activeSession || !remoteConfig) throw new Error(t("Reload the remote configuration before reviewing changes."));
+      if (!writesAllowed) throw new Error(t("Resolve the pending configuration or Computer status before reviewing changes."));
       return client.previewWorkspaceToolConfig(apiContext, activeSession.id, {
         ...change,
         tool: "codex",
@@ -102,8 +110,8 @@ export function ToolSetupPanel({
   });
   const applyChange = useMutation({
     mutationFn: () => {
-      if (!activeSession || !pendingChange) throw new Error("Review a change before applying it.");
-      if (!writesAllowed || pendingChange.expected_revision !== remoteConfig?.revision) throw new Error("The configuration changed. Reload and review it again.");
+      if (!activeSession || !pendingChange) throw new Error(t("Review a change before applying it."));
+      if (!writesAllowed || pendingChange.expected_revision !== remoteConfig?.revision) throw new Error(t("The configuration changed. Reload and review it again."));
       return client.applyWorkspaceToolConfigV2(apiContext, activeSession.id, {
         ...pendingChange,
         confirm_destructive: preview?.destructive || pendingChange.confirm_destructive
@@ -131,7 +139,7 @@ export function ToolSetupPanel({
     mutationFn: (action: ToolRecoveryAction) => {
       const recovery = remoteConfig?.recovery;
       if (!activeSession || !remoteConfig || !recovery?.available || !recovery.operation_id || !recovery.actions?.includes(action)) {
-        throw new Error("Reload this Computer's recovery status first.");
+        throw new Error(t("Reload this Computer's recovery status first."));
       }
       return client.recoverWorkspaceToolConfig(apiContext, activeSession.id, {
         action, operation_id: recovery.operation_id, expected_revision: remoteConfig.revision
@@ -143,7 +151,7 @@ export function ToolSetupPanel({
       toast.success(t("Computer configuration checked"));
       await queryClient.invalidateQueries({ queryKey: ["workspace-tool-config-options"] });
     },
-    onError: (error) => setRecoveryError(error instanceof Error ? error.message : "Could not confirm recovery. Reload status and try again.")
+    onError: (error) => setRecoveryError(error instanceof Error ? error.message : t("Could not confirm recovery. Reload status and try again."))
   });
   useEffect(() => {
     if (pendingChange && (!writesAllowed || pendingChange.expected_revision !== remoteConfig?.revision)) clearPreview();
@@ -238,8 +246,8 @@ export function ToolSetupPanel({
                   <button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={isDetecting} onClick={onDetectTools}>{isDetecting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}{t("Refresh")}</button>
                 </div>
                 <div className="mt-4 overflow-hidden rounded-xl border border-line">
-                  <SetupStatusRow name="Codex" status={toolStatus?.tools?.codex?.installed ? "Detected" : "Not detected"} detail={toolStatus?.tools?.codex?.version || t("Managed setup available")} ready={Boolean(toolStatus?.tools?.codex?.installed)} />
-                  <SetupStatusRow name="Claude Code" status={toolStatus?.tools?.claude_code?.installed ? "Detected" : "Not detected"} detail={t("Status only · managed setup is not available")} ready={Boolean(toolStatus?.tools?.claude_code?.installed)} />
+                  <SetupStatusRow name="Codex" status={toolStatus?.tools?.codex?.installed ? t("Detected") : t("Not detected")} detail={toolStatus?.tools?.codex?.version || t("Managed setup available")} ready={Boolean(toolStatus?.tools?.codex?.installed)} />
+                  <SetupStatusRow name="Claude Code" status={toolStatus?.tools?.claude_code?.installed ? t("Detected") : t("Not detected")} detail={t("Status only · managed setup is not available")} ready={Boolean(toolStatus?.tools?.claude_code?.installed)} />
                 </div>
               </section>
               <section className="px-4 py-5 sm:px-6">
@@ -247,18 +255,18 @@ export function ToolSetupPanel({
                 <div className="mt-3 overflow-hidden rounded-xl border border-line">
                   <SetupActionRow
                     title={t("Router API exit")}
-                    status={remoteConfig.api.status === "ready" ? "Ready" : remoteConfig.api.status === "needs_repair" ? "Needs repair" : "Setup required"}
-                    detail={remoteConfig.api.router_name ? t("{{0}} · {{1}} model{{2}}", { 0: remoteConfig.api.router_name, 1: remoteConfig.api.models?.length || 1, 2: (remoteConfig.api.models?.length || 1) === 1 ? "" : "s" }) : remoteConfig.api.message}
+                    status={remoteConfig.api.status === "ready" ? t("Ready") : remoteConfig.api.status === "needs_repair" ? t("Needs repair") : t("Setup required")}
+                    detail={remoteConfig.api.router_name ? t("{{0}} · {{1}} model{{2}}", { 0: remoteConfig.api.router_name, 1: remoteConfig.api.models?.length || 1, 2: (remoteConfig.api.models?.length || 1) === 1 ? "" : "s" }) : t(remoteConfig.api.message)}
                     ready={remoteConfig.api.status === "ready"}
-                    action="Open API setup"
+                    action={t("Open API setup")}
                     onClick={() => setTab("api")}
                   />
                   <SetupActionRow
                     title={t("Agent MCP")}
-                    status={`${remoteConfig.agents.managed.length} connected`}
+                    status={t("{{0}} connected", { 0: remoteConfig.agents.managed.length })}
                     detail={remoteConfig.agents.external.length ? t("{{0}} external server{{1}} preserved", { 0: remoteConfig.agents.external.length, 1: remoteConfig.agents.external.length === 1 ? "" : "s" }) : t("External MCP servers are never changed by normal Agent setup")}
                     ready={remoteConfig.agents.credential_status !== "needs_repair"}
-                    action="Open Agent setup"
+                    action={t("Open Agent setup")}
                     onClick={() => setTab("agents")}
                   />
                 </div>
@@ -267,14 +275,14 @@ export function ToolSetupPanel({
           ) : tab === "api" ? (
             <div className="divide-y divide-line">
               <section className="px-4 py-5 sm:px-6">
-                <SetupNotice status={remoteConfig.api.status} title={remoteConfig.api.status === "ready" ? t("Codex API is routed") : remoteConfig.api.status === "needs_repair" ? t("Credential needs repair") : t("Choose a Router")} detail={remoteConfig.api.message} />
+                <SetupNotice status={remoteConfig.api.status} title={remoteConfig.api.status === "ready" ? t("Codex API is routed") : remoteConfig.api.status === "needs_repair" ? t("Credential needs repair") : t("Choose a Router")} detail={t(remoteConfig.api.message)} />
                 <p className="mt-4 text-sm leading-6 text-muted">{t("Codex sends requests through the selected Router. Its Pool and Source policy decides which Provider serves each request.")}</p>
                 <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-white px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={routerSearch} onChange={(event) => setRouterSearch(event.target.value)} placeholder={t("Search Routers")} aria-label={t("Search Routers")} /></div>
                 <div className="mt-3 max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">
                   {filteredRouters.length ? filteredRouters.map((router) => (
-                    <label key={router.id} className={`flex min-h-14 items-start gap-3 px-3 py-3 ${router.available ? "cursor-pointer hover:bg-slate-50" : "cursor-not-allowed bg-slate-50 opacity-70"}`} title={router.message || undefined}>
+                    <label key={router.id} className={`flex min-h-14 items-start gap-3 px-3 py-3 ${router.available ? "cursor-pointer hover:bg-slate-50" : "cursor-not-allowed bg-slate-50 opacity-70"}`} title={router.message ? t(router.message) : undefined}>
                       <input className="mt-1" type="radio" name="api-router" disabled={!router.available} checked={selectedRouterId === router.id} onChange={() => { setSelectedRouterId(router.id); clearPreview(); }} />
-                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-ink">{router.name}</span><span className="mt-0.5 block text-xs text-muted">{router.router_type === "aggregation" ? t("Aggregation Router") : t("Execution Router")} · {router.models?.length || (router.model ? 1 : 0)}{" "}{t("model")}{getLocale() === "zh-CN" ? "" : (router.models?.length || (router.model ? 1 : 0)) === 1 ? "" : "s"} · {router.available ? (router.models?.join(", ") || router.model) : router.message}</span></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-ink">{router.name}</span><span className="mt-0.5 block text-xs text-muted">{router.router_type === "aggregation" ? t("Aggregation Router") : t("Execution Router")} · {router.models?.length || (router.model ? 1 : 0)}{" "}{t("model")}{getLocale() === "zh-CN" ? "" : (router.models?.length || (router.model ? 1 : 0)) === 1 ? "" : "s"} · {router.available ? (router.models?.join(", ") || router.model) : t(router.message)}</span></span>
                     </label>
                   )) : <div className="p-4 text-sm text-muted">{t("No Router matches this search. Create a Router, add a Model Pool, and deploy it first.")}</div>}
                 </div>
@@ -289,7 +297,7 @@ export function ToolSetupPanel({
               <section className="px-4 py-5 sm:px-6">
                 <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold text-ink">{t("Connected Agents")}</h3><p className="mt-1 text-xs text-muted">{t("Each change preserves Provider API and every other MCP server.")}</p></div>{remoteConfig.agents.credential_status === "needs_repair" && <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">{t("Needs repair")}</span>}</div>
                 {remoteConfig.agents.managed.length ? <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">{remoteConfig.agents.managed.map((agent) => (
-                  <div key={agent.server_name} className="flex min-h-14 items-center justify-between gap-3 px-3 py-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-ink">{agent.name}</div><div className="mt-0.5 truncate text-xs text-muted">{agent.server_name} · {agent.available ? t("Available") : agent.message}</div></div><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "remove_agent", mcp_server_name: agent.server_name })}><Trash2 size={14} />{t("Remove")}</button></div>
+                  <div key={agent.server_name} className="flex min-h-14 items-center justify-between gap-3 px-3 py-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-ink">{agent.name}</div><div className="mt-0.5 truncate text-xs text-muted">{agent.server_name} · {agent.available ? t("Available") : t(agent.message)}</div></div><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "remove_agent", mcp_server_name: agent.server_name })}><Trash2 size={14} />{t("Remove")}</button></div>
                 ))}</div> : <div className="mt-3 rounded-xl border border-dashed border-line bg-slate-50 p-4 text-sm text-muted">{t("No Nexus Agent is connected yet.")}</div>}
                 {remoteConfig.agents.managed.length > 0 && <button className="btn mt-3 min-h-11" type="button" disabled={busy || !writesAllowed} onClick={() => previewChange.mutate({ tool: "codex", section: "agents", action: "rotate_agent_credential" })}><KeyRound size={16} />{t("Rotate Agent credential")}</button>}
               </section>
@@ -297,7 +305,7 @@ export function ToolSetupPanel({
                 <h3 className="text-sm font-semibold text-ink">{t("Available Agents")}</h3>
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-line px-3"><Search size={16} className="text-muted" /><input className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder={t("Search Agents you can call")} aria-label={t("Search available Agents")} /></div>
                 <div className="mt-3 max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">{filteredAgents.length ? filteredAgents.map((agent) => (
-                  <div key={agent.id} className={`flex min-h-14 items-center justify-between gap-3 px-3 py-3 ${agent.available ? "" : "bg-slate-50 opacity-70"}`} title={agent.message || undefined}><button className="min-w-0 flex-1 text-left" type="button" disabled={!agent.available} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); clearPreview(); }}><span className="block truncate text-sm font-medium text-ink">{agent.name}</span><span className="mt-0.5 block text-xs text-muted">{agent.version || t("No version")} · {agent.available ? agent.visibility : agent.message}</span></button><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={!agent.available || busy || !writesAllowed} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); previewChange.mutate({ tool: "codex", section: "agents", action: "add_agent", agent_id: agent.id }); }}><Plus size={14} />{t("Add")}</button></div>
+                  <div key={agent.id} className={`flex min-h-14 items-center justify-between gap-3 px-3 py-3 ${agent.available ? "" : "bg-slate-50 opacity-70"}`} title={agent.message ? t(agent.message) : undefined}><button className="min-w-0 flex-1 text-left" type="button" disabled={!agent.available} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); clearPreview(); }}><span className="block truncate text-sm font-medium text-ink">{agent.name}</span><span className="mt-0.5 block text-xs text-muted">{agent.version || t("No version")} · {agent.available ? t(agent.visibility) : t(agent.message)}</span></button><button className="btn h-9 shrink-0 px-3 text-xs" type="button" disabled={!agent.available || busy || !writesAllowed} onClick={() => { onChange({ ...form, selectedAgentId: agent.id }); previewChange.mutate({ tool: "codex", section: "agents", action: "add_agent", agent_id: agent.id }); }}><Plus size={14} />{t("Add")}</button></div>
                 )) : <div className="p-4 text-sm text-muted">{t("No additional callable Agent matches this search.")}</div>}</div>
               </section>
               <section className="px-4 py-5 sm:px-6"><h3 className="text-sm font-semibold text-ink">{t("External MCP servers")}</h3><p className="mt-1 text-xs leading-5 text-muted">{t("These entries were not created by Nexus and remain read-only during normal Agent setup.")}</p>{remoteConfig.agents.external.length ? <div className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">{remoteConfig.agents.external.map((server) => <div key={server.server_name} className="px-3 py-3"><div className="truncate text-sm font-medium text-ink">{server.server_name}</div><div className="mt-0.5 truncate text-xs text-muted">{server.url || server.type || t("External configuration")}</div></div>)}</div> : <div className="mt-3 text-sm text-muted">{t("No external MCP servers.")}</div>}</section>
@@ -308,9 +316,9 @@ export function ToolSetupPanel({
         {preview && pendingChange && (
           <footer className="shrink-0 border-t border-line bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:px-6">
             <div className="mb-3 max-h-36 overflow-y-auto rounded-lg border border-line bg-slate-50 p-3" aria-live="polite">
-              <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Review changes")}</span><span className="text-xs font-medium text-slate-700">{t("Credential:")}{" "}{preview.credential_action}</span></div>
-              {preview.changes.map((change, index) => <div key={`${change.label}-${index}`} className="mt-2 text-xs text-slate-700"><span className="font-semibold">{change.label}:</span> {change.before} → {change.after}</div>)}
-              {preview.warnings.map((warning) => <div key={warning.code} className="mt-2 text-xs font-medium text-amber-800">{warning.message}</div>)}
+              <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t("Review changes")}</span><span className="text-xs font-medium text-slate-700">{t("Credential:")}{" "}{t(credentialActionLabels[preview.credential_action] || preview.credential_action)}</span></div>
+              {preview.changes.map((change, index) => <div key={`${change.label}-${index}`} className="mt-2 text-xs text-slate-700"><span className="font-semibold">{t(change.label)}:</span> {t(change.before)} → {t(change.after)}</div>)}
+              {preview.warnings.map((warning) => <div key={warning.code} className="mt-2 text-xs font-medium text-amber-800">{t(warning.message)}</div>)}
             </div>
             <div className="flex justify-end gap-2"><button className="btn min-h-11" type="button" disabled={applyChange.isPending} onClick={clearPreview}>{t("Cancel")}</button><button className="btn btn-primary min-h-11 min-w-32 justify-center" type="button" disabled={!canApplyPreview || applyChange.isPending} onClick={() => applyChange.mutate()}>{applyChange.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{applyChange.isPending ? t("Applying…") : preview.can_apply ? t("Apply change") : t("Up to date")}</button></div>
           </footer>
@@ -346,10 +354,10 @@ export function formatComputerConnection(connection: WorkspaceConnection) {
   if (connection.connection_type === "runtime") {
     const platform = connection.runtime?.platform
       ? connection.runtime.platform.replace(/^./, (letter) => letter.toUpperCase())
-      : "Runtime";
-    const state = connection.runtime?.online ? "Online" : connection.runtime ? "Offline" : "Pairing";
+      : t("Runtime");
+    const state = connection.runtime?.online ? t("Online") : connection.runtime ? t("Offline") : t("Pairing");
     const browser = connection.runtime?.browser_name ? ` · ${connection.runtime.browser_name}` : "";
     return `${platform} · ${state}${browser}`;
   }
-  return "Legacy SSH · Disabled";
+  return t("Legacy SSH · Disabled");
 }

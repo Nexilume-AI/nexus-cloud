@@ -26,7 +26,7 @@ export function RunCapacityRecovery({ context, agentId, runId, message, onChange
   const presentation = useApplicationDistribution().runPresentation;
   const copy = presentation ? presentation.capacityRecovery : personalCapacityCopy;
   if (!copy || ![copy.usageSuffix,copy.reviewDescription,copy.reviewedScope,copy.emptyDescription].every(value => typeof value === 'string' && value.trim())) {
-    throw new Error('Run capacity presentation is incomplete.');
+    throw new Error("Run capacity presentation is incomplete.");
   }
   const [open, setOpen] = useState(false);
   const preview = useQuery({
@@ -52,20 +52,20 @@ export function RunCapacityRecovery({ context, agentId, runId, message, onChange
   return <>
     <div role="alert" className="mx-3 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-[#535350]">
       <div className="min-w-0 flex-1"><p className="font-semibold">{free ? t("Run capacity available") : t("Concurrent Run limit reached")}</p>
-        <p>{preview.data ? `${preview.data.capacity.used} / ${preview.data.capacity.limit ?? "Unlimited"} ${copy.usageSuffix}` : message}</p>
+        <p>{preview.data ? `${preview.data.capacity.used} / ${preview.data.capacity.limit ?? "Unlimited"} ${t(copy.usageSuffix)}` : message}</p>
         <p>{free ? t("Your draft is kept. Send it when you are ready; it was not retried automatically.") : t("Stop your other active Runs to free capacity. Deleting completed history does not free Run slots.")}</p>
       </div>
       <button type="button" className={buttonClass} onClick={() => void review()}>{t("Manage active runs")}</button>
     </div>
-    {createPortal(<NexilumeDialog open={open} busy={stop.isPending} onClose={() => { if (!stop.isPending) setOpen(false); }} title={t("Free Run capacity")} description={copy.reviewDescription}>
+    {createPortal(<NexilumeDialog open={open} busy={stop.isPending} onClose={() => { if (!stop.isPending) setOpen(false); }} title={t("Free Run capacity")} description={t(copy.reviewDescription)}>
       <div className="grid gap-3 text-sm text-[#535350]">
         {preview.isLoading ? <p role="status">{t("Loading active Runs…")}</p> : null}
         {preview.isError ? <p role="alert">{t("Unable to load active Runs. Nothing was stopped.")}<button className={`${buttonClass} ml-2`} onClick={() => void review()}>{t("Retry review")}</button></p> : null}
         {reviewed ? <>
-          <p>{reviewed.eligible_count} {copy.reviewedScope}{reviewed.has_more ? t("The next batch contains {{0}} Runs.", { 0: reviewed.batch_count }) : ""}</p>
+          <p>{reviewed.eligible_count} {t(copy.reviewedScope)}{reviewed.has_more ? t("The next batch contains {{0}} Runs.", { 0: reviewed.batch_count }) : ""}</p>
           {reviewed.runs.length ? <ul aria-label={t("Runs to stop")} className="max-h-52 overflow-y-auto rounded-md border border-black/10 divide-y divide-black/10">
             {reviewed.runs.map(item => <li key={item.id} className="break-words p-2"><span className="font-medium">{item.title}</span><p className="text-xs">{item.agent_name}{item.hidden ? t("· Previously removed from history") : ""}</p></li>)}
-          </ul> : <p>{copy.emptyDescription}</p>}
+          </ul> : <p>{t(copy.emptyDescription)}</p>}
           <p>{t("Stopping requests cancellation. Running work may take time to acknowledge; capacity is only released once the Run actually ends.")}</p>
         </> : null}
         {stop.isError ? <p role="alert">{stop.error instanceof Error ? stop.error.message : t("Stopping failed.")}{" "}{t("Some requests may have completed. Review the current state before retrying.")}<button className={`${buttonClass} ml-2`} onClick={() => void review()}>{t("Review again")}</button></p> : null}

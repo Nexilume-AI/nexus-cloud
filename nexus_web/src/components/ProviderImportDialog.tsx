@@ -40,14 +40,14 @@ export function ProviderImportDialog() {
   const pause = useRef(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; pause.current = true; }; }, []);
-  const context = scopedOwnership ? (apiContext.projectId ? "the selected Project in this Organization" : "this Organization (Organization-owned)") : "your personal installation";
+  const context = scopedOwnership ? (apiContext.projectId ? t("the selected Project in this Organization") : t("this Organization (Organization-owned)")) : "your personal installation";
   const inactive = batch && (["expired", "discarded", "complete"].includes(batch.status) || Date.parse(batch.expires_at) <= Date.now());
   const rows = (batch?.results ?? []).filter((row) => filter === "all" || (filter === "attention" ? ["failed", "invalid"].includes(row.status) : ["created", "updated", "skipped"].includes(row.status)));
   const mayCommit = batch && !inactive && (batch.duplicate_mode !== "update" || confirmUpdates) && (!batch.invalid || allowPartial);
   function changed() { setRequestKey(crypto.randomUUID()); setError(""); }
   async function action(fn: () => Promise<void>) {
     setBusy(true); setError("");
-    try { await fn(); } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : "Import request failed. Your existing results remain available."); }
+    try { await fn(); } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : t("Import request failed. Your existing results remain available.")); }
     finally { if (mounted.current) setBusy(false); }
   }
   async function preview() {

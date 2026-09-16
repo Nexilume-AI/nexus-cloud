@@ -41,5 +41,15 @@
   "{{0}} · {{1}} sources{{2}}": "{{0}} · {{1}} 来源{{2}}",
   "{{0}} models{{1}}": "{{0}} 模型{{1}}",
   "Provider Runtime": "成功运行时",
-  "AI capability network": "AI能力网络"
+  "AI capability network": "AI能力网络",
+  "API models": "API 模型",
+  "Avg latency": "平均延迟",
+  "Canonical model": "规范模型",
+  "Execution Routers": "执行路由器",
+  "Execution model": "执行模型",
+  "Lowest price": "最低价格",
+  "Model offers": "模型报价",
+  "Offer status": "报价状态",
+  "Source strategy": "来源策略",
+  "Upstream model": "上游模型"
 }

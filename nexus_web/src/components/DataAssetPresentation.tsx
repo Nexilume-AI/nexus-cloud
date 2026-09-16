@@ -1,4 +1,4 @@
-import { t, useLocale, getLocale } from "../localization";
+import { t, tToken, useLocale, getLocale } from "../localization";
 import type { Dataset } from "../lib/types";
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -20,18 +20,13 @@ export function shortList(values: string[] | undefined, fallback: string) {
 export function humanizeLifecycle(status: string | undefined) {
   const labels: Record<string, string> = {
     draft: "Draft",
-    assets_added: "Assets added",
-    commercial_setup: "Commercial setup",
-    ready_to_publish: "Ready to publish",
+    assets_added: t("Assets added"),
+    commercial_setup: t("Commercial setup"),
+    ready_to_publish: t("Ready to publish"),
     published: "Published",
   };
   if (!status) return t("Not reported");
-  return (
-    labels[status] ??
-    status
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase())
-  );
+  return labels[status] ? t(labels[status]) : tToken(status);
 }
 
 export function Detail({ label, value }: { label: string; value: string }) {

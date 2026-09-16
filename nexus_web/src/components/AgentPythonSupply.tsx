@@ -129,7 +129,7 @@ function PythonUploadDialog({ agentId, apiContext, onClose, onUploaded }: {
     <div className="python-upload">
       <label className="python-upload__file">{t("Python file")}{" "}<span>{t("UTF-8 · maximum 1 MiB")}</span><input ref={fileRef} type="file" accept=".py" disabled={submit.isPending} onChange={event => {
         const value = event.target.files?.[0] || null;
-        setFile(value); setLocalError(value && (!value.name.endsWith(".py") || value.size > 1048576) ? "Choose a .py file no larger than 1 MiB." : ""); submit.reset();
+        setFile(value); setLocalError(value && (!value.name.endsWith(".py") || value.size > 1048576) ? t("Choose a .py file no larger than 1 MiB.") : ""); submit.reset();
       }} /></label>
       {(localError || fieldError("file")) && <p role="alert">{localError || fieldError("file")}</p>}
       <label>{t("requirements.txt")}{" "}<span>{t("Optional · public wheel packages only · 32 KiB")}</span><input type="file" accept=".txt" disabled={submit.isPending} onChange={event => setRequirements(event.target.files?.[0] || null)} /></label>

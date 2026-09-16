@@ -10,5 +10,18 @@
   "Run failed": "运行失败",
   "Waiting for input": "等待输入",
   "Agent is working": "智能体正在工作",
-  "Updates available": "有更新"
+  "Updates available": "有更新",
+  "Answer the current question before quoting another message.": "请先回答当前问题，再引用其他消息。",
+  "Check or remove saved attachments before sending this message.": "发送此消息前，请检查或移除已保存的附件。",
+  "Copy the complete Shell transcript": "复制完整 Shell 记录",
+  "No Shell output to copy yet": "暂无可复制的 Shell 输出",
+  "Process exited with code ": "进程退出码 ",
+  "Recordings cannot be sent while the Agent is working. Keep them for a later turn or remove them.": "智能体工作时无法发送录音。请保留到后续轮次或将其移除。",
+  "Standard error": "标准错误",
+  "Start a new Run to reply.": "请新建一次运行后再回复。",
+  "This Agent cannot receive messages while working.": "智能体工作时无法接收消息。",
+  "This Run's Computer": "本次运行的电脑",
+  "Wait for attachments to finish uploading, or remove them.": "请等待附件上传完成，或将其移除。",
+  "Wait for your message to send.": "请等待消息发送完成。",
+  "at Run creation": "运行时创建时"
 }

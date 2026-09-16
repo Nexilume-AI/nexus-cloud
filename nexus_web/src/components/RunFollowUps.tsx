@@ -61,14 +61,14 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
   });
   const send = useMutation({
     mutationFn: async (content: string) => {
-      if (!run || !follow) throw new Error("No active Run for follow-up messages.");
+      if (!run || !follow) throw new Error(t("No active Run for follow-up messages."));
       // A lost response may already have started the next turn. Retry the exact
       // original envelope, never reinterpret the same input as another turn.
       const pending = readPendingFollowUp(draftKey);
       if (!pending && attachmentError) throw new Error(attachmentError);
-      if (pending && pending.content !== content) throw new Error("Resolve the previous delivery before sending another message.");
+      if (pending && pending.content !== content) throw new Error(t("Resolve the previous delivery before sending another message."));
       if (!content.trim() || Array.from(content.trim()).length > FOLLOW_UP_MAX_CHARACTERS)
-        throw new Error("Provide 1–8,000 characters. Your full draft is kept.");
+        throw new Error(t("Provide 1–8,000 characters. Your full draft is kept."));
       const input = pending || {
         mode: selectedMode, content, turn_index: follow!.turn_index, idempotency_key: crypto.randomUUID(),
         ...followUpAttachmentReferences(attachmentValue),
@@ -81,14 +81,14 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
         // These explicit rejections occur under the Run lock after the server
         // checks the original key. Unlike a timeout, they prove it was not queued.
         const rejection = error instanceof ApiError && error.status === 400 && error.code === "VALIDATION_ERROR"
-          ? error.message || "This message was not accepted. Edit your draft and try again."
+          ? error.message || t("This message was not accepted. Edit your draft and try again.")
           : error instanceof ApiError && error.status === 409 && error.code === "FOLLOW_UP_CONFLICT"
-          ? ({ "code: TURN_NO_LONGER_ACTIVE": "This turn has ended. Your message was not queued; continue editing it below.",
-            "code: FOLLOW_UP_UNSUPPORTED": "This Agent no longer accepts queued messages. Your draft is kept.",
-            "code: FOLLOW_UP_QUEUE_FULL": "The message queue is full. Wait for a queued message to finish, then try again.",
-            "code: STEER_UNSUPPORTED": "This Agent cannot accept guidance right now. Your draft is kept.",
-            "code: STEER_ATTACHMENTS_UNSUPPORTED": "The Agent no longer accepts guidance attachments. Choose Queue next turn; your files are kept.",
-            "code: FOLLOW_UP_ATTACHMENTS_UNAVAILABLE": "An attachment expired or is no longer accessible. Reattach or remove it; your message was not queued.",
+          ? ({ "code: TURN_NO_LONGER_ACTIVE": t("This turn has ended. Your message was not queued; continue editing it below."),
+            "code: FOLLOW_UP_UNSUPPORTED": t("This Agent no longer accepts queued messages. Your draft is kept."),
+            "code: FOLLOW_UP_QUEUE_FULL": t("The message queue is full. Wait for a queued message to finish, then try again."),
+            "code: STEER_UNSUPPORTED": t("This Agent cannot accept guidance right now. Your draft is kept."),
+            "code: STEER_ATTACHMENTS_UNSUPPORTED": t("The Agent no longer accepts guidance attachments. Choose Queue next turn; your files are kept."),
+            "code: FOLLOW_UP_ATTACHMENTS_UNAVAILABLE": t("An attachment expired or is no longer accessible. Reattach or remove it; your message was not queued."),
           } as Record<string, string>)[error.message] : "";
         if (!rejection) throw error;
         return { draftKey, key: input.idempotency_key, rejection };
@@ -148,11 +148,11 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
     if (check.isPending || send.isPending || autoChecking) return;
     if (!draft.pending && attachmentError) { setCommandError(attachmentError); return; }
     if (Array.from(value.trim()).length > FOLLOW_UP_MAX_CHARACTERS) {
-      setCommandError("Keep this message within 8,000 characters. Your full draft is kept.");
+      setCommandError(t("Keep this message within 8,000 characters. Your full draft is kept."));
       return;
     }
     if (draft.pending && draft.pending.content !== value) {
-      setCommandError("Check the previous message’s delivery before sending a different message.");
+      setCommandError(t("Check the previous message’s delivery before sending a different message."));
       return;
     }
     const slash = value.match(/^\/([a-z0-9-]+)$/i);
@@ -195,7 +195,7 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
       {items.map(item => <div key={item.id} className={needsQueueDisplay(item) ? "flex items-start justify-between gap-3 border-b border-black/5 px-2 py-2 last:border-0" : "contents"}>
         {needsQueueDisplay(item) ? <div className="min-w-0"><p className="break-words text-sm">{item.content}</p>
           {[...(item.attachments || []).map(ref => ref.name || "Image"), ...(item.files || []).map(ref => ref.name)].map((name, index) => <p key={index} className="truncate text-xs text-muted" title={name}>{t("Attached ·")}{" "}{name}</p>)}
-          <p className="mt-1 text-xs text-[#535350]">{item.mode === "steer" ? t("Current turn") : t("Next turn")} · {labels[item.status]}{item.dispatched_turn ? t("· Turn {{0}}", { 0: item.dispatched_turn }) : ""}</p>
+          <p className="mt-1 text-xs text-[#535350]">{item.mode === "steer" ? t("Current turn") : t("Next turn")} · {t(labels[item.status])}{item.dispatched_turn ? t("· Turn {{0}}", { 0: item.dispatched_turn }) : ""}</p>
           {reason(item.code) ? <p className="mt-1 text-xs text-amber-800">{reason(item.code)}</p> : null}</div> : null}
         {/* Retain the keyed editor if dispatch wins a race with an open edit.
             Its draft stays reviewable, without keeping the receipt row visible. */}
@@ -229,7 +229,7 @@ export function RunFollowUpMode({ controller, compact = false }: { controller: R
   useLocale();
   const { run, selectedMode, setMode, send, canSteer } = controller;
   const { queuedTurnDescription } = useRunFollowUpPresentation();
-  const help = selectedMode === "steer" ? "Applied at the Agent’s next safe step. Commands already running are not undone."
+  const help = selectedMode === "steer" ? t("Applied at the Agent’s next safe step. Commands already running are not undone.")
     : queuedTurnDescription(run);
   return <div className={`flex h-11 min-w-0 items-center gap-2 text-xs ${compact ? "shrink-0" : ""}`}>
     <label htmlFor="run-follow-up-mode" className="sr-only">{t("While Agent is working")}</label>

@@ -4,5 +4,8 @@
   "Loading model settings…": "正在加载模型设置...",
   "Test Agent": "测试智能体",
   "Test your Agent": "测试你的智能体",
-  "Attach your devices and open Private Display to test this Agent.": "连接您的设备并打开专属工作台来测试此智能体。"
+  "Attach your devices and open Private Display to test this Agent.": "连接您的设备并打开专属工作台来测试此智能体。",
+  "Container, deployment, and access events will appear here.": "容器、部署和访问事件将显示在此处。",
+  "Nexus will stop this Provider, remove generated Sources, and erase stored credentials.": "Nexus 将停止此提供方、移除生成的来源，并清除已存储的凭证。",
+  "This removes the connection and its active Nexus configuration. Usage and audit history are preserved.": "这会移除该连接及其当前 Nexus 配置。使用与审计历史会保留。"
 }

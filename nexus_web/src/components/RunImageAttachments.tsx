@@ -64,7 +64,7 @@ export const RunImageAttachments = forwardRef<AttachmentIntake, {
         update(pendingRef.current.filter(row => row.file !== file));
       }
     } catch (error) {
-      if (active.current) update(pendingRef.current.map(row => row.file === file ? { ...row, error: error instanceof ImagePreparationError ? error.message : "Upload interrupted. Retry or remove this image; your message is kept." } : row));
+      if (active.current) update(pendingRef.current.map(row => row.file === file ? { ...row, error: error instanceof ImagePreparationError ? error.message : t("Upload interrupted. Retry or remove this image; your message is kept.") } : row));
     } finally { running.current = null; void pump(); }
   }
   useImperativeHandle(ref, () => ({ add(files) {

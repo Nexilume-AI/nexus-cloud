@@ -1,4 +1,17 @@
 {
   "Close dialog": "关闭对话框",
-  "Dismiss": "关闭"
+  "Dismiss": "关闭",
+  "Bind a Computer": "绑定电脑",
+  "Control an isolated browser": "控制隔离浏览器",
+  "Create SSH connections": "创建 SSH 连接",
+  "Delete SSH connections": "删除 SSH 连接",
+  "Execute terminal commands": "执行终端命令",
+  "List Computer connections": "列出电脑连接",
+  "List Workspace files": "列出工作区文件",
+  "Per call": "按调用",
+  "Per request": "按请求",
+  "Read Workspace files": "读取工作区文件",
+  "Test SSH connections": "测试 SSH 连接",
+  "Update SSH connections": "更新 SSH 连接",
+  "Write Workspace files": "写入工作区文件"
 }

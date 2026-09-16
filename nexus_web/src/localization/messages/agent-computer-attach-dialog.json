@@ -31,5 +31,7 @@
   "Permission granted": "已授予权限",
   "Approval required": "需要批准",
   "Computer Runtime": "电脑运行时",
-  "Offline": "离线"
+  "Offline": "离线",
+  "Select an online Nexus Computer Runtime.": "请选择一个在线的 Nexus 计算机运行时。",
+  "Wait for the latest Computer policy before attaching.": "请等待最新的电脑策略加载后再挂载。"
 }

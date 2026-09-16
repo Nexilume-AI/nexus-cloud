@@ -10,5 +10,6 @@
   "Dismiss rejected images": "忽略被拒绝的图像",
   "Private image preview": "私有图像预览",
   "Upload failed": "上传失败",
-  "Remove image {{0}}": "删除图像 {{0}}"
+  "Remove image {{0}}": "删除图像 {{0}}",
+  "Upload interrupted. Retry or remove this image; your message is kept.": "上传已中断。请重试或移除该图片；你的消息已保留。"
 }

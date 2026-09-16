@@ -11,5 +11,13 @@
   "Start a fresh Run": "开始新的运行",
   "Copy unavailable. Select this reference manually:": "复制不可用。手动选择此参考：",
   "Waiting for Agent and device readiness. Your chat history is preserved.": "等待智能体和设备准备就绪。您的聊天记录将被保留。",
-  "Copy failure reference": "复制失败参考"
+  "Copy failure reference": "复制失败参考",
+  "Check status and inspect existing results before sending another instruction.": "发送下一条指令前，请先检查状态并查看已有结果。",
+  "Check the external result first. Retry only if you accept the risk that an unconfirmed operation may run twice.": "请先检查外部结果。只有在你接受未确认操作可能重复执行的风险时，才应重试。",
+  "Cancel turn": "取消本轮",
+  "Inspect Browser": "检查浏览器",
+  "Retry operation": "重试操作",
+  "Review Computer": "检查电脑",
+  "Review Mobile": "检查移动设备",
+  "Revise instruction": "修改指令"
 }

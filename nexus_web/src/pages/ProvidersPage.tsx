@@ -253,7 +253,7 @@ export function ProvidersPage() {
                 list={providers.map((provider) => ({
                   id: provider.id,
                   title: provider.name,
-                  subtitle: `${humanEngine(provider.engine)} · ${provider.upstream_provider} · ${provider.ownership?.label || "Ownership unavailable"}${provider.access && !provider.access.can_read ? " · Access required" : ""}`,
+                  subtitle: `${humanEngine(provider.engine)} · ${provider.upstream_provider} · ${provider.ownership?.label || t("Ownership unavailable")}${provider.access && !provider.access.can_read ? t(" · Access required") : ""}`,
                   status: provider.status,
                   modelCount: provider.model_count ?? provider.models.length,
                   extraSummary: <ProviderPublicationSummary surface="row" provider={provider} />,
@@ -572,7 +572,7 @@ function RuntimeInspector({
     },
     onError: (error, variables) => {
       variables.popup?.close();
-      errorToast("Provider sign-in failed")(error);
+      errorToast(t("Provider sign-in failed"))(error);
     },
   });
 
@@ -633,14 +633,14 @@ function RuntimeInspector({
   }
 
   const recommendedActionLabel: Record<RuntimeRecommendedAction, string> = {
-    wait: provider.status === "stopping" ? "Stopping provider…" : "Starting provider…",
-    repair: "Repair provider",
-    login: provider.status === "login_required" ? "Sign in" : "Resume sign-in",
+    wait: provider.status === "stopping" ? t("Stopping provider…") : t("Starting provider…"),
+    repair: t("Repair provider"),
+    login: provider.status === "login_required" ? "Sign in" : t("Resume sign-in"),
     start: "Start provider",
-    health: "Review health",
+    health: t("Review health"),
     refresh: "Refresh models",
     use_source: "Use in source",
-    publish: "Publish models",
+    publish: t("Publish models"),
     operational: "Operational",
   };
 
@@ -1100,7 +1100,7 @@ function RemoveProviderDialog({
       onClose={onClose}
       busy={remove.isPending}
       title={t("Delete provider")}
-      description={managementCopy.providerDeletion}
+      description={t(managementCopy.providerDeletion)}
     >
       {provider && (
         <div className="provider-remove-dialog">
@@ -1122,7 +1122,7 @@ function RemoveProviderDialog({
                 <Fact label={t("Sources removed")} value={String(deletion.source_count)} />
               </dl>
               <p className="provider-remove-dialog__warning">
-                {managementCopy.providerDeletionWarning}
+                {t(managementCopy.providerDeletionWarning)}
               </p>
               {deletion.requires_name_confirmation && (
                 <Field label={t("Enter {{0}} to confirm", { 0: deletion.provider_name })}>

@@ -41,7 +41,7 @@ export function DatasetImagePreview({
             error:
               reason instanceof Error
                 ? reason.message
-                : "Image preview unavailable.",
+                : t("Image preview unavailable."),
           });
       });
     return () => {
@@ -94,7 +94,7 @@ export function DatasetImagePreview({
               setPreview({
                 key,
                 url: "",
-                error: "Image preview could not be displayed.",
+                error: t("Image preview could not be displayed."),
               })
             }
           />

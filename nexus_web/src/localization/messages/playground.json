@@ -153,5 +153,21 @@
   "Computer Runtime connected": "电脑运行时已连接",
   "Waiting for this Computer": "正在等待这台电脑",
   "Run the command below on the Computer before the pairing link expires.": "在配对链接到期之前在电脑上运行以下命令。",
-  "Create pairing link": "创建配对链接"
+  "Create pairing link": "创建配对链接",
+  "Added MCP server": "已添加 MCP 服务器",
+  "Applied API provider": "已应用 API 提供方",
+  "Check expired": "检查已过期",
+  "Check time unavailable": "检查时间不可用",
+  "Checked just now": "刚刚检查",
+  "Cleared MCP servers": "已清空 MCP 服务器",
+  "Connecting to Nexus terminal gateway...": "正在连接 Nexus 终端网关...",
+  "Legacy disabled": "旧版已禁用",
+  "No terminal output to copy yet": "暂无可复制的终端输出",
+  "Not tested": "未测试",
+  "Open a terminal first.": "请先打开终端。",
+  "Rebuilt Codex profile": "已重建 Codex 配置",
+  "Removed MCP server": "已移除 MCP 服务器",
+  "Replaced MCP servers": "已替换 MCP 服务器",
+  "Terminal output copied": "终端输出已复制",
+  "Terminal selection copied": "终端选中内容已复制"
 }

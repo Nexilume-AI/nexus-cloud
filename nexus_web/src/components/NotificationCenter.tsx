@@ -85,12 +85,12 @@ function ScopedWorkInbox() {
       if (operation === "snooze") await api.snoozeInboxItem(ctx, item.id, new Date(Date.now() + 60 * 60_000).toISOString());
       if (operation === "open") {
         const target = await api.openInboxItem(ctx, item.id);
-        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error("This Inbox destination is unavailable.");
+        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error(t("This Inbox destination is unavailable."));
         flushSync(() => { auth.setProjectId(target.project_id); setOpen(false); });
         navigate(target.url);
       }
       await refresh();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update Work Inbox."); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : t("Could not update Work Inbox.")); }
     finally { setBusy(null); }
   }
 
@@ -98,7 +98,7 @@ function ScopedWorkInbox() {
   // outcomes here made the badge disagree with the queue the user actually
   // sees (and quickly inflated it to 99+).
   const count = summary.data?.badge_count ?? 0;
-  const organization = auth.tenants.find(item => item.id === auth.tenantId)?.name ?? "Current organization";
+  const organization = auth.tenants.find(item => item.id === auth.tenantId)?.name ?? t("Current organization");
   return <>
     <button type="button" className="nexilume-shell-icon-button notification-trigger"
       aria-label={t("Work Inbox{{0}}", { 0: count ? `, ${count} need attention` : "" })}

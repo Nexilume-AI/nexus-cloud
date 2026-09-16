@@ -3,5 +3,7 @@
   "Loading protected preview…": "正在加载受保护的预览...",
   "Retry preview": "重试预览",
   "Protected preview · Metadata removed · Download retains the original file.": "受保护的预览·元数据已删除·下载保留原始文件。",
-  "Preview {{0}}": "预览 {{0}}"
+  "Preview {{0}}": "预览 {{0}}",
+  "Image preview could not be displayed.": "无法显示图片预览。",
+  "Image preview unavailable.": "图片预览不可用。"
 }

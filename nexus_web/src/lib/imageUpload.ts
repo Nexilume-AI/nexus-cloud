@@ -1,10 +1,11 @@
+import { t } from "../localization";
 /** Local-only upload copies. Original files and decoded pixels never enter draft storage. */
 export const IMAGE_UPLOAD_LIMIT = 2 * 1024 * 1024;
 export const IMAGE_SOURCE_LIMIT = 20 * 1024 * 1024;
 const TYPES = ["image/png", "image/jpeg", "image/webp"];
 export class ImagePreparationError extends Error {}
-function invalid(): never { throw new ImagePreparationError("This is not a valid PNG, JPEG or WebP image. Export a new copy and try again."); }
-function animated(): never { throw new ImagePreparationError("Animated images cannot be optimized without losing frames. Attach a still image instead."); }
+function invalid(): never { throw new ImagePreparationError(t("This is not a valid PNG, JPEG or WebP image. Export a new copy and try again.")); }
+function animated(): never { throw new ImagePreparationError(t("Animated images cannot be optimized without losing frames. Attach a still image instead.")); }
 
 // Read dimensions before asking the browser to allocate decoded pixels. This is
 // a bounded preflight, not a substitute for Cloud's content/security validation.
@@ -52,24 +53,24 @@ export function inspectImageForOptimization(bytes: Uint8Array, type: string) {
   }
   if (!width || !height) invalid();
   if (width > 16384 || height > 16384 || width * height > 40_000_000)
-    throw new ImagePreparationError("Image dimensions are too large to optimize safely. Export a smaller copy (at most 40 megapixels and 16,384 pixels per side).");
+    throw new ImagePreparationError(t("Image dimensions are too large to optimize safely. Export a smaller copy (at most 40 megapixels and 16,384 pixels per side)."));
   return { width, height };
 }
 
 export function validateImageSource(file: File) {
   if (!TYPES.includes(file.type) || !file.size)
-    throw new ImagePreparationError("Choose a non-empty PNG, JPEG or WebP image.");
+    throw new ImagePreparationError(t("Choose a non-empty PNG, JPEG or WebP image."));
   if (file.size > IMAGE_SOURCE_LIMIT)
-    throw new ImagePreparationError("Choose an image up to 20 MiB, or export a smaller copy.");
+    throw new ImagePreparationError(t("Choose an image up to 20 MiB, or export a smaller copy."));
 }
-function check(signal?: AbortSignal) { if (signal?.aborted) throw new DOMException("Image preparation cancelled", "AbortError"); }
+function check(signal?: AbortSignal) { if (signal?.aborted) throw new DOMException(t("Image preparation cancelled"), "AbortError"); }
 export async function prepareImageUpload(file: File, signal?: AbortSignal): Promise<{ file: File; originalSize?: number }> {
   check(signal); validateImageSource(file);
   if (file.size <= IMAGE_UPLOAD_LIMIT) return { file };
   const bytes = new Uint8Array(await file.arrayBuffer());
   check(signal); const dimensions = inspectImageForOptimization(bytes, file.type);
   if (typeof createImageBitmap !== "function")
-    throw new ImagePreparationError("This browser cannot optimize images. Export a copy under 2 MiB and attach it again.");
+    throw new ImagePreparationError(t("This browser cannot optimize images. Export a copy under 2 MiB and attach it again."));
   let bitmap: ImageBitmap;
   try { bitmap = await createImageBitmap(file); } catch { check(signal); return invalid(); }
   let canvas: HTMLCanvasElement | undefined;
@@ -79,7 +80,7 @@ export async function prepareImageUpload(file: File, signal?: AbortSignal): Prom
       invalid();
     canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
-    if (!context) throw new ImagePreparationError("Image preparation is unavailable. Export a smaller copy and try again.");
+    if (!context) throw new ImagePreparationError(t("Image preparation is unavailable. Export a smaller copy and try again."));
     // Preserve orientation/transparency; bound both memory and encoding work.
     for (const edge of [4096, 3072, 2048]) {
       const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
@@ -90,13 +91,13 @@ export async function prepareImageUpload(file: File, signal?: AbortSignal): Prom
         check(signal);
         const blob = await new Promise<Blob | null>(resolve => canvas!.toBlob(resolve, "image/webp", quality));
         check(signal);
-        if (!blob || blob.type !== "image/webp") throw new ImagePreparationError("Image optimization is unavailable. Export a copy under 2 MiB and try again.");
+        if (!blob || blob.type !== "image/webp") throw new ImagePreparationError(t("Image optimization is unavailable. Export a copy under 2 MiB and try again."));
         if (blob.size > 0 && blob.size <= IMAGE_UPLOAD_LIMIT) return {
           file: new File([blob], file.name.replace(/\.[^.]*$/, "") + ".webp", { type: "image/webp", lastModified: file.lastModified }),
           originalSize: file.size,
         };
       }
     }
-    throw new ImagePreparationError("This image cannot fit within 2 MiB at a readable quality. Crop it or export a smaller copy.");
+    throw new ImagePreparationError(t("This image cannot fit within 2 MiB at a readable quality. Crop it or export a smaller copy."));
   } finally { bitmap.close(); if (canvas) { canvas.width = 0; canvas.height = 0; } }
 }

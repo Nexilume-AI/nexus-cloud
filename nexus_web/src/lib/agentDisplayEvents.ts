@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import type { DisplayStreamEvent } from "./types";
 
 export type AgentDisplayMessage = {
@@ -188,7 +189,7 @@ export function buildAgentDisplayShellCommands(
     const transcript = buildAgentDisplayShellTranscript([], sdkLines);
     return transcript.segments.length ? [{
       id: "sdk-shell",
-      command: "Agent Shell output",
+      command: t("Agent Shell output"),
       commandId: "",
       startedAt: sdkLines[0]?.createdAt || "",
       endedAt: sdkLines.at(-1)?.createdAt || "",
@@ -205,7 +206,7 @@ export function buildAgentDisplayShellCommands(
     if (!group) {
       group = {
         id: commandId,
-        command: event.kind === "command" ? normalizeShellNewlines(event.data).trim().replace(/^\$\s*/, "") : "Shell output",
+        command: event.kind === "command" ? normalizeShellNewlines(event.data).trim().replace(/^\$\s*/, "") : t("Shell output"),
         commandId: event.command_id || "",
         startedAt: event.created_at || "",
         endedAt: event.created_at || "",
@@ -295,6 +296,6 @@ function compactJson(value: Record<string, unknown>) {
   try {
     return JSON.stringify(value);
   } catch {
-    return "Agent event";
+    return t("Agent event");
   }
 }

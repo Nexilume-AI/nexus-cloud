@@ -18,5 +18,6 @@
   "Manage your personal profile and account security.": "管理您的个人资料和账号安全。",
   "Unsaved changes": "未保存的更改",
   "Your profile is up to date.": "您的个人资料是最新的。",
-  "Password changed": "密码已更改"
+  "Password changed": "密码已更改",
+  "Password could not be changed": "无法更改密码"
 }

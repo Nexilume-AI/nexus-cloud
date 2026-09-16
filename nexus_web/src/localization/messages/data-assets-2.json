@@ -6,5 +6,11 @@
   "system scan not passed": "系统扫描未通过",
   "policy not approved": "政策未获批准",
   "license not approved or internal": "许可证未批准或内部",
-  "missing scanned hash": "缺少扫描的哈希值"
+  "missing scanned hash": "缺少扫描的哈希值",
+  "Add at least one checked file or Agent asset before creating a release.": "创建发布前，请至少添加一个已勾选的文件或智能体资产。",
+  "Dataset admin permission is required": "需要数据集管理员权限",
+  "Imported file": "已导入文件",
+  "Review manifest": "查看清单",
+  "The collection has asset policy blockers. Review all pages; publication is validated on the server.": "该集合存在资产策略阻塞项。请检查所有页面；发布由服务端校验。",
+  "Untitled run": "未命名运行"
 }

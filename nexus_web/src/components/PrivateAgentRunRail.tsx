@@ -136,7 +136,7 @@ export function PrivateAgentRunRail({
             {query ? <button type="button" onClick={() => onQueryChange("")} className="inline-flex h-10 w-10 items-center justify-center rounded text-[#858481] hover:bg-black/5 lg:h-8 lg:w-8" aria-label={t("Clear run search")}><X size={14} /></button> : null}
           </label>
           <div className="flex items-center gap-2">
-            <label className="min-w-0 flex-1"><span className="sr-only">{t("Filter Run history")}</span><select value={filter} onChange={(event) => onFilterChange(event.target.value as RunHistoryFilter)} className="min-h-11 w-full min-w-0 rounded-md border border-black/10 bg-white px-3 text-sm text-[#535350] focus-visible:border-[#6fa43f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6fa43f] lg:min-h-10">{FILTERS.map(([id, label]) => <option key={id} value={id}>{label}{counts ? ` (${counts[id] ?? 0})` : ""}</option>)}</select></label>
+            <label className="min-w-0 flex-1"><span className="sr-only">{t("Filter Run history")}</span><select value={filter} onChange={(event) => onFilterChange(event.target.value as RunHistoryFilter)} className="min-h-11 w-full min-w-0 rounded-md border border-black/10 bg-white px-3 text-sm text-[#535350] focus-visible:border-[#6fa43f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6fa43f] lg:min-h-10">{FILTERS.map(([id, label]) => <option key={id} value={id}>{t(label)}{counts ? ` (${counts[id] ?? 0})` : ""}</option>)}</select></label>
             {query || filter !== "all" ? <button type="button" onClick={clearTools} className="min-h-11 shrink-0 rounded-md px-2 text-xs font-semibold text-[#535350] underline decoration-black/20 underline-offset-4 hover:text-[#1a1a19] lg:min-h-10">{t("Clear")}</button> : null}
           </div>
         </div> : null}
@@ -149,7 +149,7 @@ export function PrivateAgentRunRail({
 
         <div className="grid gap-3">
           {grouped.map(([group, items]) => <section key={group} aria-labelledby={`run-group-${group}`}>
-            <div className="mb-1 flex items-center justify-between px-2"><h3 id={`run-group-${group}`} className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#858481]">{GROUP_LABELS[group]}</h3><span className="text-xs tabular-nums text-[#aaa9a5]">{items.length}</span></div>
+            <div className="mb-1 flex items-center justify-between px-2"><h3 id={`run-group-${group}`} className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#858481]">{t(GROUP_LABELS[group])}</h3><span className="text-xs tabular-nums text-[#aaa9a5]">{items.length}</span></div>
             <div className="grid gap-1">
               {items.map((run) => {
                 const active = run.id === activeRunId;

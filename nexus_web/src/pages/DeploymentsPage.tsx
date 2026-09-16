@@ -581,8 +581,8 @@ function PoolOperationsDesk({
         <section className="model-pool-policy__strategy">
           <div>
             <span className="model-pool-section-label">{t("Routing mode")}</span>
-            <strong>{strategyInfo.label}</strong>
-            <p>{strategyInfo.help}</p>
+            <strong>{t(strategyInfo.label)}</strong>
+            <p>{t(strategyInfo.help)}</p>
           </div>
           <label>
             <span className="sr-only">{t("Source selection strategy")}</span>
@@ -1103,7 +1103,7 @@ function poolLatency(pool: PoolRow) {
 }
 function humanStrategy(strategy: string) {
   return (
-    STRATEGIES.find((item) => item.value === strategy)?.label ??
+    t(STRATEGIES.find((item) => item.value === strategy)?.label ?? "") ||
     strategy.replaceAll("_", " ")
   );
 }
