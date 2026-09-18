@@ -22,7 +22,7 @@ nexus-computer status
 
 Keep the existing configuration directory and device keys. Existing pairings do not need to be recreated. New computers still install Runtime before pairing.
 
-The terminal remains a pipe-based shell, not a PTY. SOCKS support requires a reachable configured proxy; a custom User-Agent does not guarantee that a Cloud firewall will permit the connection.
+SDK 0.46.3 uses a pipe-based shell, not a PTY; see the SDK 0.46.5 PTY update below. SOCKS support requires a reachable configured proxy; a custom User-Agent does not guarantee that a Cloud firewall will permit the connection.
 
 ## Validation
 
@@ -45,4 +45,13 @@ The existing install-then-pair workflow and all Runtime authentication behavior 
 
 Cloud now forwards `auto` to Computer Runtime instead of choosing sh from cached host facts. SDK 0.46.4 selects zsh on macOS (falling back to `/bin/zsh` when PATH lookup fails), while preserving explicit bash/sh choices. Both the live terminal stream and command-RPC paths carry this setting. Legacy SSH resolution is unchanged.
 
-Deploy the updated Cloud code and upgrade the Computer Runtime to 0.46.4 in its existing Python environment. Restart Runtime, close existing terminal sessions and open a new terminal to use the new default. Upgrading only one side is insufficient for the default behavior. The terminal still uses pipes, not a PTY.
+Deploy the updated Cloud code and upgrade the Computer Runtime to 0.46.4 in its existing Python environment. Restart Runtime, close existing terminal sessions and open a new terminal to use the new default. Upgrading only one side is insufficient for the default behavior. SDK 0.46.4 still uses pipes, not a PTY; see the SDK 0.46.5 update below.
+
+
+### Interactive POSIX terminals (SDK 0.46.5)
+
+SDK 0.46.5 allocates a PTY, acquires it as the shell's controlling terminal, and starts an interactive shell. macOS automatic selection uses zsh; Linux keeps bash with sh fallback. This restores the initial prompt, input echo, line editing and Ctrl+C. Both RPC and live WebSocket paths apply initial dimensions and resize requests. The shell startup helper runs in a separate process to avoid unsafe pre-exec callbacks in the threaded Runtime.
+
+Upgrade the SDK in the Computer's existing Python environment, restart Runtime and open a new Cloud terminal. Existing pairing keys and the Cloud protocol remain unchanged. Windows still uses the existing PowerShell pipe transport. This source fix is not present in the published 0.46.4 wheel.
+
+Validation (2026-09-18): Windows Runtime tests: 32 passed, 6 skipped (including POSIX-only acceptance), 6 shell-selection subtests passed. Isolated Linux Runtime tests: 31 passed, 2 platform skips; all 5 additional real PTY tests passed using bash and zsh, covering initial prompts, TTY descriptors, echo, zsh editing, Ctrl+C recovery, dimensions, foreground-job cleanup, RPC/stream resizing and final streamed output. The wheel contains the updated Runtime and PTY helper. Native macOS execution of this PTY change remains to be verified; Linux zsh testing is not macOS acceptance.
