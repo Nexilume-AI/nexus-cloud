@@ -607,6 +607,7 @@ function TerminalWorkspace({
     terminal.open(terminalRef.current);
     xtermRef.current = terminal;
     fitAddon.fit();
+    terminal.focus();
     terminal.writeln(t("Connecting to Nexus terminal gateway..."));
     const outputNormalizer = new TerminalOutputNormalizer();
 
@@ -792,7 +793,11 @@ function TerminalWorkspace({
         )}
         </div>
       </div>
-      <div ref={terminalRef} className="h-[444px] overflow-hidden xl:h-[604px]" />
+      <div
+        ref={terminalRef}
+        className="h-[444px] overflow-hidden xl:h-[604px]"
+        onClick={() => xtermRef.current?.focus()}
+      />
     </div>
   );
 }
