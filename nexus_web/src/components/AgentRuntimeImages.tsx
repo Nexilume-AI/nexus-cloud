@@ -34,14 +34,14 @@ export function AgentRuntimeImages({ agentId, apiContext, images, currentImageId
     mutationFn: (image: AgentRuntimeImage) => api.deleteAgentRuntimeImage(apiContext, agentId, image.id),
     onSuccess: async () => {
       setSelected(null);
-      setNotice("Image removed from this Agent. Deployment and build history are unchanged.");
+      setNotice(t("Image removed from this Agent. Deployment and build history are unchanged."));
       await Promise.all([onChanged(), queries.invalidateQueries({ queryKey: ["agent-python-builds"] })]);
       window.requestAnimationFrame(() => listRef.current?.focus());
     },
   });
   const choose = useMutation({
     mutationFn: (image: AgentRuntimeImage) => api.setCurrentAgentRuntimeImage(apiContext, agentId, image.id),
-    onSuccess: async () => { setNotice("Default image selected. The running deployment has not changed."); await onChanged(); },
+    onSuccess: async () => { setNotice(t("Default image selected. The running deployment has not changed.")); await onChanged(); },
   });
   const busy = remove.isPending || choose.isPending;
   return <div className="runtime-image-library" ref={listRef} tabIndex={-1} aria-label={t("Runtime image library")}>
@@ -63,7 +63,7 @@ export function AgentRuntimeImages({ agentId, apiContext, images, currentImageId
             {usage?.can_delete && <span>{t("Not deployed")}</span>}
             {!usage && <span>{t("Usage unavailable · Refresh to check")}</span>}
           </div>
-          {usage && !usage.can_delete && <small>{usage.blocking_reasons.map(reason => reasons[reason] || "Image is still referenced").join(" · ")}</small>}
+          {usage && !usage.can_delete && <small>{usage.blocking_reasons.map(reason => reasons[reason] ? t(reasons[reason]) : t("Image is still referenced")).join(" · ")}</small>}
         </div>
         {canManage && <div className="runtime-image-actions">
           <button className="btn" disabled={busy || isDefault || image.status !== "active"}

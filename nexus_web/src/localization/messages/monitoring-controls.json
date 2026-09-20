@@ -33,5 +33,14 @@
   "Checking status does not configure email delivery. Contact your administrator if this continues.": "检查状态不会配置电子邮件传送。如果这种情况持续存在，请联系您的管理员。",
   "Monitoring record updated": "监控记录已更新",
   "Historical route unavailable": "历史路由不可用",
-  "Historical Run unavailable": "历史运行不可用"
+  "Historical Run unavailable": "历史运行不可用",
+  "Data delayed": "数据延迟",
+  "Data up to date": "数据已是最新",
+  "Email notifications limited": "邮件通知受限",
+  "Some data unavailable": "部分数据不可用",
+  "Updated just now": "刚刚更新",
+  "Alert status": "告警状态",
+  "Email notifications": "邮件通知",
+  "Request metrics": "请求指标",
+  "Scheduled reports": "定时报告"
 }

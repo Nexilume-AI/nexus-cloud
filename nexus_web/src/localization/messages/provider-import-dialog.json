@@ -65,5 +65,8 @@
   "Import partially completed": "导入部分完成",
   "Import completed": "导入已完成",
   "Import expired": "导入已过期",
-  "Import discarded": "导入已放弃"
+  "Import discarded": "导入已放弃",
+  "Import request failed. Your existing results remain available.": "导入请求失败。你现有的结果仍然可用。",
+  "the selected Project in this Organization": "此组织中所选的项目",
+  "this Organization (Organization-owned)": "此组织（组织所有）"
 }

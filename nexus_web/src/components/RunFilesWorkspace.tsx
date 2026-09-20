@@ -83,7 +83,7 @@ export function RunFilesWorkspace({ runId, displayToken, messages, computer, sta
     const output = outputs.find(item => row.key === `output:${item.id}`);
     if (!output) return row;
     const revision = output.computer_revision ?? 0;
-    const name = computer.history?.find(item => item.revision === revision)?.computer_name || "Original Computer";
+    const name = computer.history?.find(item => item.revision === revision)?.computer_name || t("Original Computer");
     return { ...row, source: `Source: ${name} · attachment ${revision + 1}` };
   }), [runId, inputs.data, outputs, messages, computer]);
   const turns = [...new Set(rows.flatMap(row => row.turns))].sort((a, b) => b - a);
@@ -180,7 +180,7 @@ export function RunFilesWorkspace({ runId, displayToken, messages, computer, sta
   </section>;
 }
 function formatSize(value: number) { return value < 1024 ? `${value} B` : value < 1024 ** 2 ? `${(value / 1024).toFixed(1)} KiB` : `${(value / 1024 ** 2).toFixed(1)} MiB`; }
-function fileState(state: string) { return ({ pending: "Preparing snapshot", failed: "Snapshot failed", blocked: "Blocked by policy", scanning: "Security scan in progress" } as Record<string, string>)[state] || state; }
+function fileState(state: string) { return ({ pending: t("Preparing snapshot"), failed: t("Snapshot failed"), blocked: t("Blocked by policy"), scanning: t("Security scan in progress") } as Record<string, string>)[state] || state; }
 
 function FilePreview({ file, runId, displayToken, pdfPage, onPdfPage }: { file: RunFile; runId: string; displayToken: string; pdfPage: number; onPdfPage: (page: number) => void }) {
   useLocale();
@@ -189,7 +189,7 @@ function FilePreview({ file, runId, displayToken, pdfPage, onPdfPage }: { file: 
   const [error, setError] = useState(""); const [attempt, setAttempt] = useState(0);
   const kind = filePreviewKind(file);
   const limit = (kind === "text" || kind === "markdown" ? 1 : 20) * 1024 ** 2;
-  const unavailable = file.state !== "ready" ? fileState(file.state) : kind === "unsupported" ? "Preview is not supported for this file type. Download it to open locally." : file.size !== null && file.size > limit ? "This file is too large to preview. Download it instead." : "";
+  const unavailable = file.state !== "ready" ? fileState(file.state) : kind === "unsupported" ? t("Preview is not supported for this file type. Download it to open locally.") : file.size !== null && file.size > limit ? t("This file is too large to preview. Download it instead.") : "";
   useEffect(() => {
     setContent(null); setError(""); if (unavailable || !displayToken) return;
     const controller = new AbortController(); let url = "";
@@ -200,7 +200,7 @@ function FilePreview({ file, runId, displayToken, pdfPage, onPdfPage }: { file: 
         if (controller.signal.aborted) return;
         if (kind === "text" || kind === "markdown") {
           const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-          if (text.includes("\0")) throw new Error("This file is not supported UTF-8 text. Download it instead.");
+          if (text.includes("\0")) throw new Error(t("This file is not supported UTF-8 text. Download it instead."));
           setContent({ text });
         } else {
           let mime = "";
@@ -210,11 +210,11 @@ function FilePreview({ file, runId, displayToken, pdfPage, onPdfPage }: { file: 
             else if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) mime = "image/jpeg";
             else if (new TextDecoder().decode(bytes.slice(0, 4)) === "RIFF" && new TextDecoder().decode(bytes.slice(8, 12)) === "WEBP") mime = "image/webp";
           }
-          if (!mime) throw new Error("File content does not match a supported preview format.");
+          if (!mime) throw new Error(t("File content does not match a supported preview format."));
           if (kind === "pdf") setContent({ data: bytes });
           else { url = URL.createObjectURL(new Blob([bytes], { type: mime })); setContent({ url }); }
         }
-      } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Preview unavailable."); }
+      } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : t("Preview unavailable.")); }
     }
     void load();
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
@@ -222,7 +222,7 @@ function FilePreview({ file, runId, displayToken, pdfPage, onPdfPage }: { file: 
   if (unavailable) return <p className="p-3 text-sm">{unavailable}</p>;
   if (error) return <div role="alert" className="p-3 text-sm"><p>{error}</p><button type="button" className={`${control} mt-2`} onClick={() => setAttempt(value => value + 1)}>{t("Retry preview")}</button></div>;
   if (!content) return <p role="status" className="p-3 text-sm">{t("Loading preview…")}</p>;
-  if (kind === "image") return <img src={content.url} alt={file.name} className="max-h-[65vh] w-full object-contain" onError={() => setError("Image could not be decoded. Download it instead.")} />;
+  if (kind === "image") return <img src={content.url} alt={file.name} className="max-h-[65vh] w-full object-contain" onError={() => setError(t("Image could not be decoded. Download it instead."))} />;
   if (kind === "pdf" && content.data) return <Suspense fallback={<p role="status" className="p-3 text-sm">{t("Loading PDF viewer…")}</p>}><PdfPreview data={content.data} name={file.name} pageNumber={pdfPage} onPageChange={onPdfPage} scrollKey={`preview:${file.key}:${pdfPage}`} /></Suspense>;
   return <div data-context-scroll={`preview:${file.key}`} aria-label={t("File preview content")} className="max-h-[60vh] overflow-auto p-3 [overflow-wrap:anywhere]" style={{ overflowAnchor: "none" }}>{kind === "markdown" ? <ContentMarkdown value={content.text} empty={t("Empty file")} /> : <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5">{content.text || t("Empty file")}</pre>}</div>;
 }

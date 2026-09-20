@@ -42,7 +42,7 @@ export function OperationsOverview({ issues, firingAlerts, failedJobs, failedDel
   const total = firingAlerts + failedJobs + failedDeliveries;
   const notificationOnly = !unavailable && notificationsOnlyDegraded(metrics.monitoring as MonitoringFreshness | undefined);
   const issueEvidenceIncomplete = unavailable || (incomplete && !notificationOnly);
-  const state = loading ? "Checking" : issueEvidenceIncomplete ? "Status incomplete" : total > 0 ? "Needs attention" : notificationOnly ? "Notifications limited" : "All clear";
+  const state = loading ? "Checking" : issueEvidenceIncomplete ? "Status incomplete" : total > 0 ? "Needs attention" : notificationOnly ? t("Notifications limited") : t("All clear");
   const emptyTitle = unavailable ? t("Issue status unavailable") : query || kind ? t("No matching recent issues") : total > 0 ? t("More issues outside this preview") : issueEvidenceIncomplete ? t("No issues in the latest data") : t("No active issues");
   const emptyDescription = unavailable ? t("Retry to establish the current state.") : query || kind ? t("Clear this filter or search the full history in Activity and Automations.") : total > 0 ? t("Open Activity or Automations for the full history.") : issueEvidenceIncomplete ? t("Monitoring updates are delayed or unavailable. An empty result does not confirm that your operations are healthy.") : t("No unresolved issue was found in the current scope.");
   function select(issue: ObservabilityIssue) {
@@ -69,7 +69,7 @@ export function OperationsOverview({ issues, firingAlerts, failedJobs, failedDel
         <div><span>{t("Operations")}</span><strong>{state}</strong></div>
       </div>
       <div className="ops-counts">
-        {[["Firing alerts", firingAlerts], ["Failed jobs", failedJobs], ["Failed deliveries", failedDeliveries]].map(([label, value]) =>
+        {[[t("Firing alerts"), firingAlerts], [t("Failed jobs"), failedJobs], [t("Failed deliveries"), failedDeliveries]].map(([label, value]) =>
           <div key={label}><span>{label}</span><strong>{countKnown ? value : "—"}</strong></div>)}
       </div>
     </section>
@@ -92,7 +92,7 @@ export function OperationsOverview({ issues, firingAlerts, failedJobs, failedDel
             return <button type="button" key={issue.id} className={`ops-issue ${selected?.id === issue.id ? "is-selected" : ""}`}
               aria-pressed={selected?.id === issue.id} onClick={() => select(issue)}>
               <Icon size={18} aria-hidden="true" /><span className="ops-issue-copy"><strong>{issue.title}</strong><small>{issue.detail}</small>
-                <span className="ops-issue-meta">{kindLabels[issue.kind]} · <time dateTime={issue.timestamp}>{formatDate(issue.timestamp)}</time></span></span>
+                <span className="ops-issue-meta">{t(kindLabels[issue.kind])} · <time dateTime={issue.timestamp}>{formatDate(issue.timestamp)}</time></span></span>
               <span className="ops-issue-state"><StatusBadge status={issue.status} /><ArrowRight size={16} aria-hidden="true" /></span>
             </button>;
           }) : <div className="ops-empty"><h3>{emptyTitle}</h3>
@@ -117,15 +117,15 @@ export function OperationsOverview({ issues, firingAlerts, failedJobs, failedDel
 function IssueEvidence({ issue, onReview }: { issue: ObservabilityIssue; onReview: (issue: ObservabilityIssue) => void }) {
   useLocale();
   return <div className="ops-evidence-content">
-    <header><span>{kindLabels[issue.kind]}{" "}{t("evidence")}</span><StatusBadge status={issue.status} /></header>
+    <header><span>{t(kindLabels[issue.kind])}{" "}{t("evidence")}</span><StatusBadge status={issue.status} /></header>
     <h3>{issue.title}</h3><p className="ops-evidence-reason">{issue.detail}</p>
     <dl><div><dt>{t("Recorded")}</dt><dd><time dateTime={issue.timestamp}>{formatDate(issue.timestamp)}</time></dd></div>
       <div><dt>{t("Evidence source")}</dt><dd>{issue.targetMode === "jobs" ? t("Job record") : issue.targetMode === "alerts" ? t("Alert event and rule") : t("Report delivery")}</dd></div></dl>
     <div className="ops-next-action"><h4>{t("Next action")}</h4><p>{issue.targetMode === "jobs" ? t("Review the failure and job events before retrying the operation.") : issue.targetMode === "alerts" ? t("Review the observed value, rule and notification history.") : t("Review the delivery failure and retry availability.")}</p>
-      <button className="btn btn-primary" onClick={() => onReview(issue)}>{actionLabels[issue.targetMode]}<ArrowRight size={16} /></button></div>
+      <button className="btn btn-primary" onClick={() => onReview(issue)}>{t(actionLabels[issue.targetMode])}<ArrowRight size={16} /></button></div>
     <details className="obs-technical-details"><summary>{t("Technical details")}</summary><div>
       <span>{t("Related record ID")}</span><code>{issue.targetId}</code><button className="btn" onClick={async () => {
-        try { await navigator.clipboard.writeText(issue.targetId); toast.success("Record ID copied"); } catch { toast.error("Could not copy. Select the full ID above."); }
+        try { await navigator.clipboard.writeText(issue.targetId); toast.success(t("Record ID copied")); } catch { toast.error(t("Could not copy. Select the full ID above.")); }
       }}><Copy size={15} />{t("Copy record ID")}</button>
     </div></details>
   </div>;

@@ -73,7 +73,7 @@ export function DatasetFileImport({
       await onComplete();
     } catch {
       setError(
-        "Imports finished, but the collection could not refresh. Reload the collection to see saved files.",
+        t("Imports finished, but the collection could not refresh. Reload the collection to see saved files."),
       );
     } finally {
       setBusy(false);

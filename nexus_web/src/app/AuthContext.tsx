@@ -188,7 +188,7 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
     toast.success(t("Signed out"));
   }, [baseCtx, queryClient, status, updateState, userQuery.data?.user_id, getLocale()]);
 
-  const requestLogin = useCallback((reason = "Sign in to access your Nexilume AI workspace.") => {
+  const requestLogin = useCallback((reason = t("Sign in to access your Nexilume AI workspace.")) => {
     if (status === "authenticated") return;
     setLoginReason(reason);
     setLoginOpen(true);

@@ -20,7 +20,7 @@ export default function RunPdfPreview({ data, name, pageNumber = 1, onPageChange
       standardFontDataUrl: `${import.meta.env.BASE_URL}pdfjs/standard_fonts/`,
       useSystemFonts: true, maxImageSize: 16_000_000, canvasMaxAreaInBytes: 16_000_000 });
     task.promise.then(value => { if (active) setDocument(value); }).catch(() => {
-      if (active) setError("This PDF could not be opened. It may be encrypted or damaged. Download it to inspect locally.");
+      if (active) setError(t("This PDF could not be opened. It may be encrypted or damaged. Download it to inspect locally."));
     });
     return () => { active = false; void task.destroy(); };
   }, [data]);
@@ -41,7 +41,7 @@ export default function RunPdfPreview({ data, name, pageNumber = 1, onPageChange
         await task.promise;
         const content = await page.getTextContent();
         if (active) { setText(content.items.map(item => "str" in item ? item.str : "").join(" ").slice(0, 100_000)); setRendering(false); }
-      } catch { if (active) { setRendering(false); setError("This PDF page could not be rendered. Download it to inspect locally."); } }
+      } catch { if (active) { setRendering(false); setError(t("This PDF page could not be rendered. Download it to inspect locally.")); } }
     }
     void render();
     return () => { active = false; task?.cancel(); };

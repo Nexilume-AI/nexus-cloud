@@ -116,11 +116,11 @@ export function InboxPage() {
       if (action === "archive") { await api.archiveInboxItem(ctx, item.id); setInspectorOpen(false); }
       if (action === "open") {
         const target = await api.openInboxItem(ctx, item.id);
-        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error("This destination is unavailable.");
+        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error(t("This destination is unavailable."));
         flushSync(() => auth.setProjectId(target.project_id)); navigate(target.url); return;
       }
       await refresh();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update this item."); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : t("Could not update this item.")); }
     finally { setBusy(""); }
   }
 
@@ -141,8 +141,8 @@ export function InboxPage() {
     </div>
     <div className="work-inbox-filters" aria-label={t("Inbox filters")}>
       <label><span className="sr-only">{t("Search Inbox")}</span><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={t("Search work")} /></label>
-      <select aria-label={t("State")} value={params.get("state") ?? ""} onChange={event => update("state", event.target.value)}>{states.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-      <select aria-label={t("Category")} value={params.get("category") ?? ""} onChange={event => update("category", event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      <select aria-label={t("State")} value={params.get("state") ?? ""} onChange={event => update("state", event.target.value)}>{states.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select>
+      <select aria-label={t("Category")} value={params.get("category") ?? ""} onChange={event => update("category", event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select>
       <select aria-label={t("Project")} value={params.get("project") ?? ""} onChange={event => update("project", event.target.value)}><option value="">{t("All authorized Projects")}</option>{auth.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
       <select aria-label={t("Ownership")} value={params.get("ownership") ?? ""} onChange={event => update("ownership", event.target.value)}><option value="">{t("Personal + role")}</option><option value="personal">{t("Personal")}</option><option value="role">{t("Shared role queue")}</option></select>
     </div>

@@ -34,5 +34,22 @@
   "Selected route": "所选路线",
   "The resolver did not return an error code.": "解析器未返回错误代码。",
   "No Pool selected": "未选择池",
-  "No Source selected": "未选择来源"
+  "No Source selected": "未选择来源",
+  "Add the first route target": "添加第一个路由目标",
+  "Bound Model Pools need attention": "已绑定的模型池需要处理",
+  "Choose a deployed Execution Router output and give it a model name for downstream clients.": "请选择一个已部署的执行路由器输出，并为下游客户端指定模型名称。",
+  "Choose the Pool with the fastest recent Source latency, then let that Pool select its Source.": "选择近期来源延迟最低的池，再由该池选择其来源。",
+  "Choose the Pool with the lowest currently available Source price, then let that Pool select its Source.": "选择当前可用来源价格最低的池，再由该池选择其来源。",
+  "Choose the Pool with the strongest Source availability, then use that Pool's fallback policy.": "选择来源可用性最强的池，再使用该池的兜底策略。",
+  "Choose the first Model Pool that this Router should execute against.": "请选择此路由器应首先执行的模型池。",
+  "Deploy this Router": "部署此路由器",
+  "Deployment activates the Router endpoint and enables routing tests.": "部署会启用路由器端点并开启路由测试。",
+  "Review and apply changes": "查看并应用更改",
+  "Router is not ready to deploy": "路由器尚未准备好部署",
+  "This Router is deployed and ready to receive requests.": "此路由器已部署，可以接收请求。",
+  "Try Model Pools in the order shown. Each Pool uses its own Source fallback before the Router tries the next Pool.": "按所示顺序尝试模型池。每个池先使用自身的来源兜底，然后路由器再尝试下一个池。",
+  "Unknown Pool": "未知池",
+  "Unknown Source": "未知来源",
+  "Use the deployed custom policy to order sanitized Model Pool summaries. The policy can return Pool IDs only.": "使用已部署的自定义策略对脱敏的模型池摘要排序。该策略只能返回池 ID。",
+  "Your edits are local until they are applied together.": "在统一应用之前，你的编辑仅保存在本地。"
 }

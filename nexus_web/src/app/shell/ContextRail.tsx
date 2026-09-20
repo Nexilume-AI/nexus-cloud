@@ -95,7 +95,7 @@ function AccountControl({
 
   if (!auth.isAuthenticated) {
     return (
-      <button className="nexilume-sign-in" onClick={() => auth.requestLogin("Sign in to select a workspace and access private Nexilume AI capability.")} type="button">
+      <button className="nexilume-sign-in" onClick={() => auth.requestLogin(t("Sign in to select a workspace and access private Nexilume AI capability."))} type="button">
         <LogIn size={16} />
         <span>{t("Sign in")}</span>
       </button>

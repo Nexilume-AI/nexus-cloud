@@ -7,9 +7,9 @@ import type { DatasetRecommendedAction, DatasetPublicationPolicy } from "../app/
 export function datasetManagementPresentation(dataset: Dataset | undefined, policy?: DatasetPublicationPolicy) {
   const management = policy?.management;
   return {
-    settingsTitle: management?.settingsTitle ?? "Collection settings",
-    settingsDescription: management?.settingsDescription ?? "Choose a name that helps you find this collection. Technical identifiers remain system managed.",
-    deletionSummary: management?.deletionSummary ?? "Deleting removes this collection and its release records.",
+    settingsTitle: management?.settingsTitle ?? t("Collection settings"),
+    settingsDescription: management?.settingsDescription ?? t("Choose a name that helps you find this collection. Technical identifiers remain system managed."),
+    deletionSummary: management?.deletionSummary ?? t("Deleting removes this collection and its release records."),
     deletionBlockReason: dataset ? management?.deletionBlockReason(dataset) ?? null : null,
   };
 }

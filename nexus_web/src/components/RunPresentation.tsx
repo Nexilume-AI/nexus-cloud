@@ -5,7 +5,7 @@ import type { RunPresentationSummaryProps, RunObservabilityRecord, RunObservabil
 export function useRunObservabilityPresentation(run: RunObservabilityRecord): RunObservabilityPresentation {
   const presentation = useApplicationDistribution().runPresentation;
   if (presentation) {
-    if (typeof presentation.observability !== 'function') throw new Error('Run observability presentation is incomplete.');
+    if (typeof presentation.observability !== 'function') throw new Error("Run observability presentation is incomplete.");
     return presentation.observability(run);
   }
   return { turn: String(run.turn_index || '—'), details: [] };
@@ -35,8 +35,8 @@ const followUpReasons: Record<string, string> = {
 export function useRunFollowUpPresentation() {
   const presentation = useApplicationDistribution().runPresentation;
   return {
-    reason: (code: string) => presentation?.followUpReason(code) ?? followUpReasons[code] ?? '',
+    reason: (code: string) => presentation?.followUpReason(code) ?? followUpReasons[code] ? t(followUpReasons[code]) : '',
     queuedTurnDescription: presentation?.queuedTurnDescription
-      ?? (() => 'Starts only after this turn succeeds; access and device readiness are checked again.'),
+      ?? (() => t("Starts only after this turn succeeds; access and device readiness are checked again.")),
   };
 }

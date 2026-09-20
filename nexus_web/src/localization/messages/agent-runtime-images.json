@@ -12,5 +12,18 @@
   "Build, deployment and audit history are retained. Registry images, stored archives and host Docker caches are not erased.": "构建、部署和审计历史记录将保留。镜像仓库中的镜像、已存储的归档文件及宿主机上的 Docker 缓存不会被删除。",
   "The default selection will move to the existing production deployment, or be cleared if none exists. No new deployment will start.": "默认选择将移至现有生产部署，或者如果不存在则清除。不会开始新的部署。",
   "Unversioned": "无版本",
-  "Delete image {{0}}": "删除镜像 {{0}}"
+  "Delete image {{0}}": "删除镜像 {{0}}",
+  "Default image selected. The running deployment has not changed.": "已选择默认镜像。正在运行的部署未改变。",
+  "Image is still referenced": "镜像仍被引用",
+  "Image removed from this Agent. Deployment and build history are unchanged.": "已从此智能体移除镜像。部署与构建历史保持不变。",
+  "Deployment in progress": "部署进行中",
+  "Deployment is queued": "部署已排队",
+  "Image removed": "镜像已移除",
+  "Required by an unfinished Run": "被未完成的运行所引用",
+  "Required for runtime recovery. Stop the runtime first.": "运行时恢复所需。请先停止该运行时。",
+  "Retained for deployment rollback": "为部署回滚保留",
+  "Runtime operation in progress": "运行时操作进行中",
+  "Used by a deployment": "被某个部署使用",
+  "Waiting for the previous container to retire": "等待上一个容器退出",
+  "A container still references this image. Stop the runtime first.": "有容器仍引用此镜像。请先停止该运行时。"
 }

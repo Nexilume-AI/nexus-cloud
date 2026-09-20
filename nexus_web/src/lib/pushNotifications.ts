@@ -1,4 +1,4 @@
-import { getLocale } from "../localization";
+import { getLocale, t } from "../localization";
 import { api, type ApiContext } from "./api";
 
 const deviceKey = (userId: string) => `nexus.inbox.push-device.${userId}`;
@@ -10,21 +10,21 @@ function decodeVapid(value: string) {
 }
 
 export async function ensureInboxServiceWorker() {
-  if (!("serviceWorker" in navigator)) throw new Error("Desktop notifications are not supported by this browser.");
+  if (!("serviceWorker" in navigator)) throw new Error(t("Desktop notifications are not supported by this browser."));
   return navigator.serviceWorker.register("/nexus-service-worker.js", { scope: "/" });
 }
 
 export async function enableDesktopNotifications(ctx: ApiContext, userId: string, vapidPublicKey: string) {
-  if (!("Notification" in window) || !("PushManager" in window)) throw new Error("Desktop notifications are not supported by this browser.");
+  if (!("Notification" in window) || !("PushManager" in window)) throw new Error(t("Desktop notifications are not supported by this browser."));
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw new Error("Browser notification permission was not granted. You can restore it in site settings.");
+  if (permission !== "granted") throw new Error(t("Browser notification permission was not granted. You can restore it in site settings."));
   const registration = await ensureInboxServiceWorker();
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapid(vapidPublicKey) });
   }
   const json = subscription.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("The browser returned an incomplete push subscription.");
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error(t("The browser returned an incomplete push subscription."));
   const device = await api.subscribePush(ctx, {
     endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
     device_name: `${navigator.platform || "Browser"} · ${new Date().toLocaleDateString(getLocale())}`

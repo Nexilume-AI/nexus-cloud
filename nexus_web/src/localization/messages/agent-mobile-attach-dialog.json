@@ -15,5 +15,7 @@
   "Mobile attached for future Runs": "连接移动设备用于将来的运行记录",
   "Unable to attach Mobile": "无法连接移动设备",
   "{{0}} can operate only the phone you explicitly authorize for this Agent.": "{{0}} 只能操作您为此智能体明确授权的手机。",
-  "The selected phone": "所选手机"
+  "The selected phone": "所选手机",
+  "Select a paired Mobile device.": "请选择一台已配对的移动设备。",
+  "Wait for the latest Mobile policy before attaching.": "请等待最新的移动设备策略加载后再挂载。"
 }

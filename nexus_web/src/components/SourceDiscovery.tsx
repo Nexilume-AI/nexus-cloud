@@ -5,7 +5,7 @@ import { useApplicationDistribution } from '../app/distribution';
 export function useSourceDiscovery() {
   return useApplicationDistribution().sourceDiscovery ?? {
     emptyDescription: t("Create Sources from your Provider models. Compatible Sources will form a Pool boundary."),
-    sourceDescription: 'Created from your Providers.',
+    sourceDescription: t("Created from your Providers."),
   };
 }
 

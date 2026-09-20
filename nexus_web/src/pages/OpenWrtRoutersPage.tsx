@@ -1,4 +1,4 @@
-import { t, useLocale } from "../localization";
+import { t, tToken, useLocale } from "../localization";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -251,7 +251,7 @@ export function OpenWrtRoutersPage() {
           if (!selected) return;
           await api.updateEdgeNode(apiContext, selected.id, body);
           setEditOpen(false);
-          toast.success("Router updated");
+          toast.success(t("Router updated"));
           await refreshRouters();
         }}
       />
@@ -265,7 +265,7 @@ export function OpenWrtRoutersPage() {
           await api.revokeEdgeNode(apiContext, selected.id, scope);
           setRevokeOpen(false);
           setMobileDetailOpen(false);
-          toast.success("Router revoked and device credentials invalidated");
+          toast.success(t("Router revoked and device credentials invalidated"));
           await refreshRouters();
         }}
       />
@@ -607,7 +607,7 @@ function projectName(projectId: string | null, projects: Array<{ id: string; nam
 }
 
 function humanize(value: string) {
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return tToken(value);
 }
 
 function formatRelayEndpoint(endpoint: EdgeRelayEndpoint) {
@@ -615,10 +615,10 @@ function formatRelayEndpoint(endpoint: EdgeRelayEndpoint) {
 }
 
 function relayStatusCopy(status: EdgeRelayServiceStatus) {
-  if (status.reason === "ready") return "Healthy listeners are advertised to OpenWrt Routers and available for new Relay assignments.";
-  if (status.reason === "operator_disabled") return "The Relay process is healthy and standing by. A super administrator can advertise it with one click.";
-  if (status.reason === "relay_process_unavailable") return "One or both Relay listeners are offline. Enabling remains locked until the process is healthy.";
-  return "Relay trust or endpoint configuration is incomplete. Check the Nexus Cloud startup logs.";
+  if (status.reason === "ready") return t("Healthy listeners are advertised to OpenWrt Routers and available for new Relay assignments.");
+  if (status.reason === "operator_disabled") return t("The Relay process is healthy and standing by. A super administrator can advertise it with one click.");
+  if (status.reason === "relay_process_unavailable") return t("One or both Relay listeners are offline. Enabling remains locked until the process is healthy.");
+  return t("Relay trust or endpoint configuration is incomplete. Check the Nexus Cloud startup logs.");
 }
 
 function errorMessage(error: unknown) {

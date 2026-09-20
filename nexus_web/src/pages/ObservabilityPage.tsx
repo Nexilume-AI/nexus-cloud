@@ -1,4 +1,4 @@
-import { t, useLocale } from "../localization";
+import { t, tToken, useLocale } from "../localization";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -339,7 +339,7 @@ export function ObservabilityPage() {
       await queryClient.invalidateQueries({ queryKey: ["alerts"] });
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to create alert")),
+      toast.error(errorMessage(error, t("Failed to create alert"))),
   });
   const deleteAlert = useMutation({
     mutationFn: (id: string) => api.deleteAlert(apiContext, id),
@@ -352,7 +352,7 @@ export function ObservabilityPage() {
       ]);
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to delete alert")),
+      toast.error(errorMessage(error, t("Failed to delete alert"))),
   });
   const testAlert = useMutation({
     mutationFn: (id: string) => api.testAlert(apiContext, id),
@@ -361,7 +361,7 @@ export function ObservabilityPage() {
       await queryClient.invalidateQueries({ queryKey: ["alert-events"] });
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to test alert")),
+      toast.error(errorMessage(error, t("Failed to test alert"))),
   });
   const createSchedule = useMutation({
     mutationFn: () => api.createReportSchedule(apiContext, reportForm),
@@ -371,7 +371,7 @@ export function ObservabilityPage() {
       await queryClient.invalidateQueries({ queryKey: ["report-schedules"] });
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to create schedule")),
+      toast.error(errorMessage(error, t("Failed to create schedule"))),
   });
   const deleteSchedule = useMutation({
     mutationFn: (id: string) => api.deleteReportSchedule(apiContext, id),
@@ -384,7 +384,7 @@ export function ObservabilityPage() {
       ]);
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to delete schedule")),
+      toast.error(errorMessage(error, t("Failed to delete schedule"))),
   });
   const sendNow = useMutation({
     mutationFn: (id: string) => api.sendReportNow(apiContext, id),
@@ -396,7 +396,7 @@ export function ObservabilityPage() {
       ]);
     },
     onError: (error) =>
-      toast.error(errorMessage(error, "Failed to send report")),
+      toast.error(errorMessage(error, t("Failed to send report"))),
   });
 
   const issues = useMemo(
@@ -1715,7 +1715,7 @@ function AlertForm({
           >
             {Object.entries(operatorLabels).map(([value, label]) => (
               <option key={value} value={value}>
-                {label}
+                {t(label)}
               </option>
             ))}
           </select>
@@ -2362,7 +2362,7 @@ function countFailedDeliveries(
   );
 }
 function formatDuration(start: string | null, end: string | null) {
-  if (!start) return "Not started";
+  if (!start) return t("Not started");
   const ms = Math.max(
     0,
     (end ? Date.parse(end) : Date.now()) - Date.parse(start),
@@ -2372,13 +2372,13 @@ function formatDuration(start: string | null, end: string | null) {
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
 }
 function metricLabel(metric: string) {
-  return metricLabels[metric] || humanize(metric.split(".").at(-1) || metric);
+  return metricLabels[metric] ? t(metricLabels[metric]) : humanize(metric.split(".").at(-1) || metric);
 }
 function resourceLabel(resource: string) {
-  return resourceLabels[resource] || humanize(resource || "unknown resource");
+  return resourceLabels[resource] ? t(resourceLabels[resource]) : humanize(resource || "unknown resource");
 }
 function conditionLabel(operator: string) {
-  return operatorLabels[operator] || operator;
+  return operatorLabels[operator] ? t(operatorLabels[operator]) : operator;
 }
 function alertSentence(rule: AlertRule) {
   return `Notify when ${metricLabel(rule.metric)} ${conditionLabel(rule.operator)} ${formatThreshold(rule.metric, rule.threshold)}.`;
@@ -2389,9 +2389,7 @@ function formatThreshold(metric: string, threshold: string) {
     : threshold;
 }
 function humanize(value: string) {
-  return (value || "Unknown")
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return tToken(value || "Unknown");
 }
 function auditResult(log: AuditLog) {
   return String(log.metadata?.result || log.metadata?.status || "recorded");

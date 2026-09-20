@@ -313,12 +313,12 @@ function StatusDot({ status }: { status: string }) {
 
 function inspectRouter(router: TopologyRouter): Inspectable {
   return router.router_type === "aggregation"
-    ? { id: router.id, type: "router", name: router.name, status: router.status, eyebrow: t("Aggregation Router"), fields: [["API models", router.api_models.length], ["Execution Routers", router.execution_router_count], ["Requests", router.request_count], ["Avg latency", `${router.average_latency_ms} ms`], ["Cost", router.total_cost], ["Version", router.current_version || "Built-in"]] }
-    : { id: router.id, type: "router", name: router.name, status: router.status, eyebrow: t("Execution Router"), fields: [["Strategy", router.strategy], ["Pools", router.pool_count], ["Requests", router.request_count], ["Avg latency", `${router.average_latency_ms} ms`], ["Cost", router.total_cost], ["Version", router.current_version || "Built-in"]] };
+    ? { id: router.id, type: "router", name: router.name, status: router.status, eyebrow: t("Aggregation Router"), fields: [[t("API models"), router.api_models.length], [t("Execution Routers"), router.execution_router_count], ["Requests", router.request_count], [t("Avg latency"), `${router.average_latency_ms} ms`], ["Cost", router.total_cost], ["Version", router.current_version || "Built-in"]] }
+    : { id: router.id, type: "router", name: router.name, status: router.status, eyebrow: t("Execution Router"), fields: [["Strategy", router.strategy], ["Pools", router.pool_count], ["Requests", router.request_count], [t("Avg latency"), `${router.average_latency_ms} ms`], ["Cost", router.total_cost], ["Version", router.current_version || "Built-in"]] };
 }
 
 function inspectApiModel(model: TopologyRouter["api_models"][number]): Inspectable {
-  return { id: model.binding_id, type: "api_model", name: model.model_name, status: model.available ? "healthy" : "unavailable", eyebrow: t("API Model"), fields: [["Execution Router", model.execution_router_name], ["Execution model", model.execution_model_name], ["Mapping", "1:1"], ["Availability", model.available ? "Available" : "Unavailable"], ["Reason", model.message]] };
+  return { id: model.binding_id, type: "api_model", name: model.model_name, status: model.available ? "healthy" : "unavailable", eyebrow: t("API Model"), fields: [["Execution Router", model.execution_router_name], [t("Execution model"), model.execution_model_name], ["Mapping", "1:1"], ["Availability", model.available ? "Available" : "Unavailable"], ["Reason", model.message]] };
 }
 
 function inspectRestrictedExecution(model: TopologyRouter["api_models"][number] | null): Inspectable {
@@ -326,11 +326,11 @@ function inspectRestrictedExecution(model: TopologyRouter["api_models"][number] 
 }
 
 function inspectPool(pool: TopologyPool): Inspectable {
-  return { id: pool.id, type: "pool", name: pool.display_name, status: pool.health_status, eyebrow: t("Model Pool"), fields: [["Model", pool.name], ["Source strategy", pool.routing_strategy], ["Sources", pool.source_count], ["Enabled", pool.enabled_source_count], ["Lowest price", pool.lowest_price_per_1k_tokens], ["Lowest latency", pool.lowest_latency_ms ? `${pool.lowest_latency_ms} ms` : "–"]] };
+  return { id: pool.id, type: "pool", name: pool.display_name, status: pool.health_status, eyebrow: t("Model Pool"), fields: [["Model", pool.name], [t("Source strategy"), pool.routing_strategy], ["Sources", pool.source_count], ["Enabled", pool.enabled_source_count], [t("Lowest price"), pool.lowest_price_per_1k_tokens], ["Lowest latency", pool.lowest_latency_ms ? `${pool.lowest_latency_ms} ms` : "–"]] };
 }
 
 function inspectSource(source: TopologySource): Inspectable {
-  return { id: source.id, type: "source", name: source.name, status: source.health_status, eyebrow: t("Source"), fields: [["Provider", source.provider], ["Canonical model", source.canonical_model_key], ["Upstream model", source.upstream_model_id], ["Origin", source.source_type], ["Publisher", source.publisher], ["Price / 1K", source.price_per_1k_tokens], ["Latency", `${source.latency_ms || 0} ms`]] };
+  return { id: source.id, type: "source", name: source.name, status: source.health_status, eyebrow: t("Source"), fields: [["Provider", source.provider], [t("Canonical model"), source.canonical_model_key], [t("Upstream model"), source.upstream_model_id], ["Origin", source.source_type], ["Publisher", source.publisher], ["Price / 1K", source.price_per_1k_tokens], ["Latency", `${source.latency_ms || 0} ms`]] };
 }
 
 export function inspectOffer(offer: TopologyModelOffer, runtimeName: string, publication?: TopologyPublicationPolicy): Inspectable {
@@ -342,9 +342,9 @@ export function inspectOffer(offer: TopologyModelOffer, runtimeName: string, pub
     eyebrow: t("Model Offer"),
     fields: [
       ["Runtime", runtimeName],
-      ["Canonical model", offer.canonical_model_key],
-      ["Upstream model", offer.upstream_model_id],
-      ["Offer status", offer.status],
+      [t("Canonical model"), offer.canonical_model_key],
+      [t("Upstream model"), offer.upstream_model_id],
+      [t("Offer status"), offer.status],
       ["Sources", offer.source_ids.length],
       ...(publication?.offerFields(offer) ?? []),
     ],
@@ -352,7 +352,7 @@ export function inspectOffer(offer: TopologyModelOffer, runtimeName: string, pub
 }
 
 export function inspectRuntime(runtime: TopologyRuntime, publication?: TopologyPublicationPolicy): Inspectable {
-  return { id: runtime.id, type: "runtime", name: runtime.name, status: runtime.status, eyebrow: t("Provider Runtime"), fields: [["Runtime", runtime.runtime_type], ["Model offers", runtime.model_offers.length], ["Publisher", runtime.publisher], ["Ownership", runtime.ownership], ...(publication?.runtimeFields(runtime) ?? [])] };
+  return { id: runtime.id, type: "runtime", name: runtime.name, status: runtime.status, eyebrow: t("Provider Runtime"), fields: [["Runtime", runtime.runtime_type], [t("Model offers"), runtime.model_offers.length], ["Publisher", runtime.publisher], ["Ownership", runtime.ownership], ...(publication?.runtimeFields(runtime) ?? [])] };
 }
 
 function poolY(index: number, count: number) { return 80 + ((index + 0.5) * 340) / Math.max(count, 1); }

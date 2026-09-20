@@ -13,5 +13,9 @@
   "Waiting for an import Worker.": "正在等待导入 Worker。",
   "MiB": "MiB",
   "{{0}} import progress": "{{0}} 导入进度",
-  "Import could not finish.": "导入无法完成。"
+  "Import could not finish.": "导入无法完成。",
+  "Import failed. Check storage and Worker health, then retry. No file was committed by this attempt.": "导入失败。请检查存储与工作进程健康状态后重试。本次尝试未提交任何文件。",
+  "Access changed or the source is no longer available.": "访问权限已变更，或来源已不可用。",
+  "The source did not pass import checks. Complete the run and review scan, consent, license and quota before retrying.": "来源未通过导入检查。请先完成运行，并检查扫描、授权、许可与配额后再重试。",
+  "Worker recovery reached its retry limit. Review the source and start a new import.": "工作进程恢复已达重试上限。请检查来源并开始新的导入。"
 }

@@ -87,5 +87,10 @@
   "· {{0}}% target traffic": "·{{0}}% 目标流量",
   "Not measured": "未测量",
   "{{0}} connected Pools": "{{0}} 连接池",
-  "Production impact": "生产影响"
+  "Production impact": "生产影响",
+  "Distribute first-choice traffic proportionally across positive Source weights.": "按正数来源权重比例分配首选流量。",
+  "Prefer the lowest current per-token price among callable Sources.": "在可调用的来源中优先选择当前每 token 价格最低的。",
+  "Prefer the lowest latest measured latency among callable Sources.": "在可调用的来源中优先选择最近实测延迟最低的。",
+  "Prefer the strongest current health state, then Source priority.": "优先选择当前健康状态最强的来源，其次按来源优先级。",
+  "Try enabled Sources in an explicit, unique fallback order.": "按明确且唯一的兜底顺序尝试已启用的来源。"
 }

@@ -45,12 +45,12 @@ export function MonitoringStatus({ metrics, loading = false, failed = false, onR
   const stamp = health?.last_updated_at;
   const timestamp = stamp ? Date.parse(stamp) : NaN;
   const age = Number.isFinite(timestamp) ? Math.max(0, Math.floor((now - timestamp) / 1000)) : null;
-  const updated = age === null ? "Data up to date" : age < 60 ? "Updated just now" : age < 3600 ? `Updated ${Math.floor(age / 60)} min ago` : age < 86400 ? `Updated ${Math.floor(age / 3600)} hr ago` : `Updated ${Math.floor(age / 86400)} days ago`;
+  const updated = age === null ? t("Data up to date") : age < 60 ? t("Updated just now") : age < 3600 ? `Updated ${Math.floor(age / 60)} min ago` : age < 86400 ? `Updated ${Math.floor(age / 3600)} hr ago` : `Updated ${Math.floor(age / 86400)} days ago`;
   const affected = [...new Set((health?.affected_areas ?? []).filter((area) => area in areaLabels))];
   if (loading) return <span className="data-freshness is-checking" role="status"><Clock3 size={15} aria-hidden="true" />{t("Checking data…")}</span>;
   if (state === "healthy") return <span className="data-freshness is-current" role="status"><Check size={15} aria-hidden="true" />
     {age === null ? updated : <time dateTime={stamp!} title={formatDate(stamp!)}>{updated}</time>}</span>;
-  const label = notificationOnly ? "Email notifications limited" : state === "stale" ? "Data delayed" : "Some data unavailable";
+  const label = notificationOnly ? t("Email notifications limited") : state === "stale" ? t("Data delayed") : t("Some data unavailable");
   return <details className={`data-freshness is-notice is-${state}`} key={state} onKeyDown={(event) => {
     if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
   }}>
@@ -58,7 +58,7 @@ export function MonitoringStatus({ metrics, loading = false, failed = false, onR
     <div className="data-freshness-panel">
       <strong>{notificationOnly ? t("Email delivery needs attention") : state === "stale" ? t("Updates are taking longer than usual") : t("We can’t verify all monitoring data")}</strong>
       <p>{notificationOnly ? t("Issue records remain available, but email notifications may not be delivered.") : state === "stale" ? t("Some values may not reflect recent activity.") : t("Available records remain visible. Missing data does not mean your operations are healthy.")}</p>
-      {affected.length > 0 && <div className="data-freshness-affected"><span>{t("Affected")}</span><ul>{affected.map((area) => <li key={area}>{areaLabels[area]}</li>)}</ul></div>}
+      {affected.length > 0 && <div className="data-freshness-affected"><span>{t("Affected")}</span><ul>{affected.map((area) => <li key={area}>{t(areaLabels[area])}</li>)}</ul></div>}
       {age !== null && <p className="data-freshness-time">{t("Last complete update")}{" "}<time dateTime={stamp!}>{formatDate(stamp!)}</time></p>}
       <button className="btn" onClick={onRetry}>{notificationOnly ? t("Check status") : t("Retry updates")}</button>
       <small>{notificationOnly ? t("Checking status does not configure email delivery. Contact your administrator if this continues.") : t("If this continues, contact support.")}</small>

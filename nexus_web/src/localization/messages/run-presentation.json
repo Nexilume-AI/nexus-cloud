@@ -1,3 +1,10 @@
 {
-  "Trace, Outputs and security audit records remain available under their retention policies.": "调用链，输出和安全审计记录在其保留策略下仍然可用。"
+  "Trace, Outputs and security audit records remain available under their retention policies.": "调用链，输出和安全审计记录在其保留策略下仍然可用。",
+  "Starts only after this turn succeeds; access and device readiness are checked again.": "仅在本轮成功后才开始；届时会重新检查访问权限与设备就绪状态。",
+  "An attachment is no longer available. Reattach it and send a new message.": "附件已不可用。请重新附加后再发送新消息。",
+  "An earlier queued message could not start. Review the queue before sending again.": "之前排队的消息未能启动。发送新消息前请先检查队列。",
+  "The Agent or Computer changed. Review the context before sending again.": "智能体或电脑已变更。再次发送前请先检查上下文。",
+  "The previous turn did not succeed. Review its result before sending again.": "上一轮未成功。再次发送前请先查看其结果。",
+  "This Agent does not currently accept follow-up messages.": "此智能体当前不接受后续消息。",
+  "Access or device readiness could not be confirmed. Restore access and send again.": "无法确认访问权限或设备就绪状态。请恢复访问后再发送。"
 }

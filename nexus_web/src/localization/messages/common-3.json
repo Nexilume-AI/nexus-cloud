@@ -178,5 +178,17 @@
   "removed": "已移除",
   "revoked": "已撤销",
   "exhausted": "已耗尽",
-  "busy": "忙碌"
+  "busy": "忙碌",
+  "Request failed": "请求失败",
+  "Untrusted file reference.": "不受信任的文件引用。",
+  "Preview unavailable.": "预览不可用。",
+  "This file is too large to preview. Download it instead.": "此文件过大，无法预览。请改为下载。",
+  "Inbox live updates are unavailable.": "收件箱实时更新不可用。",
+  "Only model status, capabilities and canonical mapping may be configured here.": "此处仅可配置模型状态、能力与规范映射。",
+  "Unsupported Source origin.": "不支持的来源源点。",
+  "The Nexus server is not upgraded for Run-only Private Display.": "Nexus 服务器尚未升级以支持仅运行级私有展示。",
+  "Nexus could not resume the selected Run.": "Nexus 无法恢复所选运行。",
+  "Delivery lookup is unavailable.": "投递查询不可用。",
+  "Python build service is unavailable.": "Python 构建服务不可用。",
+  "Invalid image preview address.": "图片预览地址无效。"
 }

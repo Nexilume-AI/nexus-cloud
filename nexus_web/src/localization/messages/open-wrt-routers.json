@@ -109,5 +109,11 @@
   "This immediately invalidates {{0}}'s device credential, withdraws its Agent registrations, and marks bound Runtime deployments failed.": "这会立即使 {{0}} 的设备凭证失效，撤回其智能体注册，并标记绑定的运行时部署失败。",
   "Router {{0}}": "路由器 {{0}}",
   "The request could not be completed.": "请求无法完成。",
-  "Copy failed": "复制失败"
+  "Copy failed": "复制失败",
+  "Healthy listeners are advertised to OpenWrt Routers and available for new Relay assignments.": "健康的监听器已向 OpenWrt 路由器通告，可用于新的中继分配。",
+  "One or both Relay listeners are offline. Enabling remains locked until the process is healthy.": "一个或两个中继监听器离线。进程恢复健康前，启用操作保持锁定。",
+  "Relay trust or endpoint configuration is incomplete. Check the Nexus Cloud startup logs.": "中继信任或端点配置不完整。请检查 Nexus Cloud 启动日志。",
+  "Router revoked and device credentials invalidated": "路由器已吊销，设备凭证已失效",
+  "Router updated": "路由器已更新",
+  "The Relay process is healthy and standing by. A super administrator can advertise it with one click.": "中继进程健康且待命。超级管理员可一键通告。"
 }

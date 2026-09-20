@@ -121,7 +121,7 @@ export function AgentChatMessageContent({
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{block.name}</div>
                 <div className="mt-0.5 text-xs opacity-55">
-                  {[block.content_type, block.size_bytes != null ? formatAttachmentSize(block.size_bytes) : "", block.status === "attached" ? "Attached to this turn" : block.status].filter(Boolean).join(" · ") || t("Agent output")}
+                  {[block.content_type, block.size_bytes != null ? formatAttachmentSize(block.size_bytes) : "", block.status === "attached" ? t("Attached to this turn") : block.status].filter(Boolean).join(" · ") || t("Agent output")}
                 </div>
               </div>
               {onDownloadFile ? (

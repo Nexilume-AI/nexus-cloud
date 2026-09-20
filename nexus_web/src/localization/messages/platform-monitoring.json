@@ -19,5 +19,9 @@
   "Browser refresh is not evidence of successful collection. Worker and Beat process health is not inferred from these task heartbeats.": "浏览器刷新并不是收集成功的证据。 Worker 和 Beat 进程的运行状况不是从这些任务心跳中推断出来的。",
   "Never completed": "从未完成",
   "Test transport only. External alert email is not sent.": "仅测试传输。不发送外部警报电子邮件。",
-  "Transport acceptance does not confirm delivery to a recipient.": "运输验收并不确认已交付给收件人。"
+  "Transport acceptance does not confirm delivery to a recipient.": "运输验收并不确认已交付给收件人。",
+  "Alert evaluation": "告警评估",
+  "Metric collection": "指标采集",
+  "Notification delivery": "通知投递",
+  "Report scheduling": "报告排期"
 }

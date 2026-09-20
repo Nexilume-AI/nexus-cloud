@@ -178,5 +178,6 @@
   "Build and publish agents": "构建和发布智能体",
   "Create governed agents, data assets, and model capability": "创建可管理的智能体、数据资产和模型能力",
   "Credentials and runtimes": "凭据与运行时",
-  "Published model capacity": "已发布的模型能力"
+  "Published model capacity": "已发布的模型能力",
+  "Sign in to access your Nexilume AI workspace.": "登录后即可访问你的 Nexilume AI 工作区。"
 }

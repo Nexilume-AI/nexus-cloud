@@ -204,7 +204,7 @@ export function MobileDevicesPage() {
       })
       .catch((error) => {
         if (!canceled) {
-          setScreenshotError(error instanceof Error ? error.message : "The latest screenshot could not be loaded.");
+          setScreenshotError(error instanceof Error ? error.message : t("The latest screenshot could not be loaded."));
         }
       })
       .finally(() => {
@@ -279,7 +279,7 @@ export function MobileDevicesPage() {
 
   const createCommand = useMutation({
     mutationFn: () => {
-      if (!selectedDevice) throw new Error("Select a mobile device first.");
+      if (!selectedDevice) throw new Error(t("Select a mobile device first."));
       return api.createMobileCommand(apiContext, selectedDevice.id, buildCommandBody(commandForm));
     },
     onSuccess: async (command) => {
@@ -912,7 +912,7 @@ export function MobileDevicesPage() {
                           {exportMcp.isPending ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}{t("Prepare MCP configuration")}</button>
                       </div>
                       <pre className="max-h-80 min-h-40 overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-5 text-slate-100">
-                        {mcpExport || "Prepare the MCP configuration to connect this device to a trusted agent."}
+                        {mcpExport || t("Prepare the MCP configuration to connect this device to a trusted agent.")}
                       </pre>
                     </div>
                   </details>
@@ -1580,12 +1580,12 @@ function lifecycleLabel(value: string) {
 function lifecycleDetail(device: MobileDevice) {
   if (device.lifecycle_detail) return device.lifecycle_detail;
   const lifecycle = deviceLifecycle(device);
-  if (lifecycle === "awaiting_pairing") return "Scan the pairing QR on the Android device.";
-  if (lifecycle === "setup_required") return "Enable Nexus Mobile Accessibility control to finish setup.";
-  if (lifecycle === "online") return "The device is connected and ready for actions.";
-  if (lifecycle === "offline") return "Open Nexus Mobile and check its connection.";
-  if (lifecycle === "token_expired") return "Generate a new pairing QR to continue.";
-  return "Enable this device before using it.";
+  if (lifecycle === "awaiting_pairing") return t("Scan the pairing QR on the Android device.");
+  if (lifecycle === "setup_required") return t("Enable Nexus Mobile Accessibility control to finish setup.");
+  if (lifecycle === "online") return t("The device is connected and ready for actions.");
+  if (lifecycle === "offline") return t("Open Nexus Mobile and check its connection.");
+  if (lifecycle === "token_expired") return t("Generate a new pairing QR to continue.");
+  return t("Enable this device before using it.");
 }
 
 function recommendedActionLabel(device: MobileDevice) {
@@ -1606,15 +1606,15 @@ function approvalModeLabel(value: string) {
 }
 
 function approvalModeDetail(value: string) {
-  if (value === "manual") return "Every action waits for approval.";
-  if (value === "auto") return "Trusted test device; no manual checkpoint.";
-  return "High-risk actions wait for approval.";
+  if (value === "manual") return t("Every action waits for approval.");
+  if (value === "auto") return t("Trusted test device; no manual checkpoint.");
+  return t("High-risk actions wait for approval.");
 }
 
 function approvalPreview(mode: string, risk: "low" | "medium" | "high") {
-  if (mode === "manual") return "Administrator approval required";
-  if (mode === "auto") return "Runs automatically under device policy";
-  return risk === "high" ? "Administrator approval required" : "Runs after submission";
+  if (mode === "manual") return t("Administrator approval required");
+  if (mode === "auto") return t("Runs automatically under device policy");
+  return risk === "high" ? t("Administrator approval required") : t("Runs after submission");
 }
 
 function inferActionRisk(form: CommandForm): "low" | "medium" | "high" {
@@ -1665,7 +1665,7 @@ function actionLabel(action: string) {
     observe: "Refresh screen",
     capture_screen: "Capture screen",
     tap_text: "Tap visible text",
-    tap_coordinates: "Tap coordinates",
+    tap_coordinates: t("Tap coordinates"),
     type_text: "Type text",
     swipe: "Swipe",
     press_back: "Go back",
@@ -1684,7 +1684,7 @@ function commandIcon(action: CommandAction) {
 
 function commandStatusLabel(status: string) {
   return {
-    pending_approval: "Needs approval",
+    pending_approval: t("Needs approval"),
     queued: "Queued",
     running: "Running",
     succeeded: "Completed",
@@ -1702,7 +1702,7 @@ function commandMatchesFilter(command: MobileCommand, filter: ActivityFilter) {
 }
 
 function activityFilterLabel(filter: ActivityFilter) {
-  return { all: "All", attention: "Needs attention", running: "In progress", completed: "Completed" }[filter];
+  return { all: "All", attention: "Needs attention", running: t("In progress"), completed: "Completed" }[filter];
 }
 
 function friendlyArguments(command: MobileCommand) {
@@ -1714,7 +1714,7 @@ function friendlyArguments(command: MobileCommand) {
   if (command.action === "tap_coordinates") return `Tap at ${args.x}, ${args.y}`;
   if (command.action === "swipe") return `Swipe from ${args.start_x}, ${args.start_y} to ${args.end_x}, ${args.end_y}`;
   if (command.action === "capture_screen") return "Capture the current screen once";
-  return "No additional input";
+  return t("No additional input");
 }
 
 function friendlyAppName(packageName: string) {

@@ -62,5 +62,12 @@
   "Previous inputs": "上一页输入文件",
   "Previous outputs": "上一页输出文件",
   "Next inputs": "下一页输入文件",
-  "Next outputs": "下一页输出文件"
+  "Next outputs": "下一页输出文件",
+  "Access unavailable": "访问不可用",
+  "Agent data unavailable": "智能体数据不可用",
+  "Checking private Runs": "正在检查私有运行",
+  "Checking workspace": "正在检查工作区",
+  "First launch": "首次启动",
+  "Ready for a Run": "可以开始运行",
+  "Run data unavailable": "运行数据不可用"
 }

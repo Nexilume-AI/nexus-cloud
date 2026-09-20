@@ -2,5 +2,7 @@
   "Rendering PDF…": "渲染 PDF...",
   "Page text": "页面文本",
   "PDF preview: {{0}}, page {{1}}": "PDF 预览：{{0}}，页面 {{1}}",
-  "No selectable text on this page.": "此页面上没有可选择的文本。"
+  "No selectable text on this page.": "此页面上没有可选择的文本。",
+  "This PDF could not be opened. It may be encrypted or damaged. Download it to inspect locally.": "无法打开此 PDF。它可能已加密或损坏。请下载后在本地查看。",
+  "This PDF page could not be rendered. Download it to inspect locally.": "无法渲染此 PDF 页面。请下载后在本地查看。"
 }

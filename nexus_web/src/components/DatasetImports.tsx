@@ -66,7 +66,7 @@ export function DatasetImports({ ctx, datasetId }: { ctx: ApiContext; datasetId:
         {job.state === "queued" && <p className="text-sm">{t("Waiting for an import Worker.")}</p>}
         {job.state === "running" && <div className="grid gap-1"><span className="text-sm">{job.stage} · {(job.bytes_processed / 1048576).toFixed(1)}{" "}{t("MiB")}</span>
           <progress aria-label={t("{{0}} import progress", { 0: job.kind })} className="w-full" max={job.total_bytes || undefined} value={job.total_bytes ? job.bytes_processed : undefined} /></div>}
-        {job.error_code && <p className="text-sm text-amber-900">{errors[job.error_code] || t("Import could not finish.")}</p>}
+        {job.error_code && <p className="text-sm text-amber-900">{errors[job.error_code] ? t(errors[job.error_code]) : t("Import could not finish.")}</p>}
         <span className="break-all font-mono text-xs text-muted">{job.id}</span>
       </li>)}
     </ul>

@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { clearComposerDrafts } from "./composerDrafts";
 
@@ -11,8 +12,8 @@ export type FollowUpSubmission = FollowUpAttachments & { mode: "queue" | "steer"
 // reference and then retry that changed envelope under the original key.
 export function followUpAttachmentReferences(value: FollowUpAttachments): FollowUpAttachments {
   const id = (value: unknown) => typeof value === "string" && /^[\w-]{1,128}$/.test(value);
-  if (value.attachments !== undefined && (!Array.isArray(value.attachments) || value.attachments.length > 4 || value.attachments.some(item => !item || !id(item.asset_id)))) throw new Error("Invalid image references");
-  if (value.files !== undefined && (!Array.isArray(value.files) || value.files.length > 8 || value.files.some(item => !id(item)))) throw new Error("Invalid file references");
+  if (value.attachments !== undefined && (!Array.isArray(value.attachments) || value.attachments.length > 4 || value.attachments.some(item => !item || !id(item.asset_id)))) throw new Error(t("Invalid image references"));
+  if (value.files !== undefined && (!Array.isArray(value.files) || value.files.length > 8 || value.files.some(item => !id(item)))) throw new Error(t("Invalid file references"));
   return { ...(value.attachments?.length ? { attachments: value.attachments.map(item => ({ asset_id: item.asset_id })) } : {}), ...(value.files?.length ? { files: [...value.files] } : {}) };
 }
 type Entry = { text: string; updated: number; pending?: FollowUpSubmission };

@@ -24,15 +24,15 @@ export function useRestoredAttachments(key: string, assets: DraftAsset[], tool: 
     queryKey: ["composer-asset-check", apiContext, key, asset.kind, asset.id, asset.kind.startsWith("run_") ? run?.token : ""],
     queryFn: async () => {
       if (asset.kind === "run_file" || asset.kind === "run_image") {
-        if (!run?.token || asset.runId !== run.id) return "This reference belongs to another Run or access is being renewed.";
+        if (!run?.token || asset.runId !== run.id) return t("This reference belongs to another Run or access is being renewed.");
         await api.runFileReference(apiContext, run.id, run.token, asset.kind === "run_image" ? "image" : "input", asset.id, true);
       } else if (asset.kind === "image") {
         const row = await api.mediaAsset(apiContext, asset.id);
-        if (row.status !== "active" || (row.expires_at && Date.parse(row.expires_at) <= Date.now()) || !["chat_input", "agent_attachment"].includes(row.purpose)) return "Image expired or unavailable. Remove it and choose the image again.";
+        if (row.status !== "active" || (row.expires_at && Date.parse(row.expires_at) <= Date.now()) || !["chat_input", "agent_attachment"].includes(row.purpose)) return t("Image expired or unavailable. Remove it and choose the image again.");
       } else {
         const row = await api.agentFileStatus(apiContext, asset.id);
-        if (row.turn_index != null) return "This file was already sent. Remove it and attach a new copy.";
-        if (row.state !== "ready") return "Upload is incomplete or verification failed. Remove it and choose the file again; no upload is restarted automatically.";
+        if (row.turn_index != null) return t("This file was already sent. Remove it and attach a new copy.");
+        if (row.state !== "ready") return t("Upload is incomplete or verification failed. Remove it and choose the file again; no upload is restarted automatically.");
       }
       return "";
     }, retry: false, staleTime: 0, refetchInterval: 60_000,
@@ -40,7 +40,7 @@ export function useRestoredAttachments(key: string, assets: DraftAsset[], tool: 
   const rows = assets.map((asset, index) => {
     const check = checks[index];
     const compatible = tool && (asset.kind === "image" || asset.kind === "run_image" || asset.kind === "audio" ? tool.input_modalities?.includes(asset.kind === "run_image" ? "image" : asset.kind) : tool.accepts_files);
-    const reason = !compatible ? "This tool does not accept this attachment. Choose a compatible tool or remove it." : check.isError ? "Cannot verify access to this attachment. Check again or remove it." : check.data || "";
+    const reason = !compatible ? t("This tool does not accept this attachment. Choose a compatible tool or remove it.") : check.isError ? t("Cannot verify access to this attachment. Check again or remove it.") : check.data || "";
     return { asset, reason, checking: check.isPending, ready: compatible && !check.isPending && !check.isError && check.data === "", retry: () => void check.refetch() };
   });
   return { rows, blocked: rows.some(row => !row.ready) };

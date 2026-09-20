@@ -1,5 +1,6 @@
 {
   "Message attachments": "消息附件",
   "Choose attachments": "选择附件",
-  "Dismiss attachment notice": "驳回附件通知"
+  "Dismiss attachment notice": "驳回附件通知",
+  "Attachments cannot be added to the current turn. Keep the files and add them when the Agent is ready for your next message.": "无法为当前轮次添加附件。请保留文件，待智能体可以接收你的下一条消息时再添加。"
 }

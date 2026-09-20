@@ -545,7 +545,7 @@ function OwnedCollectionsWorkspace() {
       {
         header: t("Readiness"),
         cell: ({ row }) => {
-          if (row.original.snapshot_json.paginated) return "Review manifest";
+          if (row.original.snapshot_json.paginated) return t("Review manifest");
           const readiness = releaseReadinessForFiles(
             row.original.snapshot_json?.files ?? [],
           );
@@ -599,7 +599,7 @@ function OwnedCollectionsWorkspace() {
   const assetPolicyPassed = selectedDataset?.publication_readiness?.checks.some(check => check.key === "policy" && check.ok);
   const currentReleaseReadiness = (datasetPull.data?.total ?? 0) > datasetFiles.length ? {
     status: (assetPolicyPassed ? "ready" : "blocked") as ReleaseReadiness,
-    reasons: assetPolicyPassed ? [] : ["The collection has asset policy blockers. Review all pages; publication is validated on the server."],
+    reasons: assetPolicyPassed ? [] : [t("The collection has asset policy blockers. Review all pages; publication is validated on the server.")],
     counts: selectedAssetCounts,
   } : releaseReadinessForFiles(datasetFiles);
   const nextAction = datasetNextAction(selectedDataset, publishing?.datasetPolicy);
@@ -1093,7 +1093,7 @@ function OwnedCollectionsWorkspace() {
                   disabled={datasetCapabilities.data?.can_create === false}
                   title={
                     datasetCapabilities.data?.can_create === false
-                      ? "Dataset admin permission is required"
+                      ? t("Dataset admin permission is required")
                       : undefined
                   }
                 >
@@ -2552,7 +2552,7 @@ function AssetSourceBadge({ source }: { source: AgentAssetSource | string }) {
     agent_trace: "Trace",
     agent_memory: "Memory",
     agent_artifact: "Output",
-    user_upload: "Imported file",
+    user_upload: t("Imported file"),
   };
   return <StatusBadge status={labels[source] ?? source} />;
 }
@@ -2580,7 +2580,7 @@ function releaseReadinessForFiles(files: AssetFileLike[]) {
   const reasons = files.flatMap((file) => fileReadiness(file).reasons);
   if (files.length === 0)
     reasons.push(
-      "Add at least one checked file or Agent asset before creating a release.",
+      t("Add at least one checked file or Agent asset before creating a release."),
     );
   return {
     status:
@@ -2658,7 +2658,7 @@ function stringMeta(
 }
 
 function runLabel(run: AgentDisplayRun, mode: "trace" | "output" = "trace") {
-  const title = run.title || "Untitled run";
+  const title = run.title || t("Untitled run");
   if (mode === "output") {
     const readiness =
       run.status === "completed"

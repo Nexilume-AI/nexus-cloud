@@ -143,32 +143,32 @@ export function OverviewWorkspace() {
     canView && agents.isSuccess && !agents.isError && recent.length === 0;
   const first = canView && !agents.isError ? recent[0] : undefined;
   const focusStatus = !isContextReady || capabilities.isPending
-    ? "Checking workspace"
+    ? t("Checking workspace")
     : inboxSummary.isError
       ? "Status incomplete"
       : priorityWork
         ? "Needs attention"
     : capabilities.isError
-      ? "Access unavailable"
+      ? t("Access unavailable")
       : !canView
-        ? discovery?.restricted.status ?? "Access unavailable"
+        ? discovery?.restricted.status ?? t("Access unavailable")
         : agents.isPending
-          ? "Checking workspace"
+          ? t("Checking workspace")
           : agents.isError
-            ? "Agent data unavailable"
+            ? t("Agent data unavailable")
             : empty
-              ? "First launch"
+              ? t("First launch")
               : runHistoryUnavailable
-                ? "Run data unavailable"
+                ? t("Run data unavailable")
                 : checkingRuns
-                  ? "Checking private Runs"
+                  ? t("Checking private Runs")
                   : continuation
                     ? runStatusLabel(continuation.run)
                     : first && agentIsConfiguring(first)
                       ? "Setup required"
                       : first
-                        ? "Ready for a Run"
-                        : "Checking workspace";
+                        ? t("Ready for a Run")
+                        : t("Checking workspace");
 
   return (
     <div className="overview-page overview-home">

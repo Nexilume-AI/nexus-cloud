@@ -21,5 +21,7 @@
   "Clear the search or choose another status.": "清除搜索或选择其他状态。",
   "Start from the message box when you are ready.": "准备好后从消息框开始。",
   "Actions for {{0}}": "{{0}} 的操作",
-  "Load more runs": "加载更多运行"
+  "Load more runs": "加载更多运行",
+  "All runs": "所有运行",
+  "Failed / stopped": "失败 / 已停止"
 }

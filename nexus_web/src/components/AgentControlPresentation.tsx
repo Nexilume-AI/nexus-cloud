@@ -1,4 +1,4 @@
-import { t, useLocale } from "../localization";
+import { t, tToken, useLocale } from "../localization";
 /** Shared presentation and existing action checks; no commercial requests. */
 import { useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
@@ -107,9 +107,7 @@ export function agentOwnershipLabel(agent: Agent) {
 export function humanize(value: string | null | undefined) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return t("Unknown");
-  return normalized
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return tToken(normalized);
 }
 
 export function mutationError(fallback: string) {

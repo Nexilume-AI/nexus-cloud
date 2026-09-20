@@ -52,5 +52,10 @@
   "Could not enable desktop notifications": "无法启用桌面通知",
   "WORK INBOX": "工作收件箱",
   "Background tasks": "后台任务",
-  "Save preferences": "保存首选项"
+  "Save preferences": "保存首选项",
+  "Could not update this item.": "无法更新此条目。",
+  "This destination is unavailable.": "此目标不可用。",
+  "All categories": "所有分类",
+  "All visible": "全部可见",
+  "Needs action": "需要处理"
 }

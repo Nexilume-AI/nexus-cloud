@@ -9,5 +9,11 @@
   "Loading preview": "加载预览",
   "Computer file snapshot": "电脑文件快照",
   "Ready to send": "准备发送",
-  "Saved attachment actions: {{0}}": "保存的附件操作：{{0}}"
+  "Saved attachment actions: {{0}}": "保存的附件操作：{{0}}",
+  "Cannot verify access to this attachment. Check again or remove it.": "无法验证对此附件的访问权限。请重新检查或将其移除。",
+  "Image expired or unavailable. Remove it and choose the image again.": "图片已过期或不可用。请移除后重新选择图片。",
+  "This file was already sent. Remove it and attach a new copy.": "此文件已发送。请移除后附加新副本。",
+  "This reference belongs to another Run or access is being renewed.": "此引用属于另一次运行，或访问权限正在续期。",
+  "This tool does not accept this attachment. Choose a compatible tool or remove it.": "此工具不接受该附件。请选择兼容的工具或将其移除。",
+  "Upload is incomplete or verification failed. Remove it and choose the file again; no upload is restarted automatically.": "上传未完成或校验失败。请移除后重新选择文件；不会自动重新上传。"
 }

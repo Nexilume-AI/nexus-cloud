@@ -2,5 +2,6 @@
   "Untrusted image reference was blocked.": "不受信任的图像引用被阻止。",
   "Image unavailable.": "图像不可用。",
   "Loading image": "加载图像",
-  "Agent image": "智能体图像"
+  "Agent image": "智能体图像",
+  "Unsupported image": "不支持的图片"
 }

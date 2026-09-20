@@ -1,5 +1,8 @@
 {
   "Download started. Progress and resume are available in your browser's downloads.": "下载已开始。进度和恢复可在浏览器的下载中找到。",
   "Could not start download. Please retry.": "无法开始下载。请重试。",
-  "File": "文件"
+  "File": "文件",
+  "Assets added": "已添加资产",
+  "Commercial setup": "商业设置",
+  "Ready to publish": "可发布"
 }

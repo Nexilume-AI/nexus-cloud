@@ -72,8 +72,8 @@ export function AgentMobileAttachDialog({
 
   const attach = useMutation({
     mutationFn: async () => {
-      if (!selectedDeviceId) throw new Error("Select a paired Mobile device.");
-      if (!policyReady) throw new Error("Wait for the latest Mobile policy before attaching.");
+      if (!selectedDeviceId) throw new Error(t("Select a paired Mobile device."));
+      if (!policyReady) throw new Error(t("Wait for the latest Mobile policy before attaching."));
       if (!authorized) await api.setAgentMobileGrant(apiContext, agentId, effectiveDeclaredScopes);
       return api.createAgentMobileBinding(apiContext, agentId, { device_id: selectedDeviceId, is_default: true });
     },

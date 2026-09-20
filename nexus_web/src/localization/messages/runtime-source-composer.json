@@ -27,5 +27,9 @@
   "Canonical model mapping is pending": "规范模型映射正在等待",
   "Offer is not currently advertised": "当前未公布优惠",
   "Health is {{0}}": "健康状况是 {{0}}",
-  "Target Pool for {{0}}": "{{0}} 的目标池"
+  "Target Pool for {{0}}": "{{0}} 的目标池",
+  "Provider Runtime is unavailable.": "提供方运行时不可用。",
+  "Select Offers": "选择报价",
+  "Select at least one available Model Offer.": "请至少选择一个可用的模型报价。",
+  "Source creation failed": "来源创建失败"
 }

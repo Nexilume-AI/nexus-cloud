@@ -57,5 +57,15 @@
   "Review the failure and job events before retrying the operation.": "在重试操作之前查看故障和作业事件。",
   "Review the delivery failure and retry availability.": "检查传送失败并重试可用性。",
   "No samples": "没有样本",
-  "Restricted": "受限"
+  "Restricted": "受限",
+  "All clear": "一切正常",
+  "Could not copy. Select the full ID above.": "无法复制。请选择上方的完整 ID。",
+  "Failed deliveries": "失败的投递",
+  "Failed jobs": "失败的任务",
+  "Firing alerts": "触发中的告警",
+  "Notifications limited": "通知受限",
+  "Record ID copied": "记录 ID 已复制",
+  "Inspect alert": "检查告警",
+  "Inspect failed job": "检查失败任务",
+  "Inspect report delivery": "检查报告投递"
 }

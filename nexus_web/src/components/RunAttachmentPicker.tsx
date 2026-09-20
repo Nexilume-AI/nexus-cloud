@@ -16,7 +16,7 @@ export const RunAttachmentPicker = forwardRef<RunAttachmentIntake, {
   const [error, setError] = useState("");
   function add(selected: File[]) {
     if (!selected.length) return;
-    if (disabled) { setError("Attachments cannot be added to the current turn. Keep the files and add them when the Agent is ready for your next message."); return; }
+    if (disabled) { setError(t("Attachments cannot be added to the current turn. Keep the files and add them when the Agent is ready for your next message.")); return; }
     const imageFiles: File[] = [], otherFiles: File[] = [], rejected: string[] = [];
     for (const file of selected) {
       // Never silently turn an unsupported image into a generic file input.
