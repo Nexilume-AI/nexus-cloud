@@ -8,7 +8,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import ValidationError
 
-from apps.agents.cloud_trust import hosted_cloud_trust
+from apps.agents.cloud_trust import hosted_cloud_trust, cloud_trust_fingerprint
 from apps.agents import runtime_runner as runner
 
 
@@ -17,6 +17,13 @@ from apps.agents import runtime_runner as runner
                    NEXUS_AGENT_WORKSPACE_API_BASE_URL="https://cloud.test",
                    NEXUS_AGENT_RUNTIME_CLOUD_CA_FILE="")
 class HostedCloudTrustTests(SimpleTestCase):
+    def test_fingerprint_changes_on_ca_rotation_at_same_origin(self):
+        policy = {"mode": "pinned-pem", "origins": ["https://cloud.test"], "ca_pem": "old-ca", "sha256": "old"}
+        digest = cloud_trust_fingerprint(policy)
+        self.assertEqual(len(digest), 64)
+        self.assertEqual(digest, cloud_trust_fingerprint(dict(reversed(list(policy.items())))))
+        self.assertNotEqual(digest, cloud_trust_fingerprint({**policy, "ca_pem": "new-ca", "sha256": "new"}))
+
     def test_system_ca_is_normalized_and_not_exported(self):
         self.assertEqual(hosted_cloud_trust(), {"schema_version": 1, "mode": "system", "origins": ["https://cloud.test"]})
 

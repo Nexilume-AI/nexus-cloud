@@ -1,5 +1,36 @@
 # Nexus Cloud Community source release notes
 
+## 2026-09-23 repository update: runtime recovery
+
+- Hosted Docker Agents now detect changes to the Cloud CA and HTTPS origin and
+  reconcile a new container generation. Healthy replacements preserve runtime
+  identity; failures retain the prior container with bounded retry backoff.
+  Existing tasks drain before retirement. No business invocation is replayed,
+  and certificate and hostname verification remain enabled.
+- Browser delegate errors preserve recoverable unavailable/stale-observation
+  codes without exposing raw Runtime errors.
+- Direct API Provider settings can be saved while the upstream is unavailable;
+  refresh models to verify the new connection. Old probe results are invalidated
+  and stopped Providers stay stopped. Inconclusive probes retain previously
+  verified models as degraded, not falsely healthy.
+- Optional exact-host DNS recovery and model-probe allowlists remain disabled
+  unless configured by the operator. Private-address and TLS checks still apply.
+- OpenAI-compatible requests retain tool-call messages and bounded reasoning
+  options. Database outages return a sanitized retryable 503.
+
+This is a selected-source repository update, not a new full export archive.
+`community-source-manifest.json` retains the initial export provenance; Git
+history and `nexus_server/docs/updates/2026-09-23-runtime-recovery.md` describe
+later changes. Community-specific package configuration, translations and
+terminal focus changes are preserved. Commercial implementations and research
+artifacts are not included. No SDK or OpenWrt protocol upgrade is required.
+
+Validation: 66 isolated Community Server tests, 4 Web regression tests,
+Community TypeScript check and production build passed. The build retains its
+existing large-chunk advisory. A source secret scan found only the previously
+reviewed CanonicalModel test fixture, not a working credential. No new live
+Community Docker acceptance or full-release audit is claimed by this update.
+
 ## Included
 
 This source snapshot provides the single-owner Cloud host and Community Web

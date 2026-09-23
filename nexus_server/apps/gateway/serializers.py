@@ -69,9 +69,53 @@ class ChatMessageContentField(serializers.Field):
         return result
 
 
+class ToolFunctionCallSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=128)
+    arguments = serializers.CharField(allow_blank=True, trim_whitespace=False)
+
+
+class ToolCallSerializer(serializers.Serializer):
+    id = serializers.CharField(max_length=255)
+    type = serializers.ChoiceField(choices=["function"])
+    function = ToolFunctionCallSerializer()
+
+
 class ChatMessageSerializer(serializers.Serializer):
     role = serializers.CharField(max_length=32)
-    content = ChatMessageContentField()
+    content = ChatMessageContentField(required=False, allow_null=True)
+    tool_calls = ToolCallSerializer(many=True, required=False, allow_empty=True, allow_null=True)
+    tool_call_id = serializers.CharField(max_length=255, required=False)
+    name = serializers.CharField(max_length=128, required=False)
+
+    def to_internal_value(self, data):
+        # OpenAI assistant tool-call messages may use either null or empty content.
+        if isinstance(data, dict) and data.get("role") == "assistant" and data.get("tool_calls") and data.get("content") == "":
+            data = {**data, "content": None}
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        role = attrs["role"]
+        if attrs.get("tool_calls") and role != "assistant":
+            raise serializers.ValidationError("Only assistant messages may contain tool_calls.")
+        if role == "tool" and not attrs.get("tool_call_id"):
+            raise serializers.ValidationError("Tool messages require tool_call_id.")
+        if role != "tool" and attrs.get("tool_call_id"):
+            raise serializers.ValidationError("tool_call_id belongs to tool messages.")
+        if attrs.get("content") is None and not (role == "assistant" and attrs.get("tool_calls")):
+            raise serializers.ValidationError("content is required unless the assistant calls a tool.")
+        return attrs
+
+
+class ToolDefinitionFunctionSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=128)
+    description = serializers.CharField(required=False, allow_blank=True)
+    parameters = serializers.DictField(required=False)
+    strict = serializers.BooleanField(required=False)
+
+
+class ToolDefinitionSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=["function"])
+    function = ToolDefinitionFunctionSerializer()
 
 
 class ChatCompletionRequestSerializer(serializers.Serializer):
@@ -83,6 +127,22 @@ class ChatCompletionRequestSerializer(serializers.Serializer):
     stream_options = serializers.DictField(required=False)
     router_id = serializers.CharField(max_length=128, required=False, allow_blank=True)
     metadata = serializers.DictField(required=False)
+    tools = ToolDefinitionSerializer(many=True, required=False)
+    tool_choice = serializers.JSONField(required=False)
+    parallel_tool_calls = serializers.BooleanField(required=False)
+    response_format = serializers.DictField(required=False)
+    seed = serializers.IntegerField(required=False)
+    enable_thinking = serializers.BooleanField(required=False)
+    thinking_budget = serializers.IntegerField(required=False, min_value=128, max_value=32768)
+
+    def validate_tool_choice(self, value):
+        if isinstance(value, str) and value in {"auto", "none", "required"}:
+            return value
+        if isinstance(value, dict) and value.get("type") == "function":
+            function = value.get("function")
+            if isinstance(function, dict) and isinstance(function.get("name"), str) and function["name"]:
+                return {"type": "function", "function": {"name": function["name"]}}
+        raise serializers.ValidationError("Use auto, none, required, or a named function.")
 
 
 class ResponseInputField(serializers.Field):

@@ -326,6 +326,9 @@ def _prepare_manual_catalog_refresh(runtime):
     return runtime
 
 
+MODEL_PROBE_SKIPPED = "Inference probe skipped by configured host model allowlist; model health is unverified."
+
+
 def refresh_runtime_model_offers(
     *,
     runtime: ProviderRuntimeAccount,
@@ -416,11 +419,24 @@ def refresh_runtime_model_offers(
     # Commit the directory even when a model probe is inconclusive. Signal the
     # existing catalog worker to use its bounded retry backoff, not the normal
     # 30-minute success interval. Never replay an uncertain inference request.
-    if any(healthy is None for healthy, _reason in probes.values()):
+    if any(healthy is None and reason != MODEL_PROBE_SKIPPED for healthy, reason in probes.values()):
         provider_catalog_refresh_result(runtime_id=runtime.id, failed=True)
         if strict:
             raise ProviderRuntimeError("PROVIDER_MODEL_CHECK_PENDING: Model catalog updated; some model checks are inconclusive and will be checked again.")
     return offers
+
+
+def _recent_model_success_at(offer, checked_at):
+    from apps.gateway.models import GatewayRequestLog
+
+    return (
+        GatewayRequestLog.objects.filter(
+            deployment__runtime_model_offer_id=offer.pk,
+            status=GatewayRequestLog.STATUS_SUCCESS,
+            created_at__gte=checked_at - timedelta(minutes=5),
+            created_at__lte=checked_at,
+        ).order_by("-created_at").values_list("created_at", flat=True).first()
+    )
 
 
 def _apply_model_probe(offer, probe, checked_at):
@@ -439,10 +455,25 @@ def _apply_model_probe(offer, probe, checked_at):
         if last_verified is not None and timezone.is_naive(last_verified):
             last_verified = None
         last_verified = last_verified or getattr(offer, "last_health_check_at", None) or checked_at
-        fresh = timedelta() <= checked_at - last_verified <= timedelta(minutes=5)
+        # A timed-out synthetic probe is inconclusive, not stronger evidence than
+        # a recent successful real request for this exact model offer. Do not
+        # override definitive failures or resurrect a stopped Runtime here.
+        if reason != MODEL_PROBE_SKIPPED and getattr(offer, "pk", None):
+            observed_success = _recent_model_success_at(offer, checked_at)
+            if (observed_success is not None
+                    and timedelta() <= checked_at-observed_success <= timedelta(minutes=5)
+                    and (definitive != ProviderRuntimeModelOffer.HEALTH_UNHEALTHY
+                         or observed_success > last_verified)):
+                definitive = ProviderRuntimeModelOffer.HEALTH_HEALTHY
+                last_verified = max(last_verified, observed_success)
+                reason += " A recent successful request for this exact model offer keeps it degraded and eligible."
+        # Elapsed idle time alone is not evidence of a failed service. Keep a
+        # previously verified model degraded while bounded verification retries
+        # continue; a never-verified or definitively failed model stays unknown.
+        # Source failure thresholds and explicit Stop/disable checks still apply.
         offer.health_status = (
             ProviderRuntimeModelOffer.HEALTH_DEGRADED
-            if definitive == ProviderRuntimeModelOffer.HEALTH_HEALTHY and fresh
+            if definitive == ProviderRuntimeModelOffer.HEALTH_HEALTHY
             else ProviderRuntimeModelOffer.HEALTH_UNKNOWN
         )
     else:
@@ -610,6 +641,11 @@ def _read_provider_catalog(request):
 
 def probe_runtime_model(*, runtime: ProviderRuntimeAccount, upstream_model_id: str) -> tuple[bool | None, str]:
     """Probe an automatically discovered model without persisting a Source first."""
+
+    host = urlparse(runtime.internal_api_url or "").hostname
+    allowed = getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST", {}).get(host)
+    if allowed is not None and upstream_model_id not in allowed:
+        return None, MODEL_PROBE_SKIPPED
 
     contract = getattr(runtime, "_discovered_model_contracts", {}).get(upstream_model_id)
     if contract and "chat.completions" not in contract.get("operations", []):

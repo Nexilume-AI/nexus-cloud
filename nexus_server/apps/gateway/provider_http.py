@@ -3,18 +3,65 @@ from __future__ import annotations
 import http.client
 import ipaddress
 import io
+import json
 import socket
 import ssl
+import threading
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 
 
 class ProviderEndpointRejected(ValueError):
     """Raised before any bytes are sent to an unsafe Provider endpoint."""
+
+
+_doh_cache: dict[str, tuple[float, tuple[str, ...]]] = {}
+_doh_lock = threading.Lock()
+
+
+def _provider_address_rows(hostname: str, port: int):
+    """Optional host-scoped DNS recovery; HTTP Host and TLS SNI stay unchanged.
+
+    Only hostnames explicitly selected by the server operator use this resolver.
+    It receives a public DNS name, never an API key or inference payload. TTLs
+    are honored up to five minutes; failures do not poison the next request.
+    All returned addresses still pass the endpoint's public-address checks.
+    """
+    allowed = {h.strip().lower() for h in str(getattr(settings, "NEXUS_PROVIDER_DOH_HOSTS", "")).split(",") if h.strip()}
+    if hostname.lower() not in allowed:
+        return socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    with _doh_lock:
+        cached = _doh_cache.get(hostname)
+        if cached and cached[0] > time.monotonic():
+            ips = cached[1]
+        else:
+            request = Request("https://cloudflare-dns.com/dns-query?" + urlencode({"name": hostname, "type": "A"}),
+                              headers={"Accept": "application/dns-json"})
+            try:
+                with urlopen(request, timeout=8) as response:
+                    raw = response.read(65537)
+                if len(raw) > 65536:
+                    raise ValueError("DNS response too large")
+                payload = json.loads(raw)
+                if payload.get("Status") != 0:
+                    raise ValueError("DNS lookup failed")
+                answers = payload.get("Answer", [])
+                ips = tuple(dict.fromkeys(str(ipaddress.IPv4Address(r["data"])) for r in answers if r.get("type") == 1))
+                if not ips or any(not ipaddress.ip_address(ip).is_global for ip in ips):
+                    raise ValueError("DNS result must contain public addresses")
+                ttl = min(300, max(0, min(int(r.get("TTL", 0)) for r in answers)))
+                _doh_cache[hostname] = (time.monotonic() + ttl, ips)
+            except (OSError, URLError, ValueError, KeyError, TypeError):
+                _doh_cache.pop(hostname, None)
+                # Preserve the ordinary resolver when the optional service is unavailable.
+                return socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port)) for ip in ips]
 
 
 @dataclass(frozen=True)
@@ -67,7 +114,7 @@ def resolve_provider_endpoint(url: str, *, allow_private: bool = False,
     }
     private_allowed = not public_https_only and (allow_private or parsed.hostname.lower() in allowed_hosts)
     try:
-        rows = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
+        rows = _provider_address_rows(parsed.hostname, port)
     except socket.gaierror as exc:
         raise ProviderEndpointRejected("Provider endpoint DNS resolution failed.") from exc
     if not rows:

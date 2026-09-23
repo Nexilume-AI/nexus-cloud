@@ -3,7 +3,6 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from apps.providers.models import ProviderAccount, ProviderRuntimeAccount
-from apps.gateway.provider_adapters import ProviderClientError
 from nexus_personal.services import provision_owner
 from . import test_provider_lifecycle_recovery as recovery
 from .test_installation import PASSWORD
@@ -53,15 +52,13 @@ class PersonalErrorHTTPTests(TestCase):
         self.assertIn("engine", response.json()["error"]["message"])
         self.assertFalse(ProviderAccount.objects.exists())
 
-    @patch("apps.providers.connection_services.verify_openai_compatible_credentials")
-    def test_failed_rotation_is_safe_and_keeps_existing_credentials(self, verify):
+    def test_invalid_rotation_is_safe_and_keeps_existing_credentials(self):
         account = ProviderAccount.objects.get(pk=self.create_connection()["id"])
         previous = (account.url, account.encrypted_key)
-        verify.side_effect = ProviderClientError("Bearer upstream-sensitive-marker")
         response = self.client.patch(f"/api/v1/provider-connections/{account.pk}/",
-            {"url": "https://replacement.example.test/v1", "key": "new-sensitive-key"},
+            {"url": "https://replacement.example.test/v1", "key": ""},
             format="json", **self.headers)
-        self.assert_error(response, 400, "PROVIDER_CREDENTIAL_VERIFICATION_FAILED")
+        self.assert_error(response, 400, "VALIDATION_ERROR")
         for secret in ("upstream-sensitive-marker", "new-sensitive-key"):
             self.assertNotIn(secret, response.content.decode())
         account.refresh_from_db()

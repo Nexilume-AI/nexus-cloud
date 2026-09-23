@@ -4,9 +4,9 @@ Both hosts issue real authenticated requests. Credential verification/process
 mocks are the original boundaries, not a live upstream acceptance claim.
 """
 from unittest.mock import Mock, patch
+from django.utils import timezone
 from apps.common.crypto import decrypt_secret
 from apps.common.models import SoftDeleteModel
-from apps.gateway.provider_adapters import ProviderClientError
 from apps.providers.models import ProviderAccount, ProviderRuntimeAccount
 
 
@@ -47,8 +47,8 @@ class ProviderConnectionHTTPGuards:
         self.assertEqual(account.provider.name, "openai-compatible")
         self.assertEqual(runtime.runtime_type, ProviderRuntimeAccount.RUNTIME_DIRECT_API)
 
-    @patch("apps.providers.connection_services.verify_openai_compatible_credentials")
-    def test_direct_api_credential_rotation_verifies_before_commit(self, verify_credentials):
+    @patch("apps.gateway.provider_adapters.open_provider_url", side_effect=TimeoutError("upstream unavailable"))
+    def test_direct_api_credential_rotation_saves_without_upstream(self, transport):
         created = self.create_connection()
         account = ProviderAccount.objects.get(id=created["id"])
 
@@ -59,34 +59,62 @@ class ProviderConnectionHTTPGuards:
         )
 
         self.assertEqual(response.status_code, 200, response.content)
-        verify_credentials.assert_called_once_with(
-            base_url="https://new-provider.example.test/v1",
-            api_key="new-secret",
-            provider_name="openai-compatible",
-        )
+        transport.assert_not_called()
         account.refresh_from_db()
         self.assertEqual(account.url, "https://new-provider.example.test/v1")
         self.assertEqual(decrypt_secret(account.encrypted_key), "new-secret")
+        self.assertNotIn("new-secret", response.content.decode())
 
-    @patch("apps.providers.connection_services.verify_openai_compatible_credentials")
-    def test_failed_credential_rotation_preserves_existing_connection(self, verify_credentials):
+    def test_invalid_credential_rotation_preserves_existing_connection(self):
         created = self.create_connection()
         account = ProviderAccount.objects.get(id=created["id"])
         original_url = account.url
         original_secret = account.encrypted_key
-        verify_credentials.side_effect = ProviderClientError("rejected")
 
         response = self.request(
             "patch",
             f"/api/v1/provider-connections/{account.id}/",
-            {"url": "https://bad-provider.example.test/v1", "key": "bad-secret"},
+            {"url": "https://new-provider.example.test/v1", "key": ""},
         )
 
         self.assertEqual(response.status_code, 400, response.content)
-        self.assertEqual(response.json()["error"]["code"], "PROVIDER_CREDENTIAL_VERIFICATION_FAILED")
         account.refresh_from_db()
         self.assertEqual(account.url, original_url)
         self.assertEqual(account.encrypted_key, original_secret)
+
+    def test_label_only_edit_preserves_key_and_health(self):
+        created = self.create_connection()
+        account = ProviderAccount.objects.get(id=created["id"])
+        runtime = account.source_runtime_accounts.get()
+        checked_at = timezone.now()
+        runtime.last_health_check_at = checked_at
+        runtime.save(update_fields=["last_health_check_at"])
+        original_secret = account.encrypted_key
+        response = self.request("patch", f"/api/v1/provider-connections/{account.id}/", {"name": "New label"})
+        self.assertEqual(response.status_code, 200, response.content)
+        account.refresh_from_db()
+        runtime.refresh_from_db()
+        self.assertEqual(account.encrypted_key, original_secret)
+        self.assertEqual(runtime.last_health_check_at, checked_at)
+
+    def test_credential_rotation_invalidates_probes_without_starting_stopped_runtime(self):
+        from apps.providers.models import ProviderRuntimeModelOffer
+        created = self.create_connection()
+        account = ProviderAccount.objects.get(id=created["id"])
+        runtime = account.source_runtime_accounts.get()
+        runtime.status = ProviderRuntimeAccount.STATUS_STOPPED
+        runtime.last_health_check_at = timezone.now()
+        runtime.save(update_fields=["status", "last_health_check_at"])
+        offer = ProviderRuntimeModelOffer.objects.create(runtime_account=runtime, upstream_model_id="test-model",
+                                                         health_status="healthy", last_health_check_at=timezone.now())
+        response = self.request("patch", f"/api/v1/provider-connections/{account.id}/", {"key": "replacement-secret"})
+        self.assertEqual(response.status_code, 200, response.content)
+        runtime.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual(runtime.status, ProviderRuntimeAccount.STATUS_STOPPED)
+        self.assertIsNone(runtime.last_health_check_at)
+        self.assertEqual(offer.health_status, "unknown")
+        self.assertIsNone(offer.last_health_check_at)
 
     @patch("apps.providers.runtime_services.get_provider_runtime_runner")
     def test_repeated_start_and_stop_are_idempotent_during_transition(self, get_runner):

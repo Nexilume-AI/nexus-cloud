@@ -45,6 +45,17 @@ class AttachedBrowserSessionLost(AttachedBrowserError):
     default_code = "BROWSER_SESSION_LOST"
 
 
+class AttachedBrowserUnavailable(AttachedBrowserError):
+    default_detail = "Browser automation is unavailable on the Attached Computer."
+    default_code = "BROWSER_UNAVAILABLE"
+
+
+class AttachedBrowserStaleObservation(AttachedBrowserError):
+    status_code = 409
+    default_detail = "The Browser page changed. Observe it again before acting."
+    default_code = "BROWSER_STALE_OBSERVATION"
+
+
 class AttachedBrowserActionFailed(AttachedBrowserError):
     status_code = 400
     default_detail = "The Attached Computer browser action failed."
@@ -277,6 +288,10 @@ def browser_delegate_operation(*, run_id: str, token: str, data: dict[str, Any])
         if code == "BROWSER_SESSION_LOST":
             AgentBrowserSession.objects.filter(id=session.id).update(status=AgentBrowserSession.STATUS_FAILED, last_error=message[:512], closed_at=timezone.now())
             raise AttachedBrowserSessionLost() from None
+        if code == "BROWSER_UNAVAILABLE":
+            raise AttachedBrowserUnavailable() from None
+        if code == "BROWSER_STALE_OBSERVATION":
+            raise AttachedBrowserStaleObservation() from None
         if code in {
             "COMPUTER_RUNTIME_OFFLINE",
             "COMPUTER_RUNTIME_REVOKED",

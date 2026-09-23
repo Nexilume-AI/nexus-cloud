@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProviderRuntimeAccount, ProviderRuntimeModelOffer } from "../lib/types";
-import { getRuntimeRecommendedAction } from "./ProvidersPage";
+import type { ProviderConnection, ProviderRuntimeAccount, ProviderRuntimeModelOffer } from "../lib/types";
+import { getProviderRecommendedAction, getRuntimeRecommendedAction } from "./ProvidersPage";
 
 const baseOffer: ProviderRuntimeModelOffer = {
   id: "offer-1",
@@ -44,6 +44,18 @@ function runtime(overrides: Partial<ProviderRuntimeAccount> = {}): ProviderRunti
 }
 
 describe("getRuntimeRecommendedAction", () => {
+  it("requests model verification after saving Direct API credentials without starting a stopped provider", () => {
+    const provider: ProviderConnection = {
+      id: "provider-1", name: "Provider", account_identity: "default", upstream_provider: "openai-compatible",
+      url: "https://provider.example.test/v1", engine: "direct_api", auth_mode: "api_key",
+      status: "active", status_message: "", login_status: "unknown", last_error: "",
+      models: [{ ...baseOffer, health_status: "unknown" }],
+      quota: { status: "unknown", remaining_tokens: null, remaining_requests: null, reset_at: null },
+      available_actions: [], last_checked_at: null, health_history: [], created_at: "", updated_at: "",
+    };
+    expect(getProviderRecommendedAction(provider)).toBe("refresh");
+    expect(getProviderRecommendedAction({ ...provider, status: "stopped" })).toBe("start");
+  });
   it("uses the fixed operational priority", () => {
     expect(getRuntimeRecommendedAction(runtime({ status: "starting" }))).toBe("wait");
     expect(getRuntimeRecommendedAction(runtime({ status: "stopping" }))).toBe("wait");

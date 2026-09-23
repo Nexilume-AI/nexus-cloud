@@ -1,5 +1,6 @@
 """Build the public CA policy at the trusted Cloud deployment boundary."""
 import hashlib
+import json
 import re
 import ssl
 from pathlib import Path
@@ -7,6 +8,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
+
+
+def cloud_trust_fingerprint(policy):
+    """Digest the actual deployment policy, never persist its PEM in lifecycle state."""
+    return hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def hosted_cloud_trust():

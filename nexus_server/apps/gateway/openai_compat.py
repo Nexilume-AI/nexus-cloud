@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.db import OperationalError
 from django.http import StreamingHttpResponse
 from rest_framework import exceptions, status
 from rest_framework.renderers import JSONRenderer
@@ -34,9 +35,7 @@ class OpenAIChatCompletionsView(APIView):
     renderer_classes = [JSONRenderer, EventStreamRenderer]
 
     def handle_exception(self, exc):  # noqa: D401 - DRF hook.
-        status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
-        detail = getattr(exc, "detail", str(exc))
-        return Response(openai_error(exc=exc, detail=detail), status=status_code)
+        return openai_exception_response(exc)
 
     def post(self, request):
         apply_api_key_context(request)
@@ -60,9 +59,7 @@ class OpenAIResponsesView(APIView):
     renderer_classes = [JSONRenderer, EventStreamRenderer]
 
     def handle_exception(self, exc):  # noqa: D401 - DRF hook.
-        status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
-        detail = getattr(exc, "detail", str(exc))
-        return Response(openai_error(exc=exc, detail=detail), status=status_code)
+        return openai_exception_response(exc)
 
     def post(self, request):
         apply_api_key_context(request)
@@ -86,9 +83,7 @@ class OpenAIModelsView(APIView):
     renderer_classes = [JSONRenderer]
 
     def handle_exception(self, exc):  # noqa: D401 - DRF hook.
-        status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
-        detail = getattr(exc, "detail", str(exc))
-        return Response(openai_error(exc=exc, detail=detail), status=status_code)
+        return openai_exception_response(exc)
 
     def get(self, request):
         from .integration import gateway_integration
@@ -354,6 +349,21 @@ def apply_api_key_context(request) -> None:
         request.tenant_id = str(api_key.tenant_id)
     if not getattr(request, "project_id", "") and api_key.project_id:
         request.project_id = str(api_key.project_id)
+
+
+def openai_exception_response(exc: Exception) -> Response:
+    # A database outage is not a malformed client request. Do not expose database
+    # connection details, and leave retry/idempotency decisions to the caller.
+    if isinstance(exc, OperationalError):
+        return Response(
+            {"error": {"message": "Database temporarily unavailable.",
+                       "type": "api_error", "code": "DATABASE_UNAVAILABLE"}},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            headers={"Retry-After": "2"},
+        )
+    status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
+    detail = getattr(exc, "detail", str(exc))
+    return Response(openai_error(exc=exc, detail=detail), status=status_code)
 
 
 def openai_error(*, exc: Exception, detail: Any) -> dict[str, Any]:

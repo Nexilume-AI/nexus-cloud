@@ -481,6 +481,28 @@ class AttachedComputerBrowserBrokerTests(TestCase):
         self.assertEqual(execute.call_count, 1)
         legacy.assert_not_called()
 
+    def test_runtime_browser_preserves_recoverable_browser_failure_codes(self):
+        session = self._runtime_session()
+        for code in ("BROWSER_UNAVAILABLE", "BROWSER_STALE_OBSERVATION"):
+            runtime_error = RuntimeError("safe browser failure")
+            runtime_error.default_code = code
+            with (
+                self.subTest(code=code),
+                mock.patch("apps.agents.browser_runtime._runtime_browser_session", return_value=session),
+                mock.patch(
+                    "apps.workspaces.computer_runtime.execute_runtime_command",
+                    side_effect=runtime_error,
+                ),
+            ):
+                with self.assertRaises(AttachedBrowserError) as raised:
+                    browser_delegate_operation(
+                        run_id=str(self.run.id),
+                        token=self.token,
+                        data={"operation": "observe", "viewport": [1280, 720]},
+                    )
+
+            self.assertEqual(raised.exception.default_code, code)
+
     def test_observation_is_persisted_after_runtime_command_returns(self):
         session = self._runtime_session()
         events = []

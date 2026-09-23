@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .docker_policy import host_id, resource_limits, container_name
+from .cloud_trust import hosted_cloud_trust, cloud_trust_fingerprint
 from .models import AgentDeployment, AgentDisplayEvent, AgentExecutionTask, AgentLog, AgentRuntimeDeployment, AgentRuntimeInvocation
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,26 @@ def _claim(runtime_id, *, desired, recovery=False, expected_generation=None):
             return None
         if desired == "running" and not recovery and runtime.status == "active":
             return None  # duplicate delivery of an already completed deployment Job
+        if desired == "running":
+            target_trust = cloud_trust_fingerprint(hosted_cloud_trust())
+            if (recovery and (runtime.container_id or state.get("target_cloud_trust_fingerprint"))
+                    and state.get("cloud_trust_fingerprint") != target_trust
+                    and state.get("target_cloud_trust_fingerprint") != target_trust):
+                # Docker restart/adoption cannot update the environment. Fence a
+                # replacement generation, retaining the old instance for in-flight
+                # work. Retry the SAME target generation after worker loss.
+                if runtime.container_id:
+                    state["previous"] = {"container_id": runtime.container_id,
+                        "image_id": str(runtime.image_id), "internal_mcp_url": runtime.internal_mcp_url,
+                        "state": {k: copy.deepcopy(v) for k, v in state.items() if k != "previous"}}
+                else:
+                    # A crashed first deployment may already have created this
+                    # fenced name without committing its container ID.
+                    state.setdefault("retiring", []).append({"container_id": container_name(runtime),
+                        "before": timezone.now().isoformat()})
+                state["generation"] = uuid.uuid4().hex
+                state["trust_refresh"] = True
+            state["target_cloud_trust_fingerprint"] = target_trust
         state.setdefault("generation", uuid.uuid4().hex)
         if desired == "running" and "resources" not in state:
             state["resources"] = resource_limits(runtime)
@@ -207,6 +228,10 @@ def deploy(*, runtime_id, actor=None, request=None, recovery=False, expected_gen
                 state.setdefault("retiring", []).append({"container_id": old, "before": timezone.now().isoformat()})
             state.pop("previous", None)
             state.pop("retry_at", None)
+            state.pop("target_cloud_trust_fingerprint", None)
+            trust_refreshed = state.pop("trust_refresh", False)
+            # Fingerprint exactly what start() received, not a later CA read.
+            state["cloud_trust_fingerprint"] = cloud_trust_fingerprint(context.cloud_trust)
             state.update(
                 attempts=0,
                 attention_required=False,
@@ -218,6 +243,9 @@ def deploy(*, runtime_id, actor=None, request=None, recovery=False, expected_gen
             current.save(update_fields=["docker_lifecycle", "last_error", "updated_at"])
             service.complete_runtime_deploy(runtime=current, result=result, display_run=display_run,
                                             before=before, actor=actor, request=request)
+            if trust_refreshed:
+                AgentLog.objects.create(agent=current.agent, deployment=current.agent_deployment,
+                    level="info", message="Cloud trust refreshed with a new container generation; business invocations were not replayed.")
     except Exception as exc:
         # Persist failure OUTSIDE the rolled-back transaction. Keep the exact generation
         # for recovery if Docker succeeded but its DB commit did not.
@@ -249,6 +277,8 @@ def deploy(*, runtime_id, actor=None, request=None, recovery=False, expected_gen
                 state["permanent_failure"] = True
                 message = policy_error
             if old_healthy:
+                trust_refresh = bool(state.get("trust_refresh"))
+                retry_at = state.get("retry_at")
                 state = previous["state"]
                 # Cleanup may itself have failed. Keep a durable exact target rather
                 # than forgetting the new generation when rolling back to the old one.
@@ -259,6 +289,11 @@ def deploy(*, runtime_id, actor=None, request=None, recovery=False, expected_gen
                 current.container_id, current.internal_mcp_url = previous["container_id"], previous["internal_mcp_url"]
                 current.status, current.health_status = "active", "healthy"
                 message = "New Agent image failed readiness; the previous deployment remains active."
+                if trust_refresh:
+                    state.update(attempts=attempts, retry_at=retry_at,
+                                 attention_required=attempts >= 5)
+                    current.health_status = "unhealthy"
+                    message = "Cloud trust refresh failed; the previous container is retained and automatic recovery will retry."
                 if current.agent_deployment_id:
                     AgentDeployment.objects.filter(pk=current.agent_deployment_id).update(status="active", version_id=current.image.version_id)
             else:
@@ -404,7 +439,8 @@ def _reconcile_locked(*, limit=25, lock_token="", lock_seconds=300):
                                               job_type="agents.runtime.stop", status__in=["queued", "running"]):
                     succeed_job(job_id=job.id, result_json={"runtime_deployment_id": str(runtime.id), "status": "stopped", "reconciled": True})
                 continue
-            healthy = runtime.status == "active" and service.get_runtime_runner(runtime).health_check(deployment=runtime)
+            trust_current = state.get("cloud_trust_fingerprint") == cloud_trust_fingerprint(hosted_cloud_trust())
+            healthy = trust_current and runtime.status == "active" and service.get_runtime_runner(runtime).health_check(deployment=runtime)
             if not healthy:
                 result = deploy(runtime_id=runtime.id, recovery=True)
                 count += int(result.status == "active")

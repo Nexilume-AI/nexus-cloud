@@ -75,6 +75,7 @@
   "Start the Provider before creating a Source.": "在创建来源之前启动成功。",
   "Refresh the Provider catalog to discover available models.": "刷新成功目录以发现可用的模型。",
   "Provider updated": "成功更新",
+  "Provider saved. Refresh models to verify the connection.": "供应商已保存。请刷新模型以验证连接。",
   "Leave blank to keep the current key.": "留空以保留当前密钥。",
   "Required when switching to Direct API.": "切换到 Direct API 时需要。",
   "Provider connected": "已连接",

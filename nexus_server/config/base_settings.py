@@ -163,6 +163,8 @@ NEXUS_GATEWAY_MOCK_HOSTS = {"mock.local", "mock.provider.local"}
 NEXUS_GATEWAY_FAIL_HOSTS = {"fail.local", "fail.provider.local"}
 NEXUS_PROVIDER_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("NEXUS_PROVIDER_REQUEST_TIMEOUT_SECONDS", "60"))
 NEXUS_PROVIDER_ALLOW_HTTP = os.environ.get("NEXUS_PROVIDER_ALLOW_HTTP", "0") == "1"
+# Optional exact-host DNS recovery; endpoint validation and TLS remain mandatory.
+NEXUS_PROVIDER_DOH_HOSTS = os.environ.get("NEXUS_PROVIDER_DOH_HOSTS", "")
 NEXUS_PROVIDER_ALLOWED_PRIVATE_HOSTS = os.environ.get("NEXUS_PROVIDER_ALLOWED_PRIVATE_HOSTS", "")
 NEXUS_MULTIMODAL_MAX_CONTENT_PARTS = int(os.environ.get("NEXUS_MULTIMODAL_MAX_CONTENT_PARTS", "64"))
 NEXUS_MULTIMODAL_MAX_IMAGE_PARTS = int(os.environ.get("NEXUS_MULTIMODAL_MAX_IMAGE_PARTS", "8"))
@@ -204,6 +206,14 @@ NEXUS_PROVIDER_HEALTH_CONFIRM_TIMEOUT_SECONDS = float(
 NEXUS_PROVIDER_MODEL_DISCOVERY_INTERVAL_SECONDS = int(
     os.environ.get("NEXUS_PROVIDER_MODEL_DISCOVERY_INTERVAL_SECONDS", "1800")
 )
+# Optional host-scoped inference-probe budget. Catalog discovery remains complete;
+# models outside a configured host's list are explicitly unverified, not healthy.
+NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST = json.loads(os.environ.get("NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST", "{}"))
+if not isinstance(NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST, dict) or any(
+    not isinstance(host, str) or not isinstance(models, list) or any(not isinstance(model, str) for model in models)
+    for host, models in NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST.items()
+):
+    raise ValueError("NEXUS_PROVIDER_MODEL_PROBE_ALLOWLIST must map hosts to lists of model IDs")
 NEXUS_PROVIDER_RUNTIME_STORAGE_ROOT = os.environ.get(
     "NEXUS_PROVIDER_RUNTIME_STORAGE_ROOT",
     str(Path(NEXUS_SHARED_STORAGE_ROOT) / "provider-runtimes"),

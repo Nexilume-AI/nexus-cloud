@@ -10,14 +10,13 @@ from django.utils import timezone
 from rest_framework import exceptions, status
 
 from apps.audit.services import log_audit
-from apps.common.crypto import decrypt_secret, encrypt_secret
+from apps.common.crypto import encrypt_secret
 from apps.common.models import SoftDeleteModel
 from apps.deployments.models import Deployment, ModelGroupDeployment
 from apps.common.resource_catalog import (
     resolve_ownership_project,
 )
 from apps.common.request_context import get_tenant_from_request
-from apps.gateway.provider_adapters import ProviderClientError, verify_openai_compatible_credentials
 
 from .catalog import provider_catalog
 from .runtime_integration import runtime_integration
@@ -69,12 +68,6 @@ class ProviderAlreadyExists(ProviderConnectionConflict):
 class ProviderRuntimeStopFailed(ProviderConnectionConflict):
     default_detail = "The Provider could not be removed because its runtime did not stop."
     default_code = "PROVIDER_RUNTIME_STOP_FAILED"
-
-
-class ProviderCredentialVerificationFailed(exceptions.APIException):
-    status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = "The new Provider endpoint or credential could not be verified. The existing connection was preserved."
-    default_code = "PROVIDER_CREDENTIAL_VERIFICATION_FAILED"
 
 
 def _runtime_queryset(*, summary=False):
@@ -216,17 +209,11 @@ def update_provider_connection(*, request, account_id: str, data: dict[str, Any]
     )
     if credential_change:
         candidate_url = str(data.get("url", account.url) or "").strip()
-        candidate_key = str(data["key"]) if "key" in data else decrypt_secret(account.encrypted_key)
+        candidate_key = str(data["key"]) if "key" in data else account.encrypted_key
         if not candidate_url or not candidate_key:
             raise exceptions.ValidationError({"key": "API URL and API key are required for Direct API."})
-        try:
-            verify_openai_compatible_credentials(
-                base_url=candidate_url,
-                api_key=candidate_key,
-                provider_name=upstream_provider or account.provider.name,
-            )
-        except ProviderClientError as exc:
-            raise ProviderCredentialVerificationFailed() from exc
+        # Saving configuration must not depend on upstream availability or a
+        # /models endpoint. Connectivity is checked by a separate model refresh.
 
     update_data: dict[str, Any] = {}
     for field in ("name", "url", "key"):
@@ -263,6 +250,20 @@ def update_provider_connection(*, request, account_id: str, data: dict[str, Any]
         runtime.name = f"{account.name or account.account_id}-{engine.replace('_', '-')}"
         runtime.last_error = ""
         runtime.save(update_fields=["runtime_type", "name", "last_error", "updated_at"])
+    if credential_change:
+        runtime = connection_runtime(account)
+        if runtime is not None:
+            # Old probes describe the previous credentials, not the saved ones.
+            # Preserve lifecycle state, including a user-stopped connection.
+            now = timezone.now()
+            ProviderRuntimeAccount.objects.filter(pk=runtime.pk).update(
+                last_health_check_at=None, last_error="", updated_at=now,
+            )
+            runtime.model_offers.exclude(status=SoftDeleteModel.STATUS_DELETED).update(
+                health_status=ProviderRuntimeModelOffer.HEALTH_UNKNOWN,
+                health_reason="Connection changed; refresh models to verify.",
+                last_health_check_at=None, updated_at=now,
+            )
     return get_provider_connection(request=request, account_id=str(account.id))
 
 

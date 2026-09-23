@@ -866,7 +866,9 @@ function EditProviderDialog({
       ...(form.key ? { key: form.key } : {}),
     }),
     onSuccess: () => {
-      toast.success(t("Provider updated"));
+      toast.success(t(form.engine === "direct_api" && (form.key || form.url !== provider.url || form.engine !== provider.engine)
+        ? "Provider saved. Refresh models to verify the connection."
+        : "Provider updated"));
       queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
       onClose();
     },
@@ -1237,6 +1239,7 @@ export function getProviderRecommendedAction(provider: ProviderConnection, publi
   if (["stopped", "created", "disabled"].includes(provider.status)) return "start";
   if (provider.status === "repair_required") return "repair";
   if (["failed", "unhealthy", "degraded"].includes(provider.status)) return "health";
+  if (provider.engine === "direct_api" && !provider.last_checked_at) return "refresh";
   if (!provider.models.length) return "refresh";
   if (provider.status === "active" && provider.models.some(isSourceEligibleOffer)) return "use_source";
   if (publication?.needsPublication(provider.models)) return "publish";
