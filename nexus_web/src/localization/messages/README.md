@@ -1,3 +1,5 @@
-# 中文消息词典
+# Chinese message dictionaries
 
-按界面功能划分消息文件，英文原文为键。品牌名、协议名、命令、API 参数不翻译。保留所有 `{{name}}` 插值占位符；英语直接使用消息键。重复使用的原文仅保留一份译文。
+**English** · [Chinese](README_zh.md)
+
+Organize message files by interface feature, using the English source text as each key. Do not translate brand names, protocol names, commands or API parameters. Preserve every `{{name}}` interpolation placeholder; English uses the message key directly. Reused source strings should have only one translation entry.

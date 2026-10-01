@@ -1,11 +1,13 @@
-# 界面国际化
+# Interface localization
 
-默认简体中文；全局语言选择器切换 English 后立即生效，选择保存在 `nexus.locale`，并同步同源浏览器标签页。禁用存储时仍可在当前页面使用。
+**English** · [Chinese](README_zh.md)
 
-`model.ts` 定义语言和消息模型，`locale.ts` 管理无框架依赖的语言状态，`translate.ts` 提供纯翻译函数，`useLocale.ts` 是 React 订阅适配。切换语言不刷新或重新挂载应用，不清空表单、聊天草稿或终端。
+The default language is Simplified Chinese. Selecting English in the global language picker takes effect immediately. The preference is stored as `nexus.locale` and synchronized across same-origin browser tabs. When storage is disabled, language switching still works on the current page.
 
-英文原文作为消息键，中文词典按功能放在 `messages/`。在展示处使用 `t("English copy")`，插值使用 `t("{{count}} items", { count })`。含翻译的组件调用 `useLocale()`；包含翻译结果的 memo 需依赖当前语言。日期与数字通过 `lib/format.ts` 统一格式化。
+`model.ts` defines the locale and message models, `locale.ts` manages framework-independent language state, `translate.ts` provides pure translation functions, and `useLocale.ts` adapts subscriptions for React. Switching languages does not reload or remount the application, or clear forms, chat drafts or terminals.
 
-仅翻译界面说明；API 字段、枚举值、路由、模型名称、用户内容、命令和代码保持原始值。下拉框必须显式指定稳定的 `value`。模块级导航和选项模型保持英文消息键，在展示处翻译。新增文案同时补充词典，未收录消息回退为英文；插值内容只当文本处理，不执行 HTML。
+English source strings are message keys; Chinese dictionaries are organized by feature in `messages/`. Use `t("English copy")` where text is displayed, and `t("{{count}} items", { count })` for interpolation. Components with translated text call `useLocale()`; memoized translations must depend on the current locale. Format dates and numbers through `lib/format.ts`.
 
-所有词典随前端静态包发布，运行时不调用外部翻译服务。`npm run test:i18n` 验证生产包；单元测试同时检查词典占位符与源码消息覆盖。
+Translate interface explanations only. Preserve API fields, enum values, routes, model names, user content, commands and code. Select options must have explicit, stable `value` attributes. Module-level navigation and option models retain English message keys and translate at render time. Add dictionary entries with new UI copy. Missing translations fall back to English; interpolated values are plain text, never executable HTML.
+
+All dictionaries ship in the static frontend bundle; no external translation service is called at runtime. `npm run test:i18n` validates the production bundle. Unit tests also check dictionary placeholders and source-message coverage.

@@ -1,5 +1,7 @@
-# 国际化浏览器验证
+# Localization browser verification
 
-运行 `npx playwright install chromium` 安装测试浏览器后，执行 `npm run test:i18n`。
+**English** · [Chinese](README_zh.md)
 
-测试使用本地 Community 生产包和明确的模拟 API 数据，验证中英文切换、刷新与跨标签页同步、表单草稿保留、中文导航搜索和移动端布局。模拟数据仅由测试请求拦截器提供，不参与产品构建，也不证明线上后端可用。
+Install the test browser with `npx playwright install chromium`, then run `npm run test:i18n`.
+
+Tests use a local Community production bundle and explicit mock API data to verify language switching, persistence after refresh, cross-tab synchronization, form-draft retention, Chinese navigation search and mobile layouts. Mock data is supplied only through test request interceptors; it is not included in the product build and does not prove the live backend is available.
