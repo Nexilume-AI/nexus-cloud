@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "edition": "Enterprise",
+  "capture_date": "2026-10-01",
+  "timezone": "Asia/Shanghai",
+  "capture_method": "live-browser-screenshot",
+  "environment": "Existing local Cloud, isolated demo Organization, real Docker-hosted Python Agent",
+  "checkout_head": "ac180e7a93e7b0e6db678524493b05ac66dadc73",
+  "checkout_note": "Working tree contains local changes; HEAD is not an immutable application release identifier.",
+  "source": "../../examples/readme_launch_agent.py",
+  "source_sha256": "bde142dcfed8a6737ad342d752f0bb8178b72ed48ee2adcbb7fa7485f5dfea90",
+  "verified": [
+    "Python upload build and tool verification",
+    "Docker runtime active and healthy",
+    "SDK plan and inline Select interaction",
+    "Run completed",
+    "Output scan passed and policy approved through Data Assets UI",
+    "Markdown preview and real browser download",
+    "Private collection capture completed",
+    "Original Run and selected file restored after page navigation"
+  ],
+  "output": {
+    "name": "launch-checklist.md",
+    "size_bytes": 546,
+    "sha256": "a3d6b10dc738d9495d8cf8354d20fb510dca9a7519e0933a507db260bd898539"
+  },
+  "not_demonstrated": ["LLM inference", "Computer", "Mobile", "OpenWrt", "model routing", "video", "performance"],
+  "assets": [
+    {"file": "enterprise-inline-question.jpg", "sha256": "8336cd338e05b50c5990417aed032c2e403af9925a34aca0d806bc2046edc96c"},
+    {"file": "enterprise-run-plan.jpg", "sha256": "030a866b87e3bd0109bed4ed813e12e0b4ccfa225331d919a615d04b52faf269"},
+    {"file": "enterprise-run-completed.jpg", "sha256": "d370d84f0f9153b3d6d126e7f805e8545e08bb2365ed9e633f28a4f2487df847"},
+    {"file": "enterprise-file-preview.jpg", "sha256": "0dc5bd0628f0fa07a09989bc1557b6ebdb17f9260f9efd3beeae68ebbbbe7ec3"},
+    {"file": "enterprise-data-assets.jpg", "sha256": "e7c64c403cff9aa13752e56f7414b7c1240e9138fc6666a3bb532914e2f46d64"}
+  ]
+}
