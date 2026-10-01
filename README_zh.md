@@ -4,7 +4,7 @@
 
 **Your Agents. Your models. Your devices.**
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-17251d.svg)](LICENSE)
+[![License: Nexus Community](https://img.shields.io/badge/License-Nexus_Community-17251d.svg)](LICENSE)
 [![文档](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![引用项目](https://img.shields.io/badge/Cite-this_software-e8e9e4.svg)](#引用)
 
@@ -114,7 +114,7 @@ docker compose -f deploy/community/compose.yaml run --rm --no-deps --entrypoint 
 | Access 管理 | 不包含 | Organization / Project 角色与机器身份 |
 | Billing 与 TokenBank | 不包含 | 商业计费与账务能力 |
 | Agent、模型与数据 Marketplace | 不包含 | Marketplace 工作流 |
-| 源码发布 | 本仓库 Apache-2.0 社区源码 | 独立分发的闭源实现 |
+| 源码发布 | 本仓库 源码可用的社区源码 | 独立分发的闭源实现 |
 
 README 可以同时展示两个版本。截图和视频必须标注实际录制版本；企业版演示不代表其中的菜单或商业功能已包含在社区版。公开企业版产品素材不等于开放企业版源码。
 
@@ -153,4 +153,8 @@ README 可以同时展示两个版本。截图和视频必须标注实际录制�
 
 ## 许可证
 
-Nexus 自有代码采用 [Apache-2.0](LICENSE)。第三方组件保留各自许可证与声明；公开文档不授予独立企业版实现的使用权。
+Nexus 自有代码采用 [Nexus Community License 1.0](LICENSE)。第三方组件保留各自许可证与声明；公开文档不授予独立企业版实现的使用权。
+
+### Licensing conditions / 许可条件
+
+Source-available, not unmodified Apache-2.0 or OSI-approved open source. Multi-tenant service operation and removal of existing Nexus UI branding require prior written authorization. Earlier Apache-2.0 grants and third-party licenses remain unchanged. Contributions require explicit agreement permitting commercial use and future relicensing. 许可说明：[LICENSING.md](LICENSING.md)。授权联系：**cary.nexilume@outlook.com**。

@@ -12,7 +12,7 @@ OpenWrt runtimes. This repository includes the Cloud Server, Web Console and Rel
 
 [Quick start](#quick-start) · [Features](#what-you-can-do) ·
 [Compare editions](#community-or-enterprise) ·
-[Documentation](#documentation) · [Contributing](#contributing) · [Apache-2.0](LICENSE)
+[Documentation](#documentation) · [Contributing](#contributing) · [Nexus Community License 1.0](LICENSE)
 
 ## What you can do
 
@@ -97,7 +97,7 @@ is enabled in a particular Enterprise deployment.
 | Usage and billing | Operational usage/cost observations; no Nexus wallet settlement | Commercial billing, wallet/plan and TokenBank services |
 | Marketplaces | No commercial Marketplace publication or acquisition | Commercial Marketplace workflows, subject to deployment configuration |
 | Installation | Docker Compose or native Linux/Windows installation operated by you | Access an organization-provided service; end users do not need a local Cloud Server |
-| Source distribution | Nexus-authored source under Apache-2.0; upstream components retain their own terms | Private enterprise implementation is outside this repository and license grant |
+| Source distribution | Nexus-authored source under Nexus Community License 1.0; upstream components retain their own terms | Private enterprise implementation is outside this repository and license grant |
 
 Choose Community for your own Agents and infrastructure. Choose Enterprise
 when you need organization administration or commercial platform workflows.
@@ -271,13 +271,13 @@ Community composition, and host-selected extension contracts. Never introduce
 a dependency on an unavailable private implementation. Use synthetic test data;
 do not include tokens, device keys, personal files or deployment configuration.
 
-Submit contributions under Apache-2.0 unless explicitly agreed otherwise.
+Contributions require explicit acceptance of CONTRIBUTOR_LICENSE_AGREEMENT.md before merge.
 Report suspected security issues privately to the repository maintainers before
 posting exploit details or credentials in a public issue.
 
 ## License
 
-Nexus-authored source is licensed under [Apache-2.0](LICENSE). Separately licensed
+Nexus-authored source is licensed under [Nexus Community License 1.0](LICENSE). Separately licensed
 upstream components retain their own licenses and notices. Enterprise source is
 outside this distribution.
 
@@ -287,3 +287,7 @@ outside this distribution.
 It detects changed bytes; it is not a publisher signature. Obtain the archive
 and its checksum from a trusted release channel. This export contains no Git
 history, local deployment state, environment files or private commercial tree.
+
+### Licensing conditions / 许可条件
+
+Source-available, not unmodified Apache-2.0 or OSI-approved open source. Multi-tenant service operation and removal of existing Nexus UI branding require prior written authorization. Earlier Apache-2.0 grants and third-party licenses remain unchanged. Contributions require explicit agreement permitting commercial use and future relicensing. 许可说明：[LICENSING.md](LICENSING.md)。授权联系：**cary.nexilume@outlook.com**。

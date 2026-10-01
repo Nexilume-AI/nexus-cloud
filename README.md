@@ -4,7 +4,7 @@
 
 **Your Agents. Your models. Your devices.**
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-17251d.svg)](LICENSE)
+[![License: Nexus Community](https://img.shields.io/badge/License-Nexus_Community-17251d.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![Cite this software](https://img.shields.io/badge/Cite-this_software-e8e9e4.svg)](#citation)
 
@@ -24,10 +24,10 @@ A self-hosted, single-owner workspace for running Agents, routing model requests
 
 ## See it in action
 
-**Real Enterprise UI.** An isolated demo account runs a
+ An isolated demo account runs a
 small Python Agent in a real Docker container. The example is deterministic: no
 paid model, personal Computer or Mobile is used. Enterprise menus and commercial
-features shown here are not included in Community.
+features shown here.
 
 ### Ask, confirm, inspect
 
@@ -117,7 +117,7 @@ Choose the edition for your deployment:
 | Access administration | Not included | Organization / Project roles and machine identities |
 | Billing and TokenBank | Not included | Commercial billing and accounting capabilities |
 | Agent, model and data Marketplaces | Not included | Marketplace workflows |
-| Source distribution | Apache-2.0 community source in this repository | Separately distributed proprietary implementation |
+| Source distribution | Source-available community source in this repository | Separately distributed proprietary implementation |
 
 Enterprise can be featured here alongside Community. Screenshots and recordings must identify the edition used; an Enterprise demonstration is not proof that its menus or commercial features ship in Community. Publishing Enterprise product media does not publish its source code.
 
@@ -170,4 +170,8 @@ If this software helps your work, cite the repository and record the exact relea
 
 ## License
 
-Nexus-authored source is distributed under [Apache-2.0](LICENSE). Third-party components retain their own licenses and notices. Documentation does not grant rights to separately distributed Enterprise implementation.
+Nexus-authored source is distributed under [Nexus Community License 1.0](LICENSE). Third-party components retain their own licenses and notices. Documentation does not grant rights to separately distributed Enterprise implementation.
+
+### Licensing conditions / 许可条件
+
+Source-available, not unmodified Apache-2.0 or OSI-approved open source. Multi-tenant service operation and removal of existing Nexus UI branding require prior written authorization. Earlier Apache-2.0 grants and third-party licenses remain unchanged. Contributions require explicit agreement permitting commercial use and future relicensing. 许可说明：[LICENSING.md](LICENSING.md)。授权联系：**cary.nexilume@outlook.com**。

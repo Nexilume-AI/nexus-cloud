@@ -55,5 +55,6 @@
     "typescript": "~5.9.3",
     "vite": "^7.3.0",
     "vitest": "^4.1.11"
-  }
+  },
+  "license": "LicenseRef-Nexus-Community-1.0"
 }
