@@ -55,7 +55,10 @@ remote devices. Model providers may charge for usage.
 
 ## Your first workflow
 
-1. **Connect a Provider** and check its available models.
+1. **Connect a Provider** and check its available models. Direct API uses your
+   existing endpoint. Codex Proxy / CLIProxyAPI require the optional
+   [Provider execution setup](deploy/community/PROVIDERS.md); Docker Engine is
+   a host prerequisite, not installed by pip or the default Cloud stack.
 2. **Create a Model Pool and Router** for the models you want to use.
 3. **Configure execution** using the [operator guide](nexus_server/nexus_personal/HOST.md), then deploy your Agent and verify its runtime health.
 4. **Open Private Display** to interact with the Agent. Attach files or pair a device when the Agent supports those capabilities.

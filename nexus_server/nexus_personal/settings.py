@@ -121,6 +121,21 @@ MEDIA_ROOT = NEXUS_MEDIA_STORAGE_ROOT
 NEXUS_AGENT_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "agents")
 NEXUS_ROUTER_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "routers")
 NEXUS_PROVIDER_RUNTIME_STORAGE_ROOT = str(_host["state_dir"] / "storage" / "provider-runtimes")
+if os.environ.get('NEXUS_PERSONAL_PROVIDER_COMPOSE') == '1':
+    # Explicit deployment option; never grant the Web process Docker access.
+    import re as _provider_re
+    _provider_network = os.environ.get('NEXUS_PROVIDER_RUNTIME_DOCKER_NETWORK', '')
+    _provider_host_root = os.environ.get('NEXUS_PROVIDER_RUNTIME_HOST_STORAGE_ROOT', '')
+    if (not _provider_re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', _provider_network)
+            or _provider_network in {'host', 'none', 'bridge'}
+            or (_provider_host_root and not _provider_host_root.startswith('/')) or '..' in _provider_host_root.split('/')
+            or any(char in _provider_host_root for char in ('\x00', '\n', '\r', ':'))):
+        raise ValueError('PERSONAL_PROVIDER_COMPOSE_CONFIGURATION_INVALID')
+    NEXUS_PROVIDER_RUNTIME_STORAGE_ROOT = '/var/lib/nexus-provider-runtimes'
+    NEXUS_PROVIDER_RUNTIME_HOST_STORAGE_ROOT = _provider_host_root
+    NEXUS_PROVIDER_RUNTIME_DOCKER_NETWORK = _provider_network
+    NEXUS_PROVIDER_RUNTIME_NETWORK_ENDPOINTS = True
+    del _provider_re, _provider_network, _provider_host_root
 NEXUS_DATASET_SPOOL_MIN_FREE_BYTES = 512 * 1024**2
 NEXUS_AGENT_RUNTIME_RUNNER = NEXUS_PROVIDER_RUNTIME_RUNNER = "controller"
 NEXUS_AGENT_RUNTIME_CONTROLLER_SOCKET = str(_host["state_dir"] / "run" / "agent-controller.sock")

@@ -410,6 +410,10 @@ export const api = {
   providers: (ctx: ApiContext) =>
     request<Provider[]>("/api/v1/providers/", {}, ctx),
 
+  providerExecutionSetup: (ctx: ApiContext, signal?: AbortSignal) =>
+    request<{ engines: Record<string, { available: boolean; code: string; message: string }> }>(
+      "/api/v1/provider-connections/execution-setup/", { signal }, ctx),
+
   providerConnections: (ctx: ApiContext) =>
     request<ProviderConnection[]>(
       `/api/v1/provider-connections/?view_scope=${ctx.projectId ? "current" : "all"}`,

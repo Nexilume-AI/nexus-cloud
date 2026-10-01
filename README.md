@@ -98,7 +98,11 @@ Change that password in Settings. First startup builds images and initializes st
 
 ## Your first workflow
 
-1. Connect a Provider and verify its models.
+1. Connect a Provider and verify its models. Direct API needs only your existing
+   endpoint. **Codex Proxy** / CLIProxyAPI require the explicit
+   [Provider execution setup](deploy/community/PROVIDERS.md), available for
+   native and Compose installs. Docker Engine is a host prerequisite, not a pip
+   dependency; the default Cloud stack does not receive the Docker socket.
 2. Create a Pool and Router for model access when your workflow needs one.
 3. Configure execution, deploy an Agent and check runtime health.
 4. Open Private Display, send a message and inspect the result.

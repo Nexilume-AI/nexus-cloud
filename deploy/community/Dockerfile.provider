@@ -1,0 +1,9 @@
+# Optional trusted controller image. The normal Cloud image has no Docker CLI.
+ARG CLOUD_IMAGE=nexus-community:local
+ARG DOCKER_CLI_IMAGE=docker:cli
+FROM ${DOCKER_CLI_IMAGE} AS dockercli
+FROM ${CLOUD_IMAGE}
+USER 0:0
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
+ENV HOME=/home/nexus
+USER 10001:10001

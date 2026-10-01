@@ -899,6 +899,10 @@ def start_provider_runtime(*, request, runtime_id: str) -> ProviderRuntimeAccoun
     require_provider_runtime_admin(request=request, tenant=runtime.tenant)
     if runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_DIRECT_API:
         return start_direct_api_runtime(request=request, runtime=runtime)
+    if (getattr(settings, 'NEXUS_PRODUCTION', False)
+            and runtime.status in {'created', 'stopped', 'failed'}):
+        from .execution_setup import require_execution
+        require_execution(runtime.runtime_type)
     with transaction.atomic():
         runtime = ProviderRuntimeAccount.objects.select_for_update().get(id=runtime.id)
         if runtime.status in {ProviderRuntimeAccount.STATUS_ACTIVE, ProviderRuntimeAccount.STATUS_LOGIN_REQUIRED}:

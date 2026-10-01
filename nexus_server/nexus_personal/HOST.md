@@ -355,6 +355,12 @@ use it against an installation whose queued work you are not authorized to run.
 
 ## Local Controller configuration
 
+For Provider engines, prefer the guarded `enable-provider-runtime` installer:
+it checks Docker, approved receipts and local images, selects a loopback port,
+and preserves the installation's other controllers. See
+[Provider execution setup](../../deploy/community/PROVIDERS.md) for native and
+explicit Compose installation. Docker Engine is not installed by pip.
+
 Omitting `controllers` preserves the earlier schema-v1 configuration: neither
 service gains a default token, and both remain unavailable until configured.
 Each configured service has an explicit non-privileged `port` (1024–65535) and

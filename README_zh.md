@@ -88,7 +88,7 @@ docker compose -f deploy/community/compose.yaml run --rm --no-deps --entrypoint 
 
 ## 第一个完整流程
 
-1. 连接 Provider 并确认模型可用。
+1. 连接 Provider 并确认模型可用。Direct API 使用已有接口；**Codex Proxy** / CLIProxyAPI 需额外配置 [Provider 执行环境](deploy/community/PROVIDERS.md)，支持原生安装命令与可选 Compose。Docker Engine 是宿主机前提，不由 pip 自动安装；默认 Cloud 不挂载 Docker socket。
 2. 按需创建 Model Pool 与 Router。
 3. 配置执行环境，部署 Agent 并检查健康状态。
 4. 在 Private Display 发起任务，查看回复与文件产物。

@@ -5,11 +5,57 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from nexus_personal import container
 
 
 class ContainerBootstrapTests(unittest.TestCase):
+    provider_environment = {'NEXUS_PROVIDER_COMPOSE_PROJECT': 'nexus-community',
+                            'NEXUS_PROVIDER_COMPOSE_SERVICE': 'provider-controller'}
+
+    def test_provider_data_uses_daemon_mount_source_not_windows_or_container_path(self):
+        mounts = [{'Type': 'bind', 'Source': '/run/desktop/mnt/host/d/provider-data',
+                   'Destination': '/var/lib/nexus-provider-runtimes', 'RW': True}]
+        identity = 'a' * 64
+        with patch.dict(os.environ, self.provider_environment), \
+                patch('socket.gethostname', return_value='postgres-hostname'), \
+                patch.object(container.subprocess, 'run', side_effect=[
+                    SimpleNamespace(stdout=identity.encode()),
+                    SimpleNamespace(stdout=json.dumps(mounts).encode())]) as run:
+            self.assertEqual(container.provider_data_source(), '/run/desktop/mnt/host/d/provider-data')
+        self.assertEqual(run.call_args.kwargs['timeout'], 5)
+        self.assertEqual(run.call_args.args[0][:3], ['docker', 'container', 'inspect'])
+        self.assertEqual(run.call_args.args[0][-1], identity)
+        self.assertIn('label=com.docker.compose.project=nexus-community', run.call_args_list[0].args[0])
+        self.assertIn('label=com.docker.compose.service=provider-controller', run.call_args_list[0].args[0])
+
+    def test_provider_identity_does_not_fall_back_to_shared_hostname(self):
+        for values in ({}, {**self.provider_environment, 'NEXUS_PROVIDER_COMPOSE_SERVICE': 'postgres'},
+                       {**self.provider_environment, 'NEXUS_PROVIDER_COMPOSE_PROJECT': '--all'}):
+            with self.subTest(values=values), patch.dict(os.environ, values, clear=True), \
+                    patch.object(container.subprocess, 'run') as run:
+                with self.assertRaisesRegex(ValueError, '^CONTAINER_PROVIDER_IDENTITY_INVALID$'):
+                    container.provider_data_source()
+                run.assert_not_called()
+
+    def test_provider_identity_lookup_rejects_missing_ambiguous_and_invalid_ids(self):
+        for output in (b'', b'a' * 64 + b'\n' + b'b' * 64, b'not-an-id'):
+            with self.subTest(output=output), patch.dict(os.environ, self.provider_environment), \
+                    patch.object(container.subprocess, 'run', return_value=SimpleNamespace(stdout=output)) as run:
+                with self.assertRaisesRegex(ValueError, '^CONTAINER_PROVIDER_DATA_MAPPING_FAILED$'):
+                    container.provider_data_source()
+                run.assert_called_once()
+
+    def test_provider_data_mapping_fails_closed_for_ambiguous_or_wrong_mounts(self):
+        mount = {'Type': 'bind', 'Source': '/data/provider', 'Destination': '/var/lib/nexus-provider-runtimes', 'RW': True}
+        for mounts in ([], [mount, mount], [{**mount, 'RW': False}], [{**mount, 'Source': '/'}], [{**mount, 'Source': '/data/../other'}]):
+            with self.subTest(mounts=mounts), patch.dict(os.environ, self.provider_environment), \
+                    patch.object(container.subprocess, 'run', side_effect=[SimpleNamespace(stdout=b'a' * 64),
+                        SimpleNamespace(stdout=json.dumps(mounts).encode())]):
+                with self.assertRaisesRegex(ValueError, '^CONTAINER_PROVIDER_DATA_MAPPING_FAILED$'):
+                    container.provider_data_source()
+
     def test_non_loopback_plaintext_and_credential_origins_rejected(self):
         for origin in ('http://0.0.0.0:18090', 'http://example.com', 'https://user:secret@example.com',
                        'https://example.com/path', 'https://example.com/?token=secret'):

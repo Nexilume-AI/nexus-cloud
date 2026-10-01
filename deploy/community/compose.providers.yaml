@@ -1,0 +1,96 @@
+# Explicit opt-in: only these two trusted services receive Docker control.
+# NEXUS_PROVIDER_DATA and NEXUS_PROVIDER_RELEASES must be dedicated absolute dirs.
+x-provider-environment: &provider-environment
+  NEXUS_PERSONAL_PROVIDER_COMPOSE: "1"
+  NEXUS_PROVIDER_RUNTIME_DOCKER_NETWORK: ${NEXUS_PROVIDER_NETWORK:-nexus-community-providers}
+  NEXUS_PROVIDER_ENGINES: ${NEXUS_PROVIDER_ENGINES:-codex_proxy,cliproxyapi}
+
+x-provider-controller: &provider-controller
+  image: ${NEXUS_PROVIDER_CONTROLLER_IMAGE:-nexus-community-provider:local}
+  build:
+    context: ../..
+    dockerfile: deploy/community/Dockerfile.provider
+    args:
+      CLOUD_IMAGE: ${NEXUS_COMMUNITY_IMAGE:-nexus-community:local}
+      DOCKER_CLI_IMAGE: ${NEXUS_DOCKER_CLI_IMAGE:-docker:cli}
+  # Bootstrap adopts only an empty, dedicated data mount, then drops to UID 10001.
+  user: "0:0"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  cap_add: [SETUID, SETGID, CHOWN, FOWNER]
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  tmpfs: [/tmp:size=32m,mode=1777]
+  network_mode: service:postgres
+  environment: *provider-environment
+  volumes:
+    - community-state:/var/lib/nexus
+    - ${NEXUS_PROVIDER_DATA:?Set an absolute dedicated Provider data directory}:/var/lib/nexus-provider-runtimes
+    - ${NEXUS_PROVIDER_RELEASES:?Set the absolute verified release receipt directory}:/opt/nexus/provider-releases:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+
+services:
+  prepare:
+    volumes:
+      - ${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro
+  initialize:
+    volumes:
+      - ${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro
+  postgres:
+    networks: [default, providers]
+  provider-setup:
+    <<: *provider-controller
+    environment:
+      <<: *provider-environment
+      NEXUS_PROVIDER_COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME}
+      NEXUS_PROVIDER_COMPOSE_SERVICE: provider-setup
+    command: [provider-setup]
+    restart: "no"
+    depends_on:
+      initialize: {condition: service_completed_successfully}
+  provider-controller:
+    <<: *provider-controller
+    environment:
+      <<: *provider-environment
+      NEXUS_PROVIDER_COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME}
+      NEXUS_PROVIDER_COMPOSE_SERVICE: provider-controller
+    command: [provider-controller]
+    restart: unless-stopped
+    depends_on:
+      provider-setup: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -m, nexus_personal.container, provider-status]
+      interval: 30s
+      timeout: 20s
+      start_period: 30s
+      retries: 3
+  web:
+    environment: *provider-environment
+    volumes: ["${NEXUS_PROVIDER_DATA}:/var/lib/nexus-provider-runtimes", "${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro"]
+    depends_on:
+      provider-controller: {condition: service_healthy}
+  worker:
+    environment: *provider-environment
+    volumes: ["${NEXUS_PROVIDER_DATA}:/var/lib/nexus-provider-runtimes", "${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro"]
+    depends_on:
+      provider-controller: {condition: service_healthy}
+  agent-worker:
+    environment: *provider-environment
+    volumes: ["${NEXUS_PROVIDER_DATA}:/var/lib/nexus-provider-runtimes", "${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro"]
+    depends_on:
+      provider-controller: {condition: service_healthy}
+  beat:
+    environment: *provider-environment
+    volumes: ["${NEXUS_PROVIDER_DATA}:/var/lib/nexus-provider-runtimes", "${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro"]
+    depends_on:
+      provider-controller: {condition: service_healthy}
+  relay:
+    environment: *provider-environment
+    volumes: ["${NEXUS_PROVIDER_RELEASES}:/opt/nexus/provider-releases:ro"]
+
+networks:
+  providers:
+    name: ${NEXUS_PROVIDER_NETWORK:-nexus-community-providers}

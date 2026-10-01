@@ -3,6 +3,7 @@ import { ProviderFact as Fact, DialogActions, providerRuntimeId, errorToast } fr
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ProviderImportDialog } from "../components/ProviderImportDialog";
+import { ProviderExecutionSetup, useProviderExecutionSetup } from "../components/ProviderExecutionSetup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, Check, CircleAlert, KeyRound, Loader2, LogIn, Play, Plus, RefreshCw, Search, Share2, Square, Trash2 } from "lucide-react";
@@ -533,6 +534,7 @@ function RuntimeInspector({
   const loginPollGeneration = useRef(0);
   const [editingOffer, setEditingOffer] = useState<ProviderRuntimeModelOffer | null>(null);
   const [editProviderOpen, setEditProviderOpen] = useState(false);
+  const execution = useProviderExecutionSetup(provider.engine);
   const refresh = useMutation({
     mutationFn: () => api.providerConnectionAction(apiContext, provider.id, "models/refresh"),
     onSuccess: () =>
@@ -618,10 +620,12 @@ function RuntimeInspector({
   const publishing = useApplicationDistribution().resourcePublishing;
   const publicationEnabled = Boolean(publishing);
   const recommendedAction = getProviderRecommendedAction(provider, publishing?.providerPolicy);
+  const executionBlocked = execution.blocked && ["start", "login", "health", "refresh"].includes(recommendedAction);
   const hasPublishableOffers = publishing ? provider.models.some(publishing.providerPolicy.canPublish) : false;
   const actionPending = lifecycle.isPending || refresh.isPending || login.isPending;
 
   function runRecommendedAction() {
+    if (executionBlocked) return;
     if (recommendedAction === "wait") return;
     if (recommendedAction === "repair") lifecycle.mutate("repair");
     else if (recommendedAction === "login") openRuntimeLogin();
@@ -658,7 +662,7 @@ function RuntimeInspector({
           {recommendedAction === "operational" ? (
             <span className="provider-operational-state"><Check size={15} />{" "}{t("Operational")}</span>
           ) : (
-            <button className="btn btn-primary" onClick={runRecommendedAction} disabled={actionPending || recommendedAction === "wait"}>
+            <button className="btn btn-primary" onClick={runRecommendedAction} disabled={actionPending || executionBlocked || recommendedAction === "wait"}>
               {actionPending ? <Loader2 size={15} className="animate-spin" /> : runtimeActionIcon(recommendedAction)}
               {recommendedActionLabel[recommendedAction]}
             </button>
@@ -671,7 +675,7 @@ function RuntimeInspector({
                 <button onClick={() => lifecycle.mutate("stop")} disabled={lifecycle.isPending}>
                   <Square size={15} />{" "}{t("Stop provider")}</button>
               ) : recommendedAction !== "start" ? (
-                <button onClick={() => lifecycle.mutate("start")} disabled={lifecycle.isPending}>
+                <button onClick={() => lifecycle.mutate("start")} disabled={lifecycle.isPending || execution.blocked}>
                   <Play size={15} />{" "}{t("Start provider")}</button>
               ) : null}
               {recommendedAction !== "health" && (
@@ -697,6 +701,7 @@ function RuntimeInspector({
           </details>
         </div>
       </header>
+      <ProviderExecutionSetup engine={provider.engine} status={execution} />
       <dl className="provider-runtime-facts" data-publishing={publicationEnabled}>
         <Fact label={t("Connection")} value={provider.status} />
         <Fact label={t("Models")} value={String(provider.models.length)} />
@@ -892,7 +897,7 @@ function EditProviderDialog({
         <Field label={t("Engine")}>
           <select className="input" value={form.engine} onChange={(event) => setForm((current) => ({ ...current, engine: event.target.value as typeof current.engine }))}>
             <option value="direct_api">{t("Direct API")}</option>
-            <option value="codex_proxy">{t("Codex")}</option>
+            <option value="codex_proxy">{t("Codex Proxy")}</option>
             <option value="cliproxyapi">{t("CLIProxyAPI")}</option>
           </select>
         </Field>
@@ -942,6 +947,7 @@ function CreateAccountDialog({
     key: "",
     engine: "direct_api" as "direct_api" | "codex_proxy" | "cliproxyapi",
   });
+  const execution = useProviderExecutionSetup(form.engine, open);
   const create = useMutation({
     mutationFn: () =>
       api.createProviderConnection(apiContext, {
@@ -964,7 +970,7 @@ function CreateAccountDialog({
   const canSubmit =
     form.engine === "direct_api"
       ? Boolean(form.name.trim() && form.url.trim() && form.key)
-      : Boolean(form.name.trim());
+      : Boolean(form.name.trim()) && !execution.blocked;
   return (
     <NexilumeDialog
       open={open}
@@ -983,7 +989,7 @@ function CreateAccountDialog({
             onChange={(value) => setForm((current) => ({ ...current, engine: value as typeof current.engine }))}
             options={[
               { value: "direct_api", label: t("API key") },
-              { value: "codex_proxy", label: t("Codex") },
+              { value: "codex_proxy", label: t("Codex Proxy") },
               { value: "cliproxyapi", label: t("CLIProxyAPI") },
             ]}
           />
@@ -1005,6 +1011,7 @@ function CreateAccountDialog({
         </Field>
         <ResourceOwnershipPicker projects={projects} value={ownership} onChange={setOwnership} />
 
+        <ProviderExecutionSetup engine={form.engine} status={execution} />
         {form.engine === "direct_api" ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("API base URL")}>
@@ -1335,7 +1342,7 @@ function humanAuthMode(value: string) {
 
 function humanEngine(value: string) {
   if (value === "direct_api") return t("Direct API");
-  if (value === "codex_proxy") return t("Codex");
+  if (value === "codex_proxy") return t("Codex Proxy");
   if (value === "cliproxyapi") return t("CLIProxyAPI");
   return humanStatus(value);
 }

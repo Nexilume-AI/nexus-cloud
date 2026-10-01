@@ -60,6 +60,9 @@ operator-owned reachable domain; the local HTTP test does not verify it.
 This deploys Cloud itself. OpenWrt, Mobile and the Python SDK are separate
 distributions. Docker-hosted Agent/Provider controllers are separate execution
 services and are not implicitly granted the host Docker socket by this stack.
+For Codex Proxy or CLIProxyAPI, follow the explicit
+[Provider execution setup](PROVIDERS.md) (native command or Compose overlay).
+Direct API connections do not require that optional execution environment.
 Python upload requires the existing operator-configured builder/controller profile;
 the Cloud service image is not an Agent runtime image. See the Community host guide
 for that profile. Pairing Computer Runtime uses the deployed Cloud API and WSS.

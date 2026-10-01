@@ -94,12 +94,90 @@ def initialize_database():
         raise ValueError('CONTAINER_INITIALIZATION_FAILED')
 
 
+def provider_identity():
+    """Trusted opt-in controller bootstrap, not a Docker socket on Cloud Web."""
+    import stat
+    if os.environ.get('NEXUS_PERSONAL_PROVIDER_COMPOSE') != '1':
+        raise ValueError('CONTAINER_PROVIDER_OPT_IN_REQUIRED')
+    socket = Path('/var/run/docker.sock')
+    data = Path('/var/lib/nexus-provider-runtimes')
+    if not stat.S_ISSOCK(socket.stat().st_mode) or data.is_symlink() or not data.is_dir():
+        raise ValueError('CONTAINER_PROVIDER_MOUNTS_INVALID')
+    if os.getuid() == 0:
+        if data.stat().st_uid != UID:
+            if any(data.iterdir()):
+                raise ValueError('CONTAINER_PROVIDER_DATA_NOT_EMPTY')
+            os.chown(data, UID, UID)
+            os.chmod(data, 0o700)
+        os.setgroups([socket.stat().st_gid])
+        os.setgid(UID)
+        os.setuid(UID)
+    os.environ['HOME'] = '/home/nexus'
+    # Docker Desktop translates Windows bind paths. Resolve the daemon's actual
+    # source, rather than passing a container-only (or Windows) path to docker run.
+    os.environ['NEXUS_PROVIDER_RUNTIME_HOST_STORAGE_ROOT'] = provider_data_source()
+
+
+def provider_data_source():
+    import re
+    # Network-sharing containers inherit the Postgres hostname, not their own
+    # Docker ID. Resolve this Compose service independently and fail on ambiguity.
+    project = os.environ.get('NEXUS_PROVIDER_COMPOSE_PROJECT', '')
+    service = os.environ.get('NEXUS_PROVIDER_COMPOSE_SERVICE', '')
+    if (not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,127}', project)
+            or service not in {'provider-setup', 'provider-controller'}):
+        raise ValueError('CONTAINER_PROVIDER_IDENTITY_INVALID')
+    try:
+        listed = subprocess.run(['docker', 'container', 'ls', '--no-trunc', '--quiet',
+            '--filter', f'label=com.docker.compose.project={project}',
+            '--filter', f'label=com.docker.compose.service={service}',
+            '--filter', 'label=com.docker.compose.oneoff=False'],
+            stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=True)
+        identities = listed.stdout.decode('ascii').split()
+        if len(identities) != 1 or not re.fullmatch(r'[a-f0-9]{64}', identities[0]):
+            raise ValueError()
+        identity = identities[0]
+        result = subprocess.run(['docker', 'container', 'inspect', '--format', '{{json .Mounts}}', identity],
+            stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=True)
+        mounts = json.loads(result.stdout)
+        sources = [item['Source'] for item in mounts if item.get('Type') == 'bind'
+            and item.get('Destination') == '/var/lib/nexus-provider-runtimes' and item.get('RW') is True]
+        if len(sources) != 1:
+            raise ValueError()
+        source = sources[0]
+        if (not isinstance(source, str) or not source.startswith('/') or source == '/'
+                or '..' in source.split('/') or any(char in source for char in ('\x00', '\n', '\r', ':'))):
+            raise ValueError()
+        return source
+    except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        raise ValueError('CONTAINER_PROVIDER_DATA_MAPPING_FAILED') from None
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('service', choices=('relay', 'prepare', 'initialize', 'web', 'worker', 'beat', 'agent-worker', 'status'))
+    parser.add_argument('service', choices=('relay', 'prepare', 'initialize', 'web', 'worker', 'beat', 'agent-worker', 'status', 'provider-setup', 'provider-controller', 'provider-status'))
     args = parser.parse_args(argv)
     try:
-        if args.service == 'prepare':
+        if args.service.startswith('provider-'):
+            provider_identity()
+            os.environ['NEXUS_PERSONAL_CONFIG'] = str(INSTALLATION / 'host.json')
+            if args.service == 'provider-setup':
+                from .install import enable_provider_runtime
+                result = enable_provider_runtime(directory=INSTALLATION, release_dir='/opt/nexus/provider-releases',
+                    engines=tuple(os.environ.get('NEXUS_PROVIDER_ENGINES', 'codex_proxy,cliproxyapi').split(',')))
+                print(json.dumps(result))
+            elif args.service == 'provider-status':
+                os.environ['DJANGO_SETTINGS_MODULE'] = 'nexus_personal.settings'
+                import django
+                django.setup()
+                from apps.providers.execution_setup import execution_setup
+                result = execution_setup()
+                selected = os.environ.get('NEXUS_PROVIDER_ENGINES', 'codex_proxy,cliproxyapi').split(',')
+                if not all(result['engines'].get(engine, {}).get('available') for engine in selected):
+                    raise ValueError('CONTAINER_PROVIDER_NOT_READY')
+            else:
+                os.execv(sys.executable, [sys.executable, '-m', 'nexus_personal.processes', 'provider-controller'])
+        elif args.service == 'prepare':
             prepare_installation()
         elif args.service == 'initialize':
             initialize_database()
@@ -130,7 +208,7 @@ def main(argv=None):
     except (InstallationError, ValueError, OSError) as error:
         # Backend errors and protected files never enter container logs.
         code = str(error).split(':', 1)[0]
-        if not code.startswith(('INSTALL_', 'CONTAINER_')) or len(code) > 100:
+        if not code.startswith(('INSTALL_', 'CONTAINER_', 'PROVIDER_')) or len(code) > 100:
             code = 'CONTAINER_OPERATION_FAILED'
         print(json.dumps({'error': code}), file=sys.stderr)
         return 1

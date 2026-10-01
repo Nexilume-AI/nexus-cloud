@@ -24,11 +24,11 @@ def _matches(pattern, value):
     return isinstance(value, str) and re.fullmatch(pattern, value) is not None
 
 
-def approved_release(runtime_type: str) -> dict | None:
-    directory = str(getattr(settings, "NEXUS_PROVIDER_RUNTIME_RELEASE_DIR", "")).strip()
+def approved_release(runtime_type: str, *, directory=None, required=None) -> dict | None:
+    directory = str(getattr(settings, "NEXUS_PROVIDER_RUNTIME_RELEASE_DIR", "") if directory is None else directory).strip()
     required = bool(getattr(settings, "NEXUS_PRODUCTION", False) or getattr(
         settings, "NEXUS_PROVIDER_RUNTIME_REQUIRE_VERIFIED_RELEASE", False
-    ))
+    )) if required is None else required
     if not directory and not required:
         return None  # Explicitly development-only compatibility.
     if not directory:
@@ -64,9 +64,9 @@ def approved_release(runtime_type: str) -> dict | None:
         raise APIException("Provider release approval is missing or invalid; install a verified release receipt.") from None
 
 
-def _inspect(arguments):
+def _inspect(arguments, *, timeout=30):
     try:
-        result = subprocess.run(["docker", *arguments], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(["docker", *arguments], capture_output=True, text=True, timeout=timeout)
         if result.returncode:
             raise ValueError
         data = json.loads(result.stdout)
@@ -77,8 +77,8 @@ def _inspect(arguments):
         raise APIException("Approved provider image/container is unavailable on this controller; load the verified image first.") from None
 
 
-def verify_image(receipt: dict) -> None:
-    image = _inspect(["image", "inspect", receipt["image_id"]])
+def verify_image(receipt: dict, *, timeout=30) -> None:
+    image = _inspect(["image", "inspect", receipt["image_id"]], timeout=timeout)
     labels = (image.get("Config") or {}).get("Labels") or {}
     if image.get("Id") != receipt["image_id"] or any(
         labels.get(key) != value for key, value in receipt["labels"].items()

@@ -258,6 +258,9 @@ def enable_python_builder(*, directory, base_image, controller_port):
         _fail('INSTALL_PYTHON_PROFILE_UNAVAILABLE')
     host_path, receipt_path = root / 'host.json', root / 'installation.json'
     config = read_protected_json(str(host_path))
+    expected_host = host_path.read_bytes()
+    if json.loads(expected_host) != config:
+        _fail('INSTALL_RECONFIGURATION_CONFLICT')
     receipt = read_protected_json(str(receipt_path))
     if config.get('python_builder', {}).get('enabled'):
         if config['python_builder'].get('base_image') != base_image:
@@ -272,6 +275,60 @@ def enable_python_builder(*, directory, base_image, controller_port):
         'egress_policy_ready': True, 'network_policy': {'mode': 'internal'},
     }}, 'python_builder': {'enabled': True, 'base_image': base_image,
         'isolation_ready': True, 'dependency_network': 'none'}}
+    _reconfigure(root, config, operation='enable-python-builder', expected_host=expected_host)
+    return {**result, 'controllers_configured': sorted(config['controllers']), 'python_builder_enabled': True}
+
+
+def enable_provider_runtime(*, directory, release_dir, engines=('codex_proxy', 'cliproxyapi'),
+                            controller_port=None, check_only=False):
+    """Opt-in native/Compose setup. No implicit Docker install, pull or image trust."""
+    from apps.providers.execution_setup import inspect_execution
+    root = _path(directory)
+    result = check(directory=root)
+    release_path = _path(release_dir)
+    config = read_protected_json(str(root / 'host.json'))
+    expected_host = (root / 'host.json').read_bytes()
+    if json.loads(expected_host) != config:
+        _fail('INSTALL_RECONFIGURATION_CONFLICT')
+    existing = config.get('controllers', {}).get('provider')
+    if not engines or any(engine not in ('codex_proxy', 'cliproxyapi') for engine in engines):
+        _fail('INSTALL_PROVIDER_ENGINE_INVALID')
+    if existing:
+        if (Path(existing['release_dir']) != release_path
+                or (controller_port is not None and existing['port'] != controller_port)):
+            _fail('INSTALL_PROVIDER_ALREADY_CONFIGURED')
+        controller_port = existing['port']
+    if controller_port is None:
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            controller_port = probe.getsockname()[1]
+    candidate = {**config, 'controllers': {**config.get('controllers', {}), 'provider': existing or {
+        'port': controller_port, 'token': secrets.token_urlsafe(48), 'release_dir': str(release_path)}}}
+    try:
+        validate_config(candidate)
+    except ImproperlyConfigured:
+        _fail('INSTALL_PROVIDER_CONFIGURATION_INVALID')
+    readiness = inspect_execution(release_dir=str(release_path), required=True, engines=engines)
+    for availability in readiness.values():
+        if not availability['available']:
+            _fail(availability['code'])
+    if not check_only and not existing:
+        if (root / 'run' / 'community-processes.json').exists():
+            _fail('INSTALL_SERVICES_MUST_BE_STOPPED')
+        try:
+            with socket.socket() as probe:
+                probe.bind(('127.0.0.1', controller_port))
+        except OSError:
+            _fail('INSTALL_CONTROLLER_PORT_UNAVAILABLE')
+        _reconfigure(root, candidate, operation='enable-provider-runtime', expected_host=expected_host)
+    return {**result, 'controllers_configured': sorted(candidate['controllers'] if not check_only else config.get('controllers', {})), 'provider_execution': readiness,
+            'provider_configured': bool(existing or not check_only), 'restart_required': not check_only and not existing}
+
+
+def _reconfigure(root, config, *, operation, expected_host):
+    """Keep host file, receipt and database identity stamp in the same guarded update."""
+    host_path, receipt_path = root / 'host.json', root / 'installation.json'
+    receipt = read_protected_json(str(receipt_path))
     normalized = validate_config(config)
     config['public_origin'] = normalized['public_origin']
     body = _json(config)
@@ -279,15 +336,20 @@ def enable_python_builder(*, directory, base_image, controller_port):
         _fail('INSTALL_CONFIGURATION_TOO_LARGE')
     new_hash = hashlib.sha256(body).hexdigest()
     old_host, old_receipt = host_path.read_bytes(), receipt_path.read_bytes()
+    if old_host != expected_host:
+        _fail('INSTALL_RECONFIGURATION_CONFLICT')
     old_hash = hashlib.sha256(old_host).hexdigest()
     receipt = {**receipt, 'config_sha256': new_hash}
     marker = root / 'installation-reconfigure.json'
     connection = None
     locked = False
     committed = False
+    marker_owned = False
+    files_written = False
     try:
-        _write(marker, _json({'schema_version': 1, 'operation': 'enable-python-builder',
+        _write(marker, _json({'schema_version': 1, 'operation': operation,
             'instance_id': config['instance_id']}))
+        marker_owned = True
         import psycopg
         database = config['database']
         connection = psycopg.connect(dbname=database['name'], host=database['host'], port=database['port'],
@@ -302,23 +364,27 @@ def enable_python_builder(*, directory, base_image, controller_port):
             stamp = cursor.fetchone()
             if stamp != (config['instance_id'], old_hash, 'initialized'):
                 _fail('INSTALL_DATABASE_IDENTITY_MISMATCH')
+            if host_path.read_bytes() != old_host or receipt_path.read_bytes() != old_receipt:
+                _fail('INSTALL_RECONFIGURATION_CONFLICT')
+            files_written = True
             _replace_private(host_path, body)
             _replace_private(receipt_path, _json(receipt))
             cursor.execute('UPDATE public.nexus_personal_bootstrap SET config_hash = %s WHERE slot = 1', [new_hash])
             connection.commit()
             committed = True
         marker.unlink()
-        return {**result, 'controllers_configured': sorted(config['controllers']), 'python_builder_enabled': True}
+        return
     except InstallationError:
         if committed:
             raise
         if connection is not None:
             connection.rollback()
-        if host_path.read_bytes() != old_host:
+        if files_written and host_path.read_bytes() != old_host:
             _replace_private(host_path, old_host)
-        if receipt_path.read_bytes() != old_receipt:
+        if files_written and receipt_path.read_bytes() != old_receipt:
             _replace_private(receipt_path, old_receipt)
-        marker.unlink(missing_ok=True)
+        if marker_owned:
+            marker.unlink(missing_ok=True)
         raise
     except Exception:
         if committed:
@@ -326,11 +392,12 @@ def enable_python_builder(*, directory, base_image, controller_port):
         if connection is not None:
             connection.rollback()
         try:
-            if host_path.read_bytes() != old_host:
+            if files_written and host_path.read_bytes() != old_host:
                 _replace_private(host_path, old_host)
-            if receipt_path.read_bytes() != old_receipt:
+            if files_written and receipt_path.read_bytes() != old_receipt:
                 _replace_private(receipt_path, old_receipt)
-            marker.unlink(missing_ok=True)
+            if marker_owned:
+                marker.unlink(missing_ok=True)
         except OSError:
             pass
         _fail('INSTALL_RECONFIGURATION_FAILED')
@@ -370,6 +437,12 @@ def main(argv=None):
     builder.add_argument('--directory', required=True)
     builder.add_argument('--base-image', required=True)
     builder.add_argument('--controller-port', required=True, type=int)
+    provider = commands.add_parser('enable-provider-runtime', help='Opt-in Provider Controller with verified local images; Docker must already be installed.')
+    provider.add_argument('--directory', required=True)
+    provider.add_argument('--release-dir', required=True)
+    provider.add_argument('--engine', action='append', choices=('codex_proxy', 'cliproxyapi'))
+    provider.add_argument('--controller-port', type=int)
+    provider.add_argument('--check', action='store_true', help='Check prerequisites without changing configuration.')
     args = parser.parse_args(argv)
     try:
         if args.command == 'initialize':
@@ -382,6 +455,10 @@ def main(argv=None):
         elif args.command == 'enable-python-builder':
             result = enable_python_builder(directory=args.directory, base_image=args.base_image,
                 controller_port=args.controller_port)
+        elif args.command == 'enable-provider-runtime':
+            result = enable_provider_runtime(directory=args.directory, release_dir=args.release_dir,
+                engines=tuple(args.engine or ('codex_proxy', 'cliproxyapi')),
+                controller_port=args.controller_port, check_only=args.check)
         else:
             result = check(directory=args.directory)
     except InstallationError as exc:

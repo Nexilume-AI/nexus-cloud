@@ -30,7 +30,7 @@ from .runtime_runner import (
 
 PROTOCOL_VERSION = 1
 MAX_FRAME_BYTES = 64 * 1024
-ALLOWED_ACTIONS = {"ping", "start", "restore", "stop", "health", "login_with_credentials"}
+ALLOWED_ACTIONS = {"ping", "execution_setup", "start", "restore", "stop", "health", "login_with_credentials"}
 
 
 class ProviderRuntimeControllerError(RuntimeError):
@@ -48,6 +48,7 @@ class ProviderRuntimeControllerClient:
         action: str,
         runtime_id: str = "",
         payload: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         frame = json.dumps(
             {
@@ -62,7 +63,7 @@ class ProviderRuntimeControllerClient:
         ).encode("utf-8") + b"\n"
         if len(frame) > MAX_FRAME_BYTES:
             raise ProviderRuntimeControllerError("Provider Runtime Controller request is too large.")
-        timeout = float(getattr(settings, "NEXUS_PROVIDER_RUNTIME_CONTROLLER_TIMEOUT_SECONDS", 1900))
+        timeout = timeout if timeout is not None else float(getattr(settings, "NEXUS_PROVIDER_RUNTIME_CONTROLLER_TIMEOUT_SECONDS", 1900))
         try:
             family, address = _socket_address(self.socket_path)
             with socket.socket(family, socket.SOCK_STREAM) as client:
@@ -229,6 +230,9 @@ def dispatch_provider_runtime_command(request: dict[str, Any]) -> dict[str, Any]
     action = str(request["action"])
     if action == "ping":
         return {"status": "ready", "protocol_version": PROTOCOL_VERSION}
+    if action == "execution_setup":
+        from .execution_setup import inspect_execution
+        return {"engines": inspect_execution()}
     runtime_id = str(request.get("runtime_id") or "")
     if not runtime_id:
         raise ProviderRuntimeControllerError("Provider Runtime ID is required.")

@@ -15,6 +15,16 @@ from .runtime_services import (start_provider_runtime, stop_provider_runtime, ch
 ProviderConnectionSerializer = connection_serializer()
 
 
+class ProviderExecutionSetupView(APIView):
+    def get(self, request):
+        from apps.common.request_context import get_tenant_from_request
+        from .execution_setup import execution_setup
+        # The response contains only fixed capability codes, never host paths,
+        # daemon versions, endpoints, image identifiers or credentials.
+        get_tenant_from_request(request)
+        return Response(execution_setup(), headers={"Cache-Control": "private, no-store"})
+
+
 class ProviderConnectionListCreateView(APIView):
     def get(self, request):
         from apps.common import catalog_pagination
