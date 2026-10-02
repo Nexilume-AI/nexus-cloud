@@ -8,7 +8,7 @@ name = "nexus-community-server"
 version = "0.0.0.dev0"
 description = "Single-owner Nexus Community host"
 requires-python = ">=3.14,<3.15"
-license = "LicenseRef-Nexus-Community-1.0"
+license = "LicenseRef-Nexus-Additional-Terms-1.0"
 license-files = ["LICENSE"]
 dynamic = ["dependencies"]
 

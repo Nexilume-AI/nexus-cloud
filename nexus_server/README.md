@@ -40,6 +40,6 @@ because a configuration file exists.
 - Secrets belong in protected local configuration, not source files, command
   arguments, example accounts or a downloaded repository.
 
-Community runtime code and the Python SDK use Nexus Community License 1.0. Third-party components
+Community runtime code and the Python SDK use Apache License 2.0 (modified). Third-party components
 retain their own licenses. Commercial features and the commercial deployment
 entrypoints are not included in this distribution.
