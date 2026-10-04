@@ -135,7 +135,7 @@ class ProviderProxyRuntimeGuards:
         self.assertEqual(runtime.container_id, "restored-container")
         self.assertEqual(runtime.internal_api_url, "http://127.0.0.1:29081/v1")
         runner.restore.assert_called_once_with(runtime=runtime, proxy_api_key="stable-provider-key")
-        refresh_models.assert_called_once_with(runtime=runtime, actor=self.provider_owner, strict=True)
+        refresh_models.assert_called_once_with(runtime=runtime, actor=self.provider_owner, strict=True, schedule_retry=False, bounded_probes=True)
 
     @patch("apps.providers.runtime_services.get_provider_runtime_runner")
     def test_cloud_start_does_not_restore_provider_stopped_by_user(self, get_runner: MagicMock) -> None:
@@ -185,7 +185,7 @@ class ProviderProxyRuntimeGuards:
         repaired_key = decrypt_secret(runtime.encrypted_proxy_api_key)
         self.assertTrue(repaired_key.startswith("nexus-prx-"))
         runner.restore.assert_called_once_with(runtime=runtime, proxy_api_key=repaired_key)
-        refresh_models.assert_called_once_with(runtime=runtime, actor=self.provider_owner, strict=True)
+        refresh_models.assert_called_once_with(runtime=runtime, actor=self.provider_owner, strict=True, schedule_retry=False, bounded_probes=True)
 
     def test_cliproxyapi_browser_login_endpoint_matches_selected_provider(self) -> None:
         openai, _ = Provider.objects.get_or_create(name="openai", defaults={"display_name": "OpenAI"})

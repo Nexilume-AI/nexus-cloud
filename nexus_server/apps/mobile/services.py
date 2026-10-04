@@ -24,6 +24,8 @@ from apps.common.request_context import get_tenant_from_request
 
 from .models import MobileCommand, MobileDevice
 from .policy import resolve_device_project, device_context_valid, scope_mobile_devices
+from .control import (FRAME_METADATA_KEY, MobileControlError, prepare_screen_arguments,
+                      consume_screen_frame, remember_screen_frame, screen_frame)
 
 
 class MobileError(exceptions.APIException):
@@ -65,6 +67,9 @@ SAFE_ACTION_RISK = {
     MobileCommand.ACTION_SWIPE: MobileCommand.RISK_MEDIUM,
     MobileCommand.ACTION_OPEN_APP: MobileCommand.RISK_MEDIUM,
     MobileCommand.ACTION_TYPE_TEXT: MobileCommand.RISK_HIGH,
+    MobileCommand.ACTION_PRESS_HOME: MobileCommand.RISK_LOW,
+    MobileCommand.ACTION_PRESS_RECENTS: MobileCommand.RISK_LOW,
+    MobileCommand.ACTION_LONG_PRESS: MobileCommand.RISK_MEDIUM,
 }
 
 RISK_RANK = {
@@ -74,6 +79,7 @@ RISK_RANK = {
 }
 
 SYSTEM_MOBILE_METADATA_KEYS = {
+    FRAME_METADATA_KEY,
     "paired_at",
     "pairing_token_issued_at",
     "pairing_token_expires_at",
@@ -144,12 +150,13 @@ def get_mobile_device(*, request, device_id: str) -> MobileDevice:
     return device
 
 
-def get_mobile_screenshot(*, request, device_id: str) -> tuple[bytes, str]:
+def get_mobile_screenshot(*, request, device_id: str) -> tuple[bytes, str, str]:
     device = get_mobile_device(request=request, device_id=device_id)
     if not device.screenshot_available:
         clear_mobile_screenshot(device)
         raise MobileNotFound("A current mobile screenshot is not available.")
-    return bytes(device.last_screenshot), device.last_screenshot_content_type or "image/webp"
+    frame = screen_frame(device)
+    return bytes(device.last_screenshot), device.last_screenshot_content_type or "image/webp", frame["id"] if frame else ""
 
 
 @transaction.atomic
@@ -303,6 +310,7 @@ def create_mobile_command(*, request, device_id: str, data: dict[str, Any]) -> M
     return command
 
 
+@transaction.atomic
 def create_mobile_command_for_device(
     *,
     device: MobileDevice,
@@ -318,6 +326,10 @@ def create_mobile_command_for_device(
     client_request_id=None,
     hosted_agent: bool = False,
 ) -> MobileCommand:
+    if "screen_frame_id" in arguments or "video_session_id" in arguments:
+        # Serialize capture/dispatch/control creation against the same device row.
+        device = MobileDevice.objects.select_for_update().get(pk=device.pk)
+    arguments = prepare_screen_arguments(device, action, arguments)
     inferred_risk = infer_risk(action=action, arguments=arguments)
     requested_risk = risk_level if risk_level in RISK_RANK else inferred_risk
     normalized_risk = max((inferred_risk, requested_risk), key=lambda value: RISK_RANK[value])
@@ -421,6 +433,7 @@ def get_mobile_command(*, request, command_id: str) -> MobileCommand:
 @transaction.atomic
 def device_heartbeat(*, request, device_id: str, data: dict[str, Any]) -> MobileDevice:
     device = authenticate_device_request(request=request, device_id=device_id)
+    device = MobileDevice.objects.select_for_update().get(pk=device.pk)
     if device.last_screenshot and not device.screenshot_available:
         clear_mobile_screenshot(device)
     device.mark_seen()
@@ -449,6 +462,7 @@ def device_heartbeat(*, request, device_id: str, data: dict[str, Any]) -> Mobile
 @transaction.atomic
 def next_device_command(*, request, device_id: str) -> MobileCommand | None:
     device = authenticate_device_request(request=request, device_id=device_id)
+    device = MobileDevice.objects.select_for_update().get(pk=device.pk)
     if not bool((device.capabilities or {}).get("accessibility")):
         raise MobileDeviceNotReady()
     device.mark_seen()
@@ -468,17 +482,42 @@ def next_device_command(*, request, device_id: str) -> MobileCommand | None:
     )
     if command is None:
         return None
+    try:
+        command.arguments = prepare_screen_arguments(device, command.action, command.arguments)
+    except MobileControlError as error:
+        command.status = MobileCommand.STATUS_FAILED
+        command.error = f"{error.get_codes()}: {error.detail}"
+        command.completed_at = now
+        command.save(update_fields=["status", "error", "completed_at", "updated_at"])
+        return None
+    if "screen_frame_id" in command.arguments:
+        consume_screen_frame(device)
     command.status = MobileCommand.STATUS_RUNNING
     command.dispatched_at = now
-    command.save(update_fields=["status", "dispatched_at", "updated_at"])
+    command.save(update_fields=["status", "dispatched_at", "arguments", "updated_at"])
     return command
 
 
 @transaction.atomic
 def complete_device_command(*, request, command_id: str, data: dict[str, Any]) -> MobileCommand:
-    command = authenticate_command_device_request(request=request, command_id=command_id)
+    command = authenticate_command_device_request(request=request, command_id=command_id, lock=False)
+    # Match dispatcher lock ordering: device, then command (avoid capture deadlocks).
+    device = MobileDevice.objects.select_for_update().get(pk=command.device_id)
+    command = MobileCommand.objects.select_for_update().get(pk=command.pk)
+    command.device = device
+    receipt = hashlib.sha256(json.dumps(
+        {"status": data["status"], "error": data.get("error", ""), "result": data.get("result") or {}},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")).hexdigest()
+    if command.status in {MobileCommand.STATUS_SUCCEEDED, MobileCommand.STATUS_FAILED}:
+        if command.result_receipt_sha256 and secrets.compare_digest(command.result_receipt_sha256, receipt):
+            return command
+        # Legacy completions without a receipt cannot establish report identity.
+        # Never overwrite a terminal result with a different or unproven retry.
+        raise MobileError("The command already has a different or unverified result receipt.")
     if command.status != MobileCommand.STATUS_RUNNING:
         raise MobileError("Only running commands can be completed.")
+    command.result_receipt_sha256 = receipt
     command.status = data["status"]
     command.error = data.get("error", "")
     result = dict(data.get("result") or {})
@@ -494,16 +533,18 @@ def complete_device_command(*, request, command_id: str, data: dict[str, Any]) -
                 command.screenshot = screenshot
                 command.screenshot_content_type = content_type
                 if not command.display_run_id:
-                    device = command.device
+                    device = MobileDevice.objects.select_for_update().get(pk=command.device_id)
                     device.last_screenshot = screenshot
                     device.last_screenshot_content_type = content_type
                     device.last_screenshot_captured_at = timezone.now()
+                    remember_screen_frame(device, result)
                     device.mark_seen()
                     device.save(
                         update_fields=[
                             "last_screenshot",
                             "last_screenshot_content_type",
                             "last_screenshot_captured_at",
+                            "metadata",
                             "online_status",
                             "last_seen_at",
                             "updated_at",
@@ -526,6 +567,7 @@ def complete_device_command(*, request, command_id: str, data: dict[str, Any]) -
         update_fields=[
             "status",
             "result",
+            "result_receipt_sha256",
             "error",
             "screenshot",
             "screenshot_content_type",
@@ -761,9 +803,12 @@ def authenticate_device_request(*, request, device_id: str) -> MobileDevice:
     return device
 
 
-def authenticate_command_device_request(*, request, command_id: str) -> MobileCommand:
+def authenticate_command_device_request(*, request, command_id: str, lock: bool = False) -> MobileCommand:
     token = mobile_token_from_request(request)
-    command = MobileCommand.objects.select_related("device").filter(id=command_id).exclude(status=SoftDeleteModel.STATUS_DELETED).first()
+    commands = MobileCommand.objects.select_related("device")
+    if lock:
+        commands = commands.select_for_update(of=("self",))
+    command = commands.filter(id=command_id).exclude(status=SoftDeleteModel.STATUS_DELETED).first()
     if (
         command is None
         or command.device.status != MobileDevice.STATUS_ACTIVE

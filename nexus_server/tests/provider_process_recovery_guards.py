@@ -68,7 +68,9 @@ class ProviderProcessRecoveryGuards:
             self.assertEqual(runtime.container_id, "current-container")
             self.assertEqual(runtime.internal_api_url, "http://127.0.0.1:29080/v1")
             return ProviderRuntimeHealthResult(True, False, "ready")
-        with patch.object(runner, "health_check", side_effect=health):
+        with patch.object(runner, "health_check", side_effect=health), patch(
+            "apps.providers.runtime_runner.CodexProxyRuntimeAdapter.prepare_storage", return_value=False
+        ):
             result = runner.restore(runtime=runtime, proxy_api_key="stable-key")
         run.assert_not_called()
         self.assertEqual(result.internal_api_url, "http://127.0.0.1:29080/v1")
@@ -86,7 +88,9 @@ class ProviderProcessRecoveryGuards:
             return 29080
         port.side_effect = current_port
         runner = DockerProviderRuntimeRunner()
-        with patch.object(runner, "start") as recreate:
+        with patch.object(runner, "start") as recreate, patch(
+            "apps.providers.runtime_runner.CodexProxyRuntimeAdapter.prepare_storage", return_value=False
+        ):
             restored = runner.restore(runtime=SimpleNamespace(runtime_type="codex_proxy"), proxy_api_key="stable-key")
         recreate.assert_not_called()
         self.assertEqual(restored.container_id, "stopped-container")
@@ -101,6 +105,7 @@ class ProviderProcessRecoveryGuards:
              patch("apps.providers.runtime_runner._container_has_managed_restart_policy", return_value=True), \
              patch("apps.providers.runtime_runner._container_is_running", return_value=True), \
              patch("apps.providers.runtime_runner._docker_host_port", side_effect=APIException("No public port")), \
+             patch("apps.providers.runtime_runner.CodexProxyRuntimeAdapter.prepare_storage", return_value=False), \
              patch.object(runner, "health_check", return_value=ProviderRuntimeHealthResult(True, False, "ready")), \
              patch.object(runner, "start", return_value=expected) as recreate:
             restored = runner.restore(runtime=runtime, proxy_api_key="preserved-key")
@@ -166,7 +171,9 @@ class ProviderProcessRecoveryGuards:
     def test_wedged_proxy_restarts_exact_container_and_refreshes_port(self, _id, _policy, _running, run, _port, wait):
         runtime = SimpleNamespace(runtime_type="codex_proxy")
         runner = DockerProviderRuntimeRunner()
-        with patch.object(runner, "health_check", return_value=ProviderRuntimeHealthResult(False, False, "Runtime transport is unavailable.", True)):
+        with patch.object(runner, "health_check", return_value=ProviderRuntimeHealthResult(False, False, "Runtime transport is unavailable.", True)), patch(
+            "apps.providers.runtime_runner.CodexProxyRuntimeAdapter.prepare_storage", return_value=False
+        ):
             result = runner.restore(runtime=runtime, proxy_api_key="stable-key")
         run.assert_called_once_with(["docker", "restart", "exact-managed-container"], timeout=30)
         self.assertEqual(result.container_id, "exact-managed-container")

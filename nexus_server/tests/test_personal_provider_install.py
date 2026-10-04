@@ -18,7 +18,9 @@ class ProviderInstallTests(unittest.TestCase):
         releases = self.root / 'releases'
         releases.mkdir()
         self.prepare()
-        return dict(directory=self.destination, release_dir=releases, engines=('codex_proxy',), controller_port=43108)
+        # Exercise the installer's normal OS-allocated loopback port. Fixed
+        # ports can be reserved by Hyper-V/WSL even when no listener exists.
+        return dict(directory=self.destination, release_dir=releases, engines=('codex_proxy',), controller_port=None)
 
     def database(self, before):
         connection = MagicMock()

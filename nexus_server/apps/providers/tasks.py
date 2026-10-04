@@ -55,6 +55,17 @@ def refresh_active_provider_runtime_models() -> dict[str, int]:
         return {"refreshed": 0, "failed": 0, "skipped_overlap": 1}
     refreshed = 0
     failed = 0
+    # Leave time to commit and release the lock before Celery's hard limit.
+    # Completed batches move behind older catalogs in the next sweep, so one
+    # slow Provider cannot continually monopolize the maintenance lane.
+    sweep_budget = max(1.0, float(getattr(settings, "NEXUS_PROVIDER_CATALOG_SWEEP_BUDGET_SECONDS", max(
+        1, int(getattr(settings, "CELERY_TASK_TIME_LIMIT", 300)) - 30,
+    ))))
+    deadline = time.monotonic() + sweep_budget
+    probe_timeout = min(120.0, max(1.0, float(getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_TIMEOUT_SECONDS", 30))))
+    probe_budget = max(probe_timeout + 1.0, float(getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_BUDGET_SECONDS", 60)))
+    catalog_timeout = min(15.0, max(1.0, float(getattr(settings, "NEXUS_DEPLOYMENT_HEALTH_TIMEOUT", 5))))
+    runtime_budget = probe_budget + catalog_timeout + min(30.0, catalog_timeout * 3) + 15.0
     try:
         runtimes = (
             ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).filter(status=ProviderRuntimeAccount.STATUS_ACTIVE)
@@ -70,8 +81,14 @@ def refresh_active_provider_runtime_models() -> dict[str, int]:
                 interval = max(60, int(getattr(settings, "NEXUS_PROVIDER_MODEL_DISCOVERY_INTERVAL_SECONDS", 1800)))
                 if (timezone.now() - runtime.last_catalog_at).total_seconds() < interval:
                     continue
+            if deadline - time.monotonic() < runtime_budget:
+                break
             try:
-                refresh_runtime_model_offers(runtime=runtime, actor=runtime.owner, strict=True)
+                # The sweep owns the retry outcome, including unexpected
+                # exceptions. Discovery must not count that same failure too.
+                refresh_runtime_model_offers(
+                    runtime=runtime, actor=runtime.owner, strict=True, schedule_retry=False, bounded_probes=True,
+                )
                 provider_catalog_refresh_result(runtime_id=runtime.id, failed=False)
                 refreshed += 1
             except Exception as exc:  # A single Provider must not stop the catalog sweep.

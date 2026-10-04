@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import time
 import uuid
@@ -21,6 +22,7 @@ from apps.common.crypto import decrypt_secret
 
 from .models import ProviderRuntimeAccount
 from .runtime_config import merge_runtime_config
+from .runtime_errors import ProviderRuntimeUnavailable, docker_daemon_transport_unavailable
 from .runtime_release import approved_release, verify_existing_container, verify_image
 
 
@@ -54,6 +56,13 @@ class BaseProviderRuntimeRunner:
 
     def stop(self, *, runtime: ProviderRuntimeAccount) -> None:
         raise NotImplementedError
+
+    def stop_restored_container(self, *, runtime: ProviderRuntimeAccount, container_id: str) -> None:
+        if runtime.status not in {ProviderRuntimeAccount.STATUS_STOPPED, "deleted"}:
+            raise exceptions.APIException("Restored container cleanup requires a terminal runtime.")
+        restored_runtime = copy(runtime)
+        restored_runtime.container_id = container_id
+        self.stop(runtime=restored_runtime)
 
     def restore(self, *, runtime: ProviderRuntimeAccount, proxy_api_key: str) -> ProviderRuntimeStartResult:
         return self.start(runtime=runtime, proxy_api_key=proxy_api_key)
@@ -104,7 +113,7 @@ class LoginProviderRuntimeAdapter(Protocol):
     def source_dir(self) -> Path:
         ...
 
-    def prepare_storage(self, *, runtime: ProviderRuntimeAccount, proxy_api_key: str) -> None:
+    def prepare_storage(self, *, runtime: ProviderRuntimeAccount, proxy_api_key: str) -> bool | None:
         ...
 
     def docker_env(self, *, proxy_api_key: str) -> dict[str, str]:
@@ -145,13 +154,13 @@ class CodexProxyRuntimeAdapter:
     def source_dir(self) -> Path:
         return Path(getattr(settings, "NEXUS_CODEX_PROXY_SOURCE_DIR")).resolve()
 
-    def prepare_storage(self, *, runtime: ProviderRuntimeAccount, proxy_api_key: str) -> None:
+    def prepare_storage(self, *, runtime: ProviderRuntimeAccount, proxy_api_key: str) -> bool:
         root = runtime_storage_root(runtime=runtime)
         data_dir = root / "data"
         config_dir = root / "config"
         data_dir.mkdir(parents=True, exist_ok=True)
         config_dir.mkdir(parents=True, exist_ok=True)
-        merge_runtime_config(data_dir / "local.yaml", {
+        return merge_runtime_config(data_dir / "local.yaml", {
             "server": {"host": "0.0.0.0", "port": 8080, "proxy_api_key": proxy_api_key},
         })
 
@@ -314,8 +323,16 @@ class DockerProviderRuntimeRunner(BaseProviderRuntimeRunner):
             verify_existing_container(release, container_id)
         if container_id and _container_has_managed_restart_policy(container_id=container_id):
             was_running = _container_is_running(container_id=container_id)
+            # Codex reads its persisted YAML, not PROXY_API_KEY. Synchronize
+            # only our managed fields before adopting an existing container;
+            # keep the account store and all unrelated configuration intact.
+            config_changed = False
+            if runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_CODEX_PROXY:
+                config_changed = adapter.prepare_storage(runtime=runtime, proxy_api_key=proxy_api_key)
             if not was_running:
                 _run_docker(["docker", "start", container_id], timeout=30)
+            elif config_changed:
+                _run_docker(["docker", "restart", container_id], timeout=30)
             # Recover the current endpoint before probing: Docker Desktop may
             # republish a different port while the database still has the old one.
             if uses_container_network_endpoints():
@@ -326,11 +343,17 @@ class DockerProviderRuntimeRunner(BaseProviderRuntimeRunner):
                     endpoint_port = _docker_host_port(container_id=container_id, container_port=adapter.container_port)
                 except exceptions.APIException:
                     return self.start(runtime=runtime, proxy_api_key=proxy_api_key)
-            if was_running:
+            if was_running and not config_changed:
                 probe_runtime = copy(runtime)
                 probe_runtime.container_id = container_id
                 probe_runtime.internal_api_url = adapter.api_base_url(host_port=endpoint_port, host=endpoint_host)
                 health = self.health_check(runtime=probe_runtime)
+                if (runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_CLIPROXYAPI
+                        and health.recovery_recommended
+                        and health.reason.startswith("PROVIDER_MANAGED_CREDENTIAL_MISMATCH:")):
+                    # Its immutable env and single-file mount cannot be fixed
+                    # with restart alone. start() preserves the OAuth directory.
+                    return self.start(runtime=runtime, proxy_api_key=proxy_api_key)
                 if health.recovery_recommended and health.reason.startswith("PROVIDER_ENDPOINT_MISMATCH:"):
                     # A stale Docker Desktop forward can answer HTTP 200 from
                     # the wrong process. Restarting with the same published
@@ -371,6 +394,18 @@ class DockerProviderRuntimeRunner(BaseProviderRuntimeRunner):
         if runtime.container_id:
             _docker_stop(runtime.container_id)
 
+    def stop_restored_container(self, *, runtime: ProviderRuntimeAccount, container_id: str) -> None:
+        if runtime.status not in {ProviderRuntimeAccount.STATUS_STOPPED, "deleted"}:
+            raise exceptions.APIException("Restored container cleanup requires a terminal runtime.")
+        if not re.fullmatch(r"[a-f0-9]{64}", container_id):
+            raise exceptions.APIException("Restored container cleanup requires an exact Docker container ID.")
+        owner = _run_docker([
+            "docker", "inspect", "-f", '{{index .Config.Labels "nexus.provider_runtime_id"}}', container_id,
+        ], timeout=10).strip()
+        if owner != str(runtime.id):
+            raise exceptions.APIException("Restored container does not belong to this Provider Runtime.")
+        _docker_stop(container_id)
+
     def health_check(self, *, runtime: ProviderRuntimeAccount) -> ProviderRuntimeHealthResult:  # pragma: no cover - integration surface
         if not runtime.container_id:
             return ProviderRuntimeHealthResult(False, False, "container is not running", True)
@@ -389,10 +424,18 @@ class DockerProviderRuntimeRunner(BaseProviderRuntimeRunner):
             return ProviderRuntimeHealthResult(False, False, "runtime API URL is missing", True)
         if runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_CODEX_PROXY:
             semantic = probe_codex_endpoint_health(runtime=runtime)
+            if not semantic.recovery_recommended and not semantic.inconclusive:
+                authentication = probe_codex_auth_health(runtime=runtime)
+                if not authentication.healthy:
+                    return authentication
             if not semantic.healthy:
                 return semantic
         elif runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_CLIPROXYAPI:
             semantic = probe_cliproxyapi_auth_health(runtime=runtime)
+            if semantic.inconclusive:
+                transport = probe_openai_compatible_health(runtime=runtime)
+                if transport.recovery_recommended:
+                    return transport
             if not semantic.healthy:
                 return semantic
         return probe_openai_compatible_health(runtime=runtime)
@@ -459,7 +502,7 @@ def build_image(*, image: str, context: Path) -> None:
 
 
 def docker_image_exists(*, image: str) -> bool:
-    result = subprocess.run(["docker", "image", "inspect", image], capture_output=True, text=True, timeout=30)
+    result = _docker_subprocess(["docker", "image", "inspect", image], capture_output=True, text=True, timeout=30)
     return result.returncode == 0
 
 
@@ -493,10 +536,22 @@ def probe_openai_compatible_health(*, runtime: ProviderRuntimeAccount) -> Provid
             settings, "NEXUS_PROVIDER_HEALTH_CONFIRM_TIMEOUT_SECONDS", 15
         ))))
         status_code, reason = http_status(url=url, headers=headers, timeout=retry_timeout)
+    if (
+        status_code == 401
+        and reason == "PROVIDER_LOCAL_API_KEY_REJECTED"
+        and getattr(runtime, "runtime_type", "") in {
+            ProviderRuntimeAccount.RUNTIME_CODEX_PROXY, ProviderRuntimeAccount.RUNTIME_CLIPROXYAPI,
+        }
+    ):
+        return ProviderRuntimeHealthResult(
+            False, False,
+            "PROVIDER_MANAGED_CREDENTIAL_MISMATCH: Managed proxy API credential requires automatic synchronization.",
+            recovery_recommended=True,
+        )
     if status_code and 200 <= status_code < 500:
         return ProviderRuntimeHealthResult(
             healthy=status_code < 400,
-            login_required=status_code in {400, 401, 403, 404},
+            login_required=status_code in {401, 403},
             reason=f"runtime returned HTTP {status_code}",
         )
     if status_code is None:
@@ -537,6 +592,22 @@ def probe_cliproxyapi_auth_health(*, runtime) -> ProviderRuntimeHealthResult:
         rows = json.loads(body).get("files")
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
             return unknown
+    except HTTPError as exc:
+        try:
+            body = exc.read(1025) if exc.code == 401 else b""
+            error = json.loads(body).get("error") if len(body) <= 1024 else None
+            mismatch = isinstance(error, str) and error in {"invalid management key", "missing management key"}
+        except (ValueError, AttributeError, OSError):
+            mismatch = False
+        finally:
+            exc.close()
+        if mismatch:
+            return ProviderRuntimeHealthResult(
+                False, False,
+                "PROVIDER_MANAGED_CREDENTIAL_MISMATCH: Managed proxy credential requires automatic synchronization.",
+                recovery_recommended=True,
+            )
+        return unknown
     except (ValueError, AttributeError, OSError, RemoteDisconnected):
         return unknown
     enabled = [row for row in rows if not row.get("disabled")]
@@ -589,7 +660,9 @@ def _codex_container_health(*, runtime, timeout=5):
     # Keep sensitive fields out of stdout even if the upstream health payload
     # expands. The subprocess is fixed code, not a shell or user-supplied URL.
     script = """(async()=>{try{
-const r=await fetch('http://127.0.0.1:8080/health',{redirect:'error',signal:AbortSignal.timeout(5000)});
+let r;try{r=await fetch('http://127.0.0.1:8080/health',{redirect:'error',signal:AbortSignal.timeout(5000)});}
+catch(e){if(e.name==='TimeoutError'||e.name==='AbortError'||e.cause?.code==='ECONNREFUSED'||e.cause?.code==='ECONNRESET'){
+process.stdout.write(JSON.stringify({transport_unavailable:true}),()=>process.exit(0));return;}throw e;}
 if(!r.ok)throw Error();let b='',n=0;
 for await(const chunk of r.body){n+=chunk.length;if(n>4096)throw Error();b+=Buffer.from(chunk).toString('utf8');}
 const d=JSON.parse(b);process.stdout.write(JSON.stringify({status:d.status,authenticated:d.authenticated,pool:{total:d.pool?.total}}),()=>process.exit(0));
@@ -606,6 +679,55 @@ const d=JSON.parse(b);process.stdout.write(JSON.stringify({status:d.status,authe
         return None
 
 
+def probe_codex_auth_health(*, runtime) -> ProviderRuntimeHealthResult:
+    """Verify managed dashboard authentication separately from upstream OAuth.
+
+    A successful /health response is anonymous. Only the proxy's exact local
+    authentication rejection authorizes repairing its managed credential.
+    Never read/log a successful /auth/status document: it can contain secrets.
+    """
+    if not runtime.encrypted_proxy_api_key:
+        # Legacy uncredentialed health fixtures/controllers still use the
+        # semantic probe. Lifecycle reconciliation validates production keys.
+        return ProviderRuntimeHealthResult(True, False, "Managed credential probe not configured.")
+    unknown = ProviderRuntimeHealthResult(
+        False, False, "PROVIDER_AUTH_CHECK_PENDING: Managed authentication verification unavailable; retry scheduled.",
+        inconclusive=True,
+    )
+    try:
+        parts = urlsplit(runtime.internal_api_url)
+        if parts.scheme not in {"http", "https"} or parts.username or parts.password:
+            return unknown
+        key = decrypt_secret(runtime.encrypted_proxy_api_key)
+        if not key:
+            return unknown
+        request = Request(
+            urlunsplit((parts.scheme, parts.netloc, "/auth/status", "", "")),
+            headers={"Authorization": f"Bearer {key}"},
+        )
+        with build_opener(ProxyHandler({}), _NoHealthRedirect()).open(request, timeout=5) as response:
+            if response.status == 200:
+                return ProviderRuntimeHealthResult(True, False, "Managed authentication verified.")
+        return unknown
+    except HTTPError as exc:
+        try:
+            body = exc.read(1025) if exc.code == 401 else b""
+            rejected = len(body) <= 1024 and json.loads(body).get("error") == "Dashboard login required"
+        except (ValueError, AttributeError, OSError):
+            rejected = False
+        finally:
+            exc.close()
+        if rejected:
+            return ProviderRuntimeHealthResult(
+                False, False,
+                "PROVIDER_MANAGED_CREDENTIAL_MISMATCH: Managed proxy credential requires automatic synchronization.",
+                recovery_recommended=True,
+            )
+        return unknown
+    except (ValueError, OSError, URLError, RemoteDisconnected):
+        return unknown
+
+
 def probe_codex_endpoint_health(*, runtime) -> ProviderRuntimeHealthResult:
     previous = None
     for attempt in range(2):
@@ -614,7 +736,13 @@ def probe_codex_endpoint_health(*, runtime) -> ProviderRuntimeHealthResult:
         ))))
         host_payload = _codex_host_health(runtime=runtime, timeout=timeout)
         host = _codex_health_summary(host_payload)
-        container = _codex_health_summary(_codex_container_health(runtime=runtime, timeout=timeout))
+        container_payload = _codex_container_health(runtime=runtime, timeout=timeout)
+        container = _codex_health_summary(container_payload)
+        if host_payload == {"transport_unavailable": True} and container_payload == {"transport_unavailable": True}:
+            if previous == "local-transport":
+                return ProviderRuntimeHealthResult(False, False, "Runtime transport is unavailable.", True)
+            previous = "local-transport"
+            continue
         if host_payload == {"transport_unavailable": True} and container is not None:
             if previous == "transport":
                 return ProviderRuntimeHealthResult(False, False, "Runtime transport is unavailable.", True)
@@ -653,7 +781,22 @@ def http_status(*, url: str, headers: dict[str, str] | None = None, timeout: flo
             # slowly streamed model catalog. The context manager closes it.
             return response.status, response.reason
     except HTTPError as exc:
-        return exc.code, str(exc)
+        try:
+            # CLIProxyAPI's access middleware uses these exact local errors.
+            # Nested upstream authentication errors, malformed/large payloads,
+            # and every other status remain ordinary HTTP failures, not proof
+            # that a managed proxy key can be safely repaired.
+            if exc.code == 401:
+                body = exc.read(1025)
+                payload = json.loads(body) if len(body) <= 1024 else None
+                error = payload.get("error") if isinstance(payload, dict) else None
+                if isinstance(error, str) and error in {"Invalid API key", "Missing API key"}:
+                    return exc.code, "PROVIDER_LOCAL_API_KEY_REJECTED"
+        except (ValueError, AttributeError, OSError):
+            pass
+        finally:
+            exc.close()
+        return exc.code, f"HTTP {exc.code}"
     except (RemoteDisconnected, URLError, TimeoutError, OSError) as exc:
         return None, str(exc)
 
@@ -703,8 +846,23 @@ def get_provider_runtime_runner() -> BaseProviderRuntimeRunner:
     raise ImproperlyConfigured(f"Unsupported NEXUS_PROVIDER_RUNTIME_RUNNER: {runner}")
 
 
+def _docker_subprocess(command, **kwargs):
+    """Preserve each CLI boundary while sharing conservative outage typing."""
+    try:
+        result = subprocess.run(command, **kwargs)
+    except PermissionError:
+        raise exceptions.APIException("Docker access was denied. Review controller permissions.") from None
+    except (OSError, subprocess.TimeoutExpired):
+        # A timed-out Docker CLI may already have created the container. The
+        # caller schedules observation/adoption, never blindly repeats Start.
+        raise ProviderRuntimeUnavailable() from None
+    if docker_daemon_transport_unavailable(result):
+        raise ProviderRuntimeUnavailable() from None
+    return result
+
+
 def _run_docker(command: list[str], timeout: int | float = 60) -> str:
-    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    result = _docker_subprocess(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     if result.returncode != 0:
         raise exceptions.APIException((result.stderr or result.stdout or "Docker command failed.").strip())
     return result.stdout.strip()
@@ -749,8 +907,8 @@ def docker_host_storage_path(controller_path: Path) -> Path:
 
 
 def _provider_runtime_container_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
-    result = subprocess.run(
-        ["docker", "ps", "-aq", "--filter", f"label=nexus.provider_runtime_id={runtime.id}"],
+    result = _docker_subprocess(
+        ["docker", "ps", "-aq", "--no-trunc", "--filter", f"label=nexus.provider_runtime_id={runtime.id}"],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -765,7 +923,7 @@ def _provider_runtime_container_ids(*, runtime: ProviderRuntimeAccount) -> list[
 def _provider_runtime_container_id(*, runtime: ProviderRuntimeAccount) -> str:
     candidates = []
     if runtime.container_id:
-        inspected = subprocess.run(
+        inspected = _docker_subprocess(
             ["docker", "inspect", runtime.container_id], capture_output=True, text=True, timeout=10
         )
         if inspected.returncode == 0:
@@ -777,7 +935,7 @@ def _provider_runtime_container_id(*, runtime: ProviderRuntimeAccount) -> str:
 
 
 def _container_is_running(*, container_id: str) -> bool:
-    result = subprocess.run(
+    result = _docker_subprocess(
         ["docker", "inspect", "-f", "{{.State.Running}}", container_id],
         capture_output=True,
         text=True,
@@ -787,7 +945,7 @@ def _container_is_running(*, container_id: str) -> bool:
 
 
 def _container_has_managed_restart_policy(*, container_id: str) -> bool:
-    result = subprocess.run(
+    result = _docker_subprocess(
         [
             "docker",
             "inspect",
@@ -808,7 +966,7 @@ def _remove_provider_runtime_containers(*, runtime: ProviderRuntimeAccount) -> N
 
 
 def _docker_stop(container_id: str) -> None:
-    result = subprocess.run(
+    result = _docker_subprocess(
         ["docker", "rm", "-f", container_id],
         capture_output=True,
         text=True,

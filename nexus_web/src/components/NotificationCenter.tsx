@@ -85,12 +85,12 @@ function ScopedWorkInbox() {
       if (operation === "snooze") await api.snoozeInboxItem(ctx, item.id, new Date(Date.now() + 60 * 60_000).toISOString());
       if (operation === "open") {
         const target = await api.openInboxItem(ctx, item.id);
-        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error(t("This Inbox destination is unavailable."));
+        if (target.tenant_id !== auth.tenantId || !target.url.startsWith("/") || target.url.startsWith("//")) throw new Error("This Inbox destination is unavailable.");
         flushSync(() => { auth.setProjectId(target.project_id); setOpen(false); });
         navigate(target.url);
       }
       await refresh();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : t("Could not update Work Inbox.")); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update Work Inbox."); }
     finally { setBusy(null); }
   }
 
@@ -98,14 +98,13 @@ function ScopedWorkInbox() {
   // outcomes here made the badge disagree with the queue the user actually
   // sees (and quickly inflated it to 99+).
   const count = summary.data?.badge_count ?? 0;
-  const organization = auth.tenants.find(item => item.id === auth.tenantId)?.name ?? t("Current organization");
+  const organization = auth.tenants.find(item => item.id === auth.tenantId)?.name ?? "Current organization";
   return <>
     <button type="button" className="nexilume-shell-icon-button notification-trigger"
       aria-label={t("Work Inbox{{0}}", { 0: count ? `, ${count} need attention` : "" })}
-      aria-haspopup="dialog" aria-expanded={open} title={t("Work Inbox")} onClick={() => { setOpen(true); setError(""); }}>
+      aria-haspopup="dialog" aria-expanded={open} title={t("Work Inbox{{0}}", { 0: count ? `, ${count} need attention` : "" })} onClick={() => { setOpen(true); setError(""); }}>
       <Bell size={17} aria-hidden="true" />
       {count ? <span className="notification-trigger__count" aria-hidden="true">{count > 99 ? "99+" : count}</span> : summary.isError ? <span aria-hidden="true" className="notification-trigger__error">!</span> : null}
-      {summary.data?.needs_attention ? <span className="notification-trigger__attention">{t("Needs attention")}</span> : null}
     </button>
     {createPortal(<NexilumeDialog open={open} onClose={() => setOpen(false)} title={t("Work Inbox")} eyebrow={organization}
       description={t("Personal work and shared role queues across authorized Projects. Reading never completes the source task.")}

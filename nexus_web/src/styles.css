@@ -1475,14 +1475,15 @@
 .nexilume-context-rail { position: sticky; top: 0; z-index: 35; display: flex; height: 3.5rem; min-width: 0; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--nexus-line); background: rgb(251 252 248 / 0.94); padding: 0 1.25rem; backdrop-filter: blur(14px); }
 .nexilume-context-rail::before { position: absolute; bottom: -1px; left: 0; width: 2.25rem; height: 1px; transform: skewX(-45deg); transform-origin: left; background: #71887e; content: ""; }
 .nexilume-context-rail__identity, .nexilume-context-rail__tools { display: flex; min-width: 0; align-items: center; }
-.nexilume-context-rail__identity { gap: 0.75rem; }
-.nexilume-context-rail__tools { justify-content: flex-end; gap: 0.45rem; }
+.nexilume-context-rail__identity { flex: 1; overflow: hidden; gap: 0.75rem; }
+.nexilume-context-rail__tools { flex: none; justify-content: flex-end; gap: 0.45rem; }
+.nexilume-context-rail__tools > * { flex-shrink: 0; }
 .nexilume-context-rail__menu { display: none !important; }
 .nexilume-context-rail__path-node { width: 0.5rem; height: 0.5rem; flex: none; border: 1px solid #456158; border-radius: 50%; background: var(--nexus-lume); }
 .nexilume-context-rail__path { display: flex; min-width: 0; align-items: center; gap: 0.5rem; white-space: nowrap; }
 .nexilume-context-rail__path span, .nexilume-context-rail__path i { color: #6f8278; font: 650 0.62rem/1 "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; }
 .nexilume-context-rail__path i { font-style: normal; opacity: 0.6; }
-.nexilume-context-rail__path strong { overflow: hidden; color: var(--nexus-ink); font-size: 0.78rem; font-weight: 700; text-overflow: ellipsis; }
+.nexilume-context-rail__path strong { min-width: 0; overflow: hidden; color: var(--nexus-ink); font-size: 0.78rem; font-weight: 700; text-overflow: ellipsis; }
 .nexilume-shell-icon-button { display: grid; width: 2.35rem; height: 2.35rem; flex: none; place-items: center; border: 1px solid var(--nexus-line); border-radius: 0.4rem; background: transparent; color: var(--nexus-muted); transition: border-color 160ms ease, background 160ms ease, color 160ms ease; }
 .nexilume-shell-icon-button:hover { border-color: #83958b; background: white; color: var(--nexus-ink); }
 .nexilume-shell-icon-button.is-on-ink { border-color: #355249; color: #aabcb4; }
@@ -1526,17 +1527,31 @@
 .nexilume-account__trigger { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border: 1px solid #4b665b; border-radius: 50%; background: var(--nexus-ink); color: var(--nexus-lume); }
 .nexilume-account__trigger:hover, .nexilume-account__trigger[aria-expanded="true"] { border-color: var(--nexus-lume); }
 .nexilume-account__trigger > span { font: 700 0.72rem/1 "IBM Plex Mono", monospace; }
-.nexilume-account__menu { position: absolute; top: calc(100% + 0.55rem); right: 0; z-index: 60; width: 16rem; overflow: hidden; border: 1px solid #8d9e94; border-radius: 0.5rem; background: var(--nexus-panel); box-shadow: 0 24px 70px rgb(7 20 17 / 0.24); }
-.nexilume-account__menu header { display: flex; align-items: center; gap: 0.7rem; border-bottom: 1px solid var(--nexus-line); padding: 0.85rem; }
-.nexilume-account__avatar { display: grid; width: 2.1rem; height: 2.1rem; flex: none; place-items: center; border: 1px solid #72877d; border-radius: 50%; color: #45665a; }
-.nexilume-account__menu header div { min-width: 0; }
-.nexilume-account__menu header strong, .nexilume-account__menu header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nexilume-account__menu header strong { font-size: 0.76rem; }
-.nexilume-account__menu header small { margin-top: 0.15rem; color: var(--nexus-muted); font-size: 0.65rem; }
-.nexilume-account__menu > a, .nexilume-account__menu > button { display: flex; width: 100%; min-height: 2.55rem; align-items: center; gap: 0.65rem; border-top: 1px solid #e0e3dc; padding: 0.55rem 0.8rem; color: var(--nexus-muted); font-size: 0.72rem; text-align: left; }
-.nexilume-account__menu > a:first-of-type { border-top: 0; }
-.nexilume-account__menu > a:hover, .nexilume-account__menu > button:hover:not(:disabled) { background: #eef0e9; color: var(--nexus-ink); }
-.nexilume-account__menu > button:disabled { opacity: 0.42; }
+.nexilume-account__menu { position: absolute; top: calc(100% + 0.55rem); right: 0; z-index: 60; width: min(20rem, calc(100vw - 1.3rem)); max-height: calc(100dvh - 4.75rem); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--nexus-line); border-radius: 0.75rem; background: var(--nexus-panel); box-shadow: 0 14px 40px rgb(7 20 17 / 0.16); }
+.nexilume-account__menu > header { display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid var(--nexus-line); padding: 1rem; }
+.nexilume-account__avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border: 1px solid var(--nexus-line); border-radius: 50%; background: #eef0e9; color: var(--nexus-ink); font-size: 0.9rem; font-weight: 700; }
+.nexilume-account__menu > header div { min-width: 0; }
+.nexilume-account__menu > header strong, .nexilume-account__menu > header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexilume-account__menu > header strong { color: var(--nexus-ink); font-size: 0.85rem; font-weight: 700; }
+.nexilume-account__menu > header small { margin-top: 0.2rem; color: var(--nexus-muted); font-size: 0.72rem; }
+.nexilume-account__preferences { padding: 0.4rem; }
+.nexilume-account__row, .nexilume-account__context .nexilume-scope__trigger { display: grid; width: 100%; height: auto; min-height: 3.5rem; grid-template-columns: 1rem minmax(0, 1fr) 0.875rem; align-items: center; gap: 0.65rem; border: 0; border-radius: 0.5rem; background: transparent; padding: 0.55rem 0.65rem; color: var(--nexus-muted); text-align: left; }
+.nexilume-account__row:hover, .nexilume-account__context .nexilume-scope__trigger:hover, .nexilume-account__row[aria-expanded="true"], .nexilume-account__context .nexilume-scope__trigger[aria-expanded="true"] { background: #eef0e9; color: var(--nexus-ink); }
+.nexilume-account__row > svg { flex: none; }
+.nexilume-account__row-copy { display: block; min-width: 0; }
+.nexilume-account__row-copy strong, .nexilume-account__row-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexilume-account__row-copy strong { color: inherit; font-size: 0.78rem; font-weight: 500; }
+.nexilume-account__row-copy small { margin-top: 0.2rem; color: var(--nexus-muted); font-size: 0.7rem; line-height: 1.4; }
+.nexilume-account__row[aria-expanded="true"] .nexilume-account__row-chevron { transform: rotate(90deg); }
+.nexilume-account__language-options { display: grid; margin: 0 0.65rem 0.4rem 2.25rem; }
+.nexilume-account__language-options > button { display: flex; min-height: 2.75rem; align-items: center; justify-content: space-between; gap: 0.5rem; border-radius: 0.35rem; padding: 0.5rem 0.65rem; color: var(--nexus-muted); font-size: 0.78rem; text-align: left; }
+.nexilume-account__language-options > button:hover, .nexilume-account__language-options > button[aria-checked="true"] { background: #eef0e9; color: var(--nexus-ink); }
+.nexilume-account__context { display: none; }
+.nexilume-account__actions { display: grid; gap: 0.15rem; border-top: 1px solid var(--nexus-line); padding: 0.4rem; }
+.nexilume-account__actions > a, .nexilume-account__actions > button { display: flex; width: 100%; min-height: 2.75rem; align-items: center; gap: 0.65rem; border-radius: 0.5rem; padding: 0.55rem 0.65rem; color: var(--nexus-muted); font-size: 0.78rem; text-align: left; }
+.nexilume-account__actions svg { flex: none; }
+.nexilume-account__actions > a:hover, .nexilume-account__actions > button:hover { background: #eef0e9; color: var(--nexus-ink); }
+.nexilume-account__menu :is(a, button, select):focus-visible { outline: 2px solid #527164; outline-offset: -2px; }
 
 .nexilume-command-layer { position: fixed; z-index: 80; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: 10vh 1rem 1rem; }
 .nexilume-command-layer__backdrop { position: absolute; inset: 0; width: 100%; height: 100%; background: rgb(7 20 17 / 0.64); backdrop-filter: blur(3px); }
@@ -1585,8 +1600,10 @@
 
 @media (max-width: 767px) {
   .nexilume-cloud-shell__main { padding: 1.1rem 1rem; }
-  .nexilume-context-rail { padding: 0 0.65rem; backdrop-filter: none; }
+  .nexilume-context-rail { gap: 0.5rem; padding: 0 max(0.65rem, env(safe-area-inset-left)) 0 max(0.65rem, env(safe-area-inset-right)); backdrop-filter: none; }
   .nexilume-context-rail__tools { gap: 0.3rem; }
+  .nexilume-context-rail__scope { display: none; }
+  .nexilume-context-rail__path-node { display: none; }
   .nexilume-context-rail__path span, .nexilume-context-rail__path i { display: none; }
   .nexilume-public-scope { width: 2.75rem; justify-content: center; border-left: 0; padding: 0; }
   .nexilume-public-scope strong { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -1602,6 +1619,23 @@
   .nexilume-command { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; }
   .nexilume-command__search { height: 3.5rem; }
   .nexilume-command__results { max-height: calc(100vh - 3.5rem); }
+  .nexilume-account__context { display: block; }
+  .nexilume-account__context .nexilume-scope__copy, .nexilume-account__context .nexilume-scope__copy small, .nexilume-account__context .nexilume-scope__trigger > svg { display: block; }
+  .nexilume-account__context .nexilume-scope__copy small.nexilume-account__context-value { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.25rem; }
+  .nexilume-account__context-value > span { overflow: hidden; text-overflow: ellipsis; }
+  .nexilume-account__context-value > i { font-style: normal; }
+  .nexilume-account__context .nexilume-scope__panel { position: fixed; inset: 3.5rem 0 0; z-index: 70; width: auto; margin: 0; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--nexus-panel); }
+  .nexilume-account__context .nexilume-scope__mobile-header { position: sticky; top: 0; z-index: 1; display: flex; min-height: 4.5rem; align-items: center; justify-content: flex-start; gap: 0.75rem; background: var(--nexus-panel); padding: 0.75rem 1rem; }
+  .nexilume-scope__mobile-header > div { display: grid; gap: 0.3rem; }
+  .nexilume-account__context .nexilume-scope__mobile-header strong { font-size: 0.95rem; }
+  .nexilume-account__context .nexilume-scope__mobile-header span { color: var(--nexus-muted); font: 400 0.75rem/1.4 Manrope, "Noto Sans SC", sans-serif; letter-spacing: 0; text-transform: none; }
+  .nexilume-account__context .nexilume-scope__search { height: 3.25rem; padding: 0 1rem; }
+  .nexilume-account__context .nexilume-scope__search input { min-height: 2.75rem; font-size: 1rem; }
+  .nexilume-account__context .nexilume-scope__columns > section { padding: 1rem; }
+  .nexilume-account__context .nexilume-scope__panel h2 { margin-bottom: 0.5rem; font: 650 0.85rem/1.4 Manrope, "Noto Sans SC", sans-serif; letter-spacing: 0; text-transform: none; }
+  .nexilume-account__context .nexilume-scope__options { max-height: 35vh; }
+  .nexilume-account__context .nexilume-scope__options button { min-height: 2.75rem; border-radius: 0.35rem; font-size: 0.85rem; }
+  .nexilume-account__context .nexilume-scope__options p { padding: 0.5rem 0.55rem; font-size: 0.75rem; line-height: 1.5; }
 }
 
 @media (max-width: 479px) {

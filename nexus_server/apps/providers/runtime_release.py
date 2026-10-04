@@ -13,6 +13,8 @@ import subprocess
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
+from .runtime_errors import ProviderRuntimeUnavailable, docker_daemon_transport_unavailable
+
 RECIPE = "nexus-provider-release-v1"
 GATES = {
     "codex_proxy": {"dependencies", "typescript", "auth-recovery"},
@@ -65,16 +67,24 @@ def approved_release(runtime_type: str, *, directory=None, required=None) -> dic
 
 
 def _inspect(arguments, *, timeout=30):
+    unavailable_image = "Approved provider image/container is unavailable on this controller; load the verified image first."
     try:
         result = subprocess.run(["docker", *arguments], capture_output=True, text=True, timeout=timeout)
+    except PermissionError:
+        raise APIException(unavailable_image) from None
+    except (OSError, subprocess.TimeoutExpired):
+        raise ProviderRuntimeUnavailable() from None
+    if docker_daemon_transport_unavailable(result):
+        raise ProviderRuntimeUnavailable() from None
+    try:
         if result.returncode:
             raise ValueError
         data = json.loads(result.stdout)
         if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
             raise ValueError
         return data[0]
-    except (OSError, ValueError, subprocess.TimeoutExpired):
-        raise APIException("Approved provider image/container is unavailable on this controller; load the verified image first.") from None
+    except (ValueError, TypeError):
+        raise APIException(unavailable_image) from None
 
 
 def verify_image(receipt: dict, *, timeout=30) -> None:

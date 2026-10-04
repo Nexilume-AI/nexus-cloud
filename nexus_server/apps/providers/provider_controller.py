@@ -9,6 +9,7 @@ import subprocess
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
@@ -25,16 +26,66 @@ from .runtime_runner import (
     ProviderRuntimeHealthResult,
     ProviderRuntimeLoginResult,
     ProviderRuntimeStartResult,
+    ProviderRuntimeUnavailable,
 )
 
 
 PROTOCOL_VERSION = 1
 MAX_FRAME_BYTES = 64 * 1024
-ALLOWED_ACTIONS = {"ping", "execution_setup", "start", "restore", "stop", "health", "login_with_credentials"}
+ALLOWED_ACTIONS = {"ping", "execution_setup", "start", "restore", "stop", "stop_restored_container", "health", "login_with_credentials"}
+_RUNTIME_MUTATION_LOCKS: dict[str, threading.Lock] = {}
+_RUNTIME_MUTATION_LOCK_GUARD = threading.Lock()
 
 
 class ProviderRuntimeControllerError(RuntimeError):
     pass
+
+
+class ProviderRuntimeControllerUnavailable(ProviderRuntimeControllerError):
+    """The controller transport failed, not a rejected runtime operation."""
+
+
+class ProviderRuntimeControllerBusy(ProviderRuntimeControllerError):
+    """Another mutation for this exact Provider Runtime is still executing."""
+
+
+@contextmanager
+def _serialized_runtime_mutation(runtime_id):
+    key = str(runtime_id)
+    with _RUNTIME_MUTATION_LOCK_GUARD:
+        operation_lock = _RUNTIME_MUTATION_LOCKS.setdefault(key, threading.Lock())
+        if not operation_lock.acquire(blocking=False):
+            raise ProviderRuntimeControllerBusy("Provider Runtime operation is busy; retry scheduled.")
+    try:
+        yield
+    finally:
+        # Remove and release atomically. Releasing first would let another
+        # owner acquire this lock just before its dictionary entry was removed.
+        with _RUNTIME_MUTATION_LOCK_GUARD:
+            if _RUNTIME_MUTATION_LOCKS.get(key) is operation_lock:
+                del _RUNTIME_MUTATION_LOCKS[key]
+            operation_lock.release()
+
+
+_SAFE_START_ERRORS = frozenset({
+    "Provider release approval is required. Configure a verified release directory.",
+    "Unsupported provider release type.",
+    "Provider release approval is missing or invalid; install a verified release receipt.",
+    "Approved provider image/container is unavailable on this controller; load the verified image first.",
+    "Provider image does not match the approved Nexus release. No runtime was changed.",
+    "Provider runtime uses a different release. Explicitly roll out the approved image; automatic recovery will not upgrade it.",
+    "Provider Runtime image is unavailable.",
+    "Provider Runtime Controller authentication failed.",
+    "Provider Runtime credential is unavailable.",
+    "Provider Runtime Controller is busy.",
+})
+
+
+def provider_runtime_start_error_message(exc: Exception) -> str:
+    message = str(exc)
+    if message in _SAFE_START_ERRORS:
+        return message
+    return "Provider Runtime start failed. Review runtime configuration and controller availability."
 
 
 class ProviderRuntimeControllerClient:
@@ -72,10 +123,14 @@ class ProviderRuntimeControllerClient:
                 client.sendall(frame)
                 response = _read_frame(client)
         except (OSError, TimeoutError) as exc:
-            raise ProviderRuntimeControllerError(
+            raise ProviderRuntimeControllerUnavailable(
                 "Provider Runtime Controller is unavailable."
             ) from exc
         if not response.get("ok"):
+            if response.get("code") == "PROVIDER_RUNTIME_UNAVAILABLE":
+                raise ProviderRuntimeUnavailable("Provider Runtime is unavailable; retry scheduled.")
+            if response.get("code") == "PROVIDER_RUNTIME_BUSY":
+                raise ProviderRuntimeControllerBusy("Provider Runtime operation is busy; retry scheduled.")
             raise ProviderRuntimeControllerError(
                 str(response.get("message") or "Provider Runtime Controller rejected the operation.")
             )
@@ -101,6 +156,9 @@ class ControllerProviderRuntimeRunner(BaseProviderRuntimeRunner):
 
     def stop(self, *, runtime: ProviderRuntimeAccount) -> None:
         self.client.request(action="stop", runtime_id=str(runtime.id))
+
+    def stop_restored_container(self, *, runtime: ProviderRuntimeAccount, container_id: str) -> None:
+        self.client.request(action="stop_restored_container", runtime_id=str(runtime.id), payload={"container_id": container_id})
 
     def health_check(self, *, runtime: ProviderRuntimeAccount) -> ProviderRuntimeHealthResult:
         result = self.client.request(action="health", runtime_id=str(runtime.id))
@@ -205,7 +263,12 @@ class ProviderRuntimeControllerServer:
                 raise ProviderRuntimeControllerError("Unsupported Provider Runtime Controller action.")
             return {"ok": True, "request_id": request.get("request_id"), "result": self.dispatcher(request)}
         except Exception as exc:
-            return {"ok": False, "message": _safe_error_message(exc)}
+            response = {"ok": False, "message": _safe_error_message(exc)}
+            if isinstance(exc, ProviderRuntimeUnavailable):
+                response["code"] = "PROVIDER_RUNTIME_UNAVAILABLE"
+            elif isinstance(exc, ProviderRuntimeControllerBusy):
+                response["code"] = "PROVIDER_RUNTIME_BUSY"
+            return response
 
     def _serve_connection(self, connection: socket.socket, capacity: threading.BoundedSemaphore) -> None:
         try:
@@ -241,7 +304,20 @@ def dispatch_provider_runtime_command(request: dict[str, Any]) -> dict[str, Any]
     except (ProviderRuntimeAccount.DoesNotExist, ValueError) as exc:
         raise ProviderRuntimeControllerError("Provider Runtime was not found.") from exc
 
+    if action in {"start", "restore", "stop", "stop_restored_container"}:
+        with _serialized_runtime_mutation(runtime.id):
+            return _dispatch_provider_runtime_action(action=action, runtime=runtime, request=request)
+    return _dispatch_provider_runtime_action(action=action, runtime=runtime, request=request)
+
+
+def _dispatch_provider_runtime_action(*, action, runtime, request):
     runner = DockerProviderRuntimeRunner()
+    if action == "stop_restored_container":
+        if runtime.status not in {ProviderRuntimeAccount.STATUS_STOPPED, "deleted"}:
+            raise ProviderRuntimeControllerError("Restored container cleanup requires a terminal runtime.")
+        payload = request.get("payload") if isinstance(request.get("payload"), dict) else {}
+        runner.stop_restored_container(runtime=runtime, container_id=str(payload.get("container_id") or ""))
+        return {}
     if action in {"start", "restore"}:
         if not runtime.encrypted_proxy_api_key:
             raise ProviderRuntimeControllerError("Provider Runtime credential is unavailable.")
@@ -349,6 +425,9 @@ def _read_frame(connection: socket.socket) -> dict[str, Any]:
 def _safe_error_message(exc: Exception) -> str:
     if isinstance(exc, ProviderRuntimeControllerError):
         return str(exc)[:512]
+    message = str(exc)
+    if message in _SAFE_START_ERRORS:
+        return message
     return f"Provider Runtime operation failed ({type(exc).__name__})."
 
 

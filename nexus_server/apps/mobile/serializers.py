@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import math
+
 from rest_framework import serializers
 
 from .models import MobileCommand, MobileDevice
+from .control import available_actions, screen_frame
 
 
 class MobileDeviceSerializer(serializers.ModelSerializer):
@@ -18,6 +21,14 @@ class MobileDeviceSerializer(serializers.ModelSerializer):
     screenshot_captured_at = serializers.DateTimeField(source="last_screenshot_captured_at", read_only=True, allow_null=True)
     screenshot_expires_at = serializers.DateTimeField(read_only=True, allow_null=True)
     metadata = serializers.SerializerMethodField()
+    available_actions = serializers.SerializerMethodField()
+    screen_frame = serializers.SerializerMethodField()
+
+    def get_available_actions(self, instance):
+        return available_actions(instance)
+
+    def get_screen_frame(self, instance):
+        return screen_frame(instance)
 
     class Meta:
         model = MobileDevice
@@ -40,6 +51,8 @@ class MobileDeviceSerializer(serializers.ModelSerializer):
             "screenshot_captured_at",
             "screenshot_expires_at",
             "capabilities",
+            "available_actions",
+            "screen_frame",
             "metadata",
             "current_package",
             "current_activity",
@@ -52,7 +65,7 @@ class MobileDeviceSerializer(serializers.ModelSerializer):
         ]
 
     def get_metadata(self, instance):
-        hidden_keys = {"paired_at", "pairing_token_issued_at", "pairing_token_expires_at"}
+        hidden_keys = {"paired_at", "pairing_token_issued_at", "pairing_token_expires_at", "screen_control_frame"}
         return {
             key: value
             for key, value in (instance.metadata or {}).items()
@@ -150,12 +163,28 @@ class MobileCommandCreateSerializer(serializers.Serializer):
                 value = float(arguments.get(key))
             except (TypeError, ValueError) as exc:
                 raise serializers.ValidationError({"arguments": f"{key} must be a valid non-negative number."}) from exc
-            if value < 0 or value > max_coordinate:
+            if not math.isfinite(value) or value < 0 or value > max_coordinate:
                 suffix = "between 0 and 1" if coordinate_space == "normalized" else "a valid pixel coordinate"
                 raise serializers.ValidationError({"arguments": f"{key} must be {suffix}."})
         if coordinate_keys_for_action(action):
             arguments["coordinate_space"] = coordinate_space
             attrs["arguments"] = arguments
+        if "screen_frame_id" in arguments and (action not in {"tap_coordinates", "swipe", "long_press"}
+            or not isinstance(arguments["screen_frame_id"], str) or len(arguments["screen_frame_id"]) != 64):
+            raise serializers.ValidationError({"arguments": "A valid frame ID is required for screen control."})
+        if "video_session_id" in arguments:
+            try:
+                serializers.UUIDField().run_validation(arguments["video_session_id"])
+            except serializers.ValidationError:
+                raise serializers.ValidationError({"arguments": "A valid video session ID is required."}) from None
+            if (action not in {"tap_coordinates", "swipe", "long_press"} or "screen_frame_id" in arguments
+                or type(arguments.get("video_geometry_version")) is not int or arguments["video_geometry_version"] < 1):
+                raise serializers.ValidationError({"arguments": "A current live video geometry is required."})
+        if action in {"swipe", "long_press"} and "duration_ms" in arguments:
+            duration = arguments["duration_ms"]
+            lower = 500 if action == "long_press" else 50
+            if type(duration) is not int or not lower <= duration <= 5000:
+                raise serializers.ValidationError({"arguments": f"duration_ms must be an integer between {lower} and 5000."})
         return attrs
 
 
@@ -179,7 +208,7 @@ class MobileMCPCallSerializer(serializers.Serializer):
 
 
 def coordinate_keys_for_action(action: str) -> list[str]:
-    if action == MobileCommand.ACTION_TAP_COORDINATES:
+    if action in {MobileCommand.ACTION_TAP_COORDINATES, MobileCommand.ACTION_LONG_PRESS}:
         return ["x", "y"]
     if action == MobileCommand.ACTION_SWIPE:
         return ["start_x", "start_y", "end_x", "end_y"]

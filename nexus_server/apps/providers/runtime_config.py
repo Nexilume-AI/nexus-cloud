@@ -44,7 +44,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
             os.unlink(name)
 
 
-def merge_runtime_config(path: Path, managed: dict, *, defaults: dict | None = None) -> None:
+def merge_runtime_config(path: Path, managed: dict, *, defaults: dict | None = None) -> bool:
     try:
         if path.is_symlink():
             raise ValueError("Configuration must be a regular file")
@@ -75,12 +75,13 @@ def merge_runtime_config(path: Path, managed: dict, *, defaults: dict | None = N
         merge(current, managed)
         rendered = yaml.safe_dump(current, sort_keys=False, allow_unicode=True)
         if original is not None and rendered == previous:
-            return  # Keep formatting and comments intact when nothing managed changed.
+            return False  # Keep formatting and comments intact when nothing managed changed.
         if original is not None:
             _atomic_write(path.with_name(f"{path.name}.backup-{uuid.uuid4().hex}"), original)
             if path.read_bytes() != original:
                 raise ValueError("Configuration changed during preparation")
         _atomic_write(path, rendered.encode("utf-8"))
+        return True
     except Exception:
         # Parser errors can include credentials from the source document.
         raise exceptions.ValidationError(

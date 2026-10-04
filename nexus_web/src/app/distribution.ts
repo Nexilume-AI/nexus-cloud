@@ -21,6 +21,7 @@ import { validateAuthPresentation, type AuthPresentation } from './authPresentat
 
 export type ApplicationRoute = { path: string; element: ReactNode };
 export type RouteInsertion = { before: string; routes: ApplicationRoute[] };
+export type ContextSwitcherProps = { presentation?: "rail" | "account" };
 export type ApplicationDistribution = {
   id: string;
   workspaceRoutes: RouteInsertion[];
@@ -34,7 +35,7 @@ export type ApplicationDistribution = {
   resourceOwnership?: ResourceOwnershipExtension;
   organizationSettings?: OrganizationSettingsExtension;
   contextDirectory?: ContextDirectory;
-  contextSwitcher?: ComponentType;
+  contextSwitcher?: ComponentType<ContextSwitcherProps>;
   datasetImagePreview?: (context: ApiContext, path: string) => Promise<Blob>;
   runPresentation?: RunPresentationExtension;
   agentDiscovery?: AgentDiscoveryExtension;

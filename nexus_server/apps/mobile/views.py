@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .pairing import mobile_pairing_connection
+
 from .serializers import (
     MobileCommandCreateSerializer,
     MobileCommandResultSerializer,
@@ -55,7 +57,8 @@ class MobileDeviceListCreateView(APIView):
         device, token = create_mobile_device(request=request, data=serializer.validated_data)
         data = MobileDeviceSerializer(device).data
         data["pairing_token"] = token
-        return Response(data, status=status.HTTP_201_CREATED)
+        data.update(mobile_pairing_connection())
+        return Response(data, status=status.HTTP_201_CREATED, headers={"Cache-Control": "private, no-store"})
 
 
 class MobileDeviceDetailView(APIView):
@@ -75,12 +78,13 @@ class MobileDeviceDetailView(APIView):
 
 class MobileDeviceScreenshotView(APIView):
     def get(self, request, device_id):
-        content, content_type = get_mobile_screenshot(request=request, device_id=device_id)
+        content, content_type, frame_id = get_mobile_screenshot(request=request, device_id=device_id)
         response = HttpResponse(content, content_type=content_type)
         response["Cache-Control"] = "private, no-store, max-age=0"
         response["Pragma"] = "no-cache"
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Disposition"] = 'inline; filename="nexus-mobile-screen"'
+        response["X-Nexus-Mobile-Screen-Frame"] = frame_id
         return response
 
 
@@ -89,7 +93,8 @@ class MobileDeviceTokenRotateView(APIView):
         device, token = rotate_mobile_device_token(request=request, device_id=device_id)
         data = MobileDeviceSerializer(device).data
         data["pairing_token"] = token
-        return Response(data)
+        data.update(mobile_pairing_connection())
+        return Response(data, headers={"Cache-Control": "private, no-store"})
 
 
 class MobileCommandListCreateView(APIView):

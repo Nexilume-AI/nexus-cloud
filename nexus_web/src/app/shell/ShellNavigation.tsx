@@ -43,7 +43,7 @@ export function ShellNavigation({
     <aside className={`nexilume-shell-sidebar ${isCompact ? "is-compact" : ""} ${mobile ? "is-mobile" : ""}`} data-sidebar-mode={isCompact ? "compact" : "expanded"}>
       <div className="nexilume-shell-sidebar__brand">
         <Link to="/" className="nexilume-shell-sidebar__brand-link" onClick={onNavigate} aria-label={t("Nexilume AI")}>
-          {isCompact ? <NexilumeMark className="h-9 w-9" /> : <NexilumeBrand dark subtitle={t("Capability fabric")} />}
+          {isCompact ? <NexilumeMark className="h-9 w-9" /> : <NexilumeBrand dark subtitle="" />}
         </Link>
         {mobile && onClose ? (
           <button className="nexilume-shell-icon-button is-on-ink" onClick={onClose} data-close-navigation aria-label={t("Close navigation")} type="button">

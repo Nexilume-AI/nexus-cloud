@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urljoin, urlparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener, urlopen
 
 from django.conf import settings
 from django.core.cache import cache
@@ -334,6 +334,8 @@ def refresh_runtime_model_offers(
     runtime: ProviderRuntimeAccount,
     actor=None,
     strict: bool = False,
+    schedule_retry: bool = True,
+    bounded_probes: bool = False,
 ) -> list[ProviderRuntimeModelOffer]:
     if runtime.status != ProviderRuntimeAccount.STATUS_ACTIVE:
         if strict:
@@ -343,15 +345,66 @@ def refresh_runtime_model_offers(
     try:
         model_ids = discover_runtime_model_ids(runtime=runtime)
     except ProviderRuntimeError:
-        provider_catalog_refresh_result(runtime_id=runtime.id, failed=True)
+        if schedule_retry:
+            provider_catalog_refresh_result(runtime_id=runtime.id, failed=True)
         if strict:
             raise
         return []
     contracts = getattr(runtime, "_discovered_model_contracts", {})
-    probes = {
-        upstream_model_id: probe_runtime_model(runtime=runtime, upstream_model_id=upstream_model_id)
-        for upstream_model_id in model_ids
-    }
+    deferred = set()
+    if not bounded_probes:
+        # An explicit refresh retains its existing check-every-model contract.
+        probes = {
+            upstream_model_id: probe_runtime_model(runtime=runtime, upstream_model_id=upstream_model_id)
+            for upstream_model_id in model_ids
+        }
+    else:
+        # Read-only observations choose work, never authorize writes. The
+        # configuration/lifecycle fence below still guards the final commit.
+        known = {
+            row["upstream_model_id"]: row
+            for row in runtime.model_offers.exclude(status=SoftDeleteModel.STATUS_DELETED).values(
+                "upstream_model_id", "health_status", "last_health_check_at", "metadata",
+            )
+        }
+        observed_at = timezone.now()
+        interval = max(60, int(getattr(settings, "NEXUS_PROVIDER_MODEL_DISCOVERY_INTERVAL_SECONDS", 1800)))
+        candidates = []
+        for model_id in model_ids:
+            row = known.get(model_id, {})
+            metadata = row.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            previous = metadata.get("health_probe", {})
+            if not isinstance(previous, dict):
+                previous = {}
+            last_check = row.get("last_health_check_at")
+            pending = (
+                previous.get("state") == "deferred"
+                or (previous.get("state") == "pending" and previous.get("retry_required") is not False)
+                or last_check is None
+            )
+            # Runtime failure can overwrite model health without changing its
+            # synthetic-probe metadata. Re-verify after process recovery too.
+            externally_changed = (
+                last_check is not None and previous.get("checked_at") != last_check.isoformat()
+            )
+            changed_contract = model_id in contracts and metadata.get("model_contract") != contracts[model_id]
+            if pending or externally_changed or changed_contract or (observed_at - last_check).total_seconds() >= interval:
+                candidates.append((0 if pending else 1, last_check.timestamp() if last_check else 0, model_id))
+        candidates.sort()
+        probe_timeout = min(120.0, max(1.0, float(getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_TIMEOUT_SECONDS", 30))))
+        budget = max(probe_timeout + 1.0, float(getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_BUDGET_SECONDS", 60)))
+        batch_size = min(64, max(1, int(getattr(settings, "NEXUS_PROVIDER_MODEL_PROBE_BATCH_SIZE", 16))))
+        deadline = time.monotonic() + budget
+        probes = {}
+        for _, _, model_id in candidates:
+            if len(probes) >= batch_size or deadline - time.monotonic() < probe_timeout:
+                break
+            # One sequential synthetic POST per selected model, never a thread
+            # that can outlive the batch or an in-place inference retry.
+            probes[model_id] = probe_runtime_model(runtime=runtime, upstream_model_id=model_id)
+        deferred = {model_id for _, _, model_id in candidates} - probes.keys()
     now = timezone.now()
     seen = set(model_ids)
     with transaction.atomic():
@@ -399,9 +452,25 @@ def refresh_runtime_model_offers(
             declared_contract = contracts.get(upstream_model_id)
             if declared_contract is not None:
                 offer.metadata = {**(offer.metadata or {}), "model_contract": declared_contract}
-            _apply_model_probe(offer, probes[upstream_model_id], now)
+            if upstream_model_id in probes:
+                _apply_model_probe(offer, probes[upstream_model_id], now)
+                if bounded_probes and probes[upstream_model_id][1] == MODEL_PROBE_SKIPPED:
+                    # An operator allowlist intentionally leaves health
+                    # unverified. Do not keep a completed batch in retry mode.
+                    offer.metadata["health_probe"]["retry_required"] = False
+                offer.last_health_check_at = now
+            elif upstream_model_id in deferred:
+                previous = (offer.metadata or {}).get("health_probe", {})
+                if not isinstance(previous, dict):
+                    previous = {}
+                offer.metadata = {**(offer.metadata or {}), "health_probe": {
+                    **previous, "state": "deferred", "deferred_at": now.isoformat(),
+                }}
+                if offer.last_health_check_at is None:
+                    offer.health_reason = "Advertised by the Provider Runtime model catalog. Model verification is deferred to a bounded background batch."
+                # A deferred check is not a result: retain historical health,
+                # its evidence and timestamp; never declare new models healthy.
             offer.last_discovered_at = now
-            offer.last_health_check_at = now
             offer.save(update_fields=[
                 "canonical_model", "status", "health_status", "health_reason", "last_discovered_at",
                 "last_health_check_at", "updated_at", "metadata",
@@ -419,8 +488,9 @@ def refresh_runtime_model_offers(
     # Commit the directory even when a model probe is inconclusive. Signal the
     # existing catalog worker to use its bounded retry backoff, not the normal
     # 30-minute success interval. Never replay an uncertain inference request.
-    if any(healthy is None and reason != MODEL_PROBE_SKIPPED for healthy, reason in probes.values()):
-        provider_catalog_refresh_result(runtime_id=runtime.id, failed=True)
+    if deferred or any(healthy is None and reason != MODEL_PROBE_SKIPPED for healthy, reason in probes.values()):
+        if schedule_retry:
+            provider_catalog_refresh_result(runtime_id=runtime.id, failed=True)
         if strict:
             raise ProviderRuntimeError("PROVIDER_MODEL_CHECK_PENDING: Model catalog updated; some model checks are inconclusive and will be checked again.")
     return offers
@@ -922,11 +992,23 @@ def start_provider_runtime(*, request, runtime_id: str) -> ProviderRuntimeAccoun
     try:
         result = get_provider_runtime_runner().start(runtime=runtime, proxy_api_key=proxy_api_key)
     except Exception as exc:
+        from .provider_controller import ProviderRuntimeControllerBusy, ProviderRuntimeControllerUnavailable, provider_runtime_start_error_message
+        from .runtime_runner import ProviderRuntimeUnavailable
+
+        # Only a typed transient controller/process failure is retried. A
+        # controller rejection (including image approval) needs human action.
+        # Maintenance observes the process first; it does not replay Start.
+        if isinstance(exc, ProviderRuntimeControllerBusy):
+            start_error = "Automatic start recovery failed: Provider Runtime operation is busy; retry scheduled."
+        elif isinstance(exc, (ProviderRuntimeControllerUnavailable, ProviderRuntimeUnavailable)):
+            start_error = "Automatic start recovery failed: Provider Runtime transport is unavailable; retry scheduled."
+        else:
+            start_error = provider_runtime_start_error_message(exc)
         with transaction.atomic():
             runtime = ProviderRuntimeAccount.objects.select_for_update().get(id=runtime.id)
             if runtime.status == ProviderRuntimeAccount.STATUS_STARTING:
                 runtime.status = ProviderRuntimeAccount.STATUS_FAILED
-                runtime.last_error = str(exc)[:1024]
+                runtime.last_error = start_error
                 runtime.save(update_fields=["status", "last_error", "updated_at"])
         log_runtime_write(request=request, runtime=runtime, action="providers.runtime.start.failed")
         raise ProviderRuntimeError(runtime.last_error) from exc
@@ -1410,7 +1492,7 @@ def _reconcile_provider_runtime(*, runtime_id, startup=False) -> _ProviderRecove
         _clear_provider_recovery(locked.id)
         if startup:
             try:
-                refresh_runtime_model_offers(runtime=locked, actor=locked.owner, strict=True)
+                refresh_runtime_model_offers(runtime=locked, actor=locked.owner, strict=True, schedule_retry=False, bounded_probes=True)
                 provider_catalog_refresh_result(runtime_id=locked.id, failed=False)
             except Exception:
                 # Runtime health and catalog health are separate observations.
@@ -1428,16 +1510,50 @@ def _reconcile_provider_runtime(*, runtime_id, startup=False) -> _ProviderRecove
     return outcome
 
 
+def _managed_provider_start_stale_seconds() -> float:
+    stale = float(getattr(settings, "NEXUS_PROVIDER_LIFECYCLE_STALE_SECONDS", 180))
+    if str(getattr(settings, "NEXUS_PROVIDER_RUNTIME_RUNNER", "fake")).lower() not in {"docker", "controller"}:
+        return stale
+    # Both adapters test three URLs with a two-second GET per readiness attempt.
+    # Builds and Docker bookkeeping may still be legitimately running after the
+    # short generic lifecycle threshold, even when the caller has disappeared.
+    readiness = max(0, int(getattr(settings, "NEXUS_PROVIDER_RUNTIME_START_ATTEMPTS", 60))) * (
+        6 + max(0.0, float(getattr(settings, "NEXUS_PROVIDER_RUNTIME_START_DELAY_SECONDS", 0.5)))
+    )
+    build = max(0.0, float(getattr(settings, "NEXUS_PROVIDER_RUNTIME_BUILD_TIMEOUT_SECONDS", 1800)))
+    controller = max(0.0, float(getattr(settings, "NEXUS_PROVIDER_RUNTIME_CONTROLLER_TIMEOUT_SECONDS", 1900)))
+    return max(stale, controller, build + readiness + 90)
+
+
+def _cleanup_terminal_provider_restore(*, runtime, result, runner) -> bool:
+    """Called while the Runtime row is locked, so a newer Start cannot race."""
+    if result is None or runtime.status not in {ProviderRuntimeAccount.STATUS_STOPPED, SoftDeleteModel.STATUS_DELETED}:
+        return False
+    try:
+        runner.stop_restored_container(runtime=runtime, container_id=result.container_id)
+    except Exception:
+        # Old controllers can reject the new exact-cleanup operation. Keep the
+        # terminal lifecycle and surface human action without resurrecting it.
+        runtime.last_error = "Late restored container cleanup failed. Review Provider controller availability and runtime containers."
+        runtime.save(update_fields=["last_error", "updated_at"])
+        return True
+    return False
+
+
 def reconcile_stale_provider_runtime_starts() -> dict[str, int]:
     """Recover a lost start/controller response without requiring a Cloud restart."""
 
-    cutoff = timezone.now() - timedelta(
+    now = timezone.now()
+    cutoff = now - timedelta(
         seconds=int(getattr(settings, "NEXUS_PROVIDER_LIFECYCLE_STALE_SECONDS", 180))
     )
+    managed_cutoff = now - timedelta(seconds=_managed_provider_start_stale_seconds())
     runtime_ids = list(
         ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).filter(
             status=ProviderRuntimeAccount.STATUS_STARTING,
-            updated_at__lt=cutoff,
+        ).filter(
+            Q(runtime_type=ProviderRuntimeAccount.RUNTIME_DIRECT_API, updated_at__lt=cutoff)
+            | (~Q(runtime_type=ProviderRuntimeAccount.RUNTIME_DIRECT_API) & Q(updated_at__lt=managed_cutoff))
         ).values_list("id", flat=True)
     )
     recovered = 0
@@ -1450,6 +1566,24 @@ def reconcile_stale_provider_runtime_starts() -> dict[str, int]:
         )
         if runtime is None:
             continue
+        observed_updated_at = runtime.updated_at
+        with transaction.atomic():
+            claimed = ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).select_for_update().get(id=runtime_id)
+            stale_cutoff = cutoff if claimed.runtime_type == ProviderRuntimeAccount.RUNTIME_DIRECT_API else managed_cutoff
+            if (
+                claimed.status != ProviderRuntimeAccount.STATUS_STARTING
+                or claimed.updated_at != observed_updated_at
+                or claimed.updated_at >= stale_cutoff
+            ):
+                continue
+            # A durable timestamp claim prevents overlapping sweepers from
+            # restoring the same start even if their cache locks are isolated,
+            # expired or unavailable. Do not hold this lock across Docker I/O.
+            claimed.save(update_fields=["updated_at"])
+            runtime = claimed
+            observed_updated_at = claimed.updated_at
+        result = None
+        runner = None
         try:
             if runtime.runtime_type == ProviderRuntimeAccount.RUNTIME_DIRECT_API:
                 source = runtime.source_provider_account
@@ -1462,11 +1596,14 @@ def reconcile_stale_provider_runtime_starts() -> dict[str, int]:
                 proxy_api_key = decrypt_secret(runtime.encrypted_proxy_api_key) if runtime.encrypted_proxy_api_key else ""
                 if not proxy_api_key:
                     raise ProviderRuntimeError("Provider Runtime proxy key is unavailable.")
-                result = get_provider_runtime_runner().restore(runtime=runtime, proxy_api_key=proxy_api_key)
+                runner = get_provider_runtime_runner()
+                result = runner.restore(runtime=runtime, proxy_api_key=proxy_api_key)
                 runtime.container_id = result.container_id
                 runtime.internal_login_url = result.internal_login_url
                 runtime.internal_api_url = result.internal_api_url
-                health = get_provider_runtime_runner().health_check(runtime=runtime)
+                # The isolated controller already checked the restored endpoint.
+                # A new health request reloads the still-uncommitted old endpoint.
+                health = result.health or runner.health_check(runtime=runtime)
                 if health.healthy:
                     next_status = ProviderRuntimeAccount.STATUS_ACTIVE
                     reason = ""
@@ -1477,7 +1614,8 @@ def reconcile_stale_provider_runtime_starts() -> dict[str, int]:
                     raise ProviderRuntimeError(health.reason or "Recovered Runtime did not pass health check.")
             with transaction.atomic():
                 locked = ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).select_for_update().get(id=runtime_id)
-                if locked.status != ProviderRuntimeAccount.STATUS_STARTING:
+                if locked.status != ProviderRuntimeAccount.STATUS_STARTING or locked.updated_at != observed_updated_at:
+                    failed += int(_cleanup_terminal_provider_restore(runtime=locked, result=result, runner=runner))
                     continue
                 if result is not None:
                     locked.container_id = result.container_id
@@ -1501,11 +1639,21 @@ def reconcile_stale_provider_runtime_starts() -> dict[str, int]:
                 )
                 recovered += 1
         except Exception as exc:
+            from .provider_controller import ProviderRuntimeControllerBusy, ProviderRuntimeControllerUnavailable, provider_runtime_start_error_message
+            from .runtime_runner import ProviderRuntimeUnavailable
+
             with transaction.atomic():
                 locked = ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).select_for_update().filter(id=runtime_id).first()
-                if locked is not None and locked.status == ProviderRuntimeAccount.STATUS_STARTING:
+                if locked is not None and (locked.status != ProviderRuntimeAccount.STATUS_STARTING or locked.updated_at != observed_updated_at):
+                    _cleanup_terminal_provider_restore(runtime=locked, result=result, runner=runner)
+                elif locked is not None:
                     locked.status = ProviderRuntimeAccount.STATUS_FAILED
-                    locked.last_error = f"Automatic start recovery failed: {exc}"[:1024]
+                    if isinstance(exc, ProviderRuntimeControllerBusy):
+                        locked.last_error = "Automatic start recovery failed: Provider Runtime operation is busy; retry scheduled."
+                    elif isinstance(exc, (ProviderRuntimeControllerUnavailable, ProviderRuntimeUnavailable)):
+                        locked.last_error = "Automatic start recovery failed: Provider Runtime Controller is unavailable; retry scheduled."
+                    else:
+                        locked.last_error = provider_runtime_start_error_message(exc)
                     locked.last_health_check_at = timezone.now()
                     locked.save(update_fields=["status", "last_error", "last_health_check_at", "updated_at"])
                     record_runtime_health_check(runtime=locked, status=locked.status, reason=locked.last_error)
@@ -1528,12 +1676,12 @@ def reconcile_stale_provider_runtime_stops() -> dict[str, int]:
     for runtime_id in runtime_ids:
         runtime = ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).get(id=runtime_id)
         try:
-            if runtime.runtime_type != ProviderRuntimeAccount.RUNTIME_DIRECT_API:
-                get_provider_runtime_runner().stop(runtime=runtime)
             with transaction.atomic():
                 locked = ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).select_for_update().get(id=runtime_id)
-                if locked.status != ProviderRuntimeAccount.STATUS_STOPPING:
+                if locked.status != ProviderRuntimeAccount.STATUS_STOPPING or locked.updated_at != runtime.updated_at:
                     continue
+                if locked.runtime_type != ProviderRuntimeAccount.RUNTIME_DIRECT_API:
+                    get_provider_runtime_runner().stop(runtime=locked)
                 locked.status = ProviderRuntimeAccount.STATUS_STOPPED
                 locked.last_error = ""
                 locked.last_health_check_at = timezone.now()
@@ -1545,11 +1693,12 @@ def reconcile_stale_provider_runtime_stops() -> dict[str, int]:
                 )
                 record_runtime_health_check(runtime=locked, status=locked.status, reason="Recovered interrupted stop.")
                 stopped += 1
-        except Exception as exc:
+        except Exception:
             ProviderRuntimeAccount.objects.filter(runtime_integration().maintenance_filter()).filter(
                 id=runtime_id,
                 status=ProviderRuntimeAccount.STATUS_STOPPING,
-            ).update(last_error=f"Automatic stop recovery failed: {exc}"[:1024])
+                updated_at=runtime.updated_at,
+            ).update(last_error="Automatic stop recovery failed. Review Provider controller availability; retry scheduled.")
             failed += 1
     return {"examined": len(runtime_ids), "stopped": stopped, "failed": failed}
 
@@ -1666,7 +1815,7 @@ class NoRedirectHandler(HTTPRedirectHandler):
 
 
 def _open_no_redirect(request: Request, *, timeout: int | float):
-    return build_opener(NoRedirectHandler).open(request, timeout=timeout)
+    return build_opener(ProxyHandler({}), NoRedirectHandler).open(request, timeout=timeout)
 
 
 def provider_runtime_browser_login_url(*, runtime: ProviderRuntimeAccount) -> str:
@@ -1676,29 +1825,55 @@ def provider_runtime_browser_login_url(*, runtime: ProviderRuntimeAccount) -> st
         return runtime.internal_login_url
     if not runtime.encrypted_proxy_api_key:
         return runtime.internal_login_url
-    proxy_api_key = decrypt_secret(runtime.encrypted_proxy_api_key)
-    request = Request(
-        runtime.internal_login_url,
-        headers={"Authorization": f"Bearer {proxy_api_key}"},
-        method="GET",
-    )
     timeout = int(getattr(settings, "NEXUS_PROVIDER_REQUEST_TIMEOUT_SECONDS", 60))
-    try:
-        response = _open_no_redirect(request, timeout=timeout)
-        login_url = response.geturl()
-        prepare_codex_oauth_callback_relay(runtime=runtime, login_url=login_url)
-        return login_url
-    except HTTPError as exc:
-        if exc.code in {301, 302, 303, 307, 308}:
-            location = exc.headers.get("Location")
-            if location:
-                login_url = urljoin(runtime.internal_login_url, location)
+    for attempt in range(2):
+        proxy_api_key = decrypt_secret(runtime.encrypted_proxy_api_key)
+        request = Request(
+            runtime.internal_login_url,
+            headers={"Authorization": f"Bearer {proxy_api_key}"},
+            method="GET",
+        )
+        try:
+            with _open_no_redirect(request, timeout=timeout) as response:
+                login_url = response.geturl()
                 prepare_codex_oauth_callback_relay(runtime=runtime, login_url=login_url)
                 return login_url
-        detail = exc.read(300).decode("utf-8", errors="replace")
-        raise ProviderRuntimeError(f"Provider runtime login endpoint returned HTTP {exc.code}: {detail}") from exc
-    except URLError as exc:
-        raise ProviderRuntimeError(f"Provider runtime login endpoint is not reachable: {exc.reason}") from exc
+        except HTTPError as exc:
+            try:
+                if exc.code in {301, 302, 303, 307, 308}:
+                    location = exc.headers.get("Location")
+                    if location:
+                        login_url = urljoin(runtime.internal_login_url, location)
+                        prepare_codex_oauth_callback_relay(runtime=runtime, login_url=login_url)
+                        return login_url
+                body = exc.read(1025) if exc.code == 401 else b""
+                try:
+                    mismatch = len(body) <= 1024 and json.loads(body).get("error") == "Dashboard login required"
+                except (ValueError, AttributeError):
+                    mismatch = False
+            finally:
+                exc.close()
+            if mismatch and attempt == 0:
+                # The proxy rejected this GET before starting OAuth. Only this
+                # definitive rejection can be retried; redirects, timeouts and
+                # other uncertain outcomes must never create duplicate flows.
+                recovered = reconcile_provider_runtime_health(runtime_id=runtime.id)
+                if recovered is not None and recovered.status in {
+                    ProviderRuntimeAccount.STATUS_ACTIVE, ProviderRuntimeAccount.STATUS_LOGIN_REQUIRED,
+                }:
+                    runtime = recovered
+                    continue
+                raise ProviderRuntimeError(
+                    "PROVIDER_MANAGED_CREDENTIAL_REPAIR_PENDING: Provider authentication is recovering; retry sign-in shortly."
+                ) from None
+            raise ProviderRuntimeError(
+                f"Provider runtime login endpoint returned HTTP {exc.code}. "
+                "Managed authentication verification failed; automatic checks will continue."
+            ) from None
+        except (URLError, OSError, RemoteDisconnected):
+            raise ProviderRuntimeError(
+                "Provider runtime login endpoint is temporarily unreachable. Automatic checks will continue; retry sign-in shortly."
+            ) from None
 
 
 def provider_runtime_cliproxyapi_login_url(*, runtime: ProviderRuntimeAccount) -> str:

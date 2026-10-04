@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.urls import path
+from .video_views import MobileVideoStartView, MobileVideoViewerView, MobileVideoDevicePollView, MobileVideoDeviceSignalView
 
 from .views import (
     MobileAggregateStatusView,
@@ -22,6 +23,10 @@ from .views import (
 
 
 urlpatterns = [
+    path("mobile-devices/<uuid:device_id>/video/", MobileVideoStartView.as_view()),
+    path("mobile-devices/<uuid:device_id>/device/video/", MobileVideoDevicePollView.as_view()),
+    path("mobile-video/<uuid:session_id>/", MobileVideoViewerView.as_view()),
+    path("mobile-video/<uuid:session_id>/device/", MobileVideoDeviceSignalView.as_view()),
     path("mobile-devices/aggregate-status/", MobileAggregateStatusView.as_view(), name="mobile-device-aggregate-status"),
     path("mobile-devices/", MobileDeviceListCreateView.as_view(), name="mobile-devices"),
     path("mobile-devices/<uuid:device_id>/", MobileDeviceDetailView.as_view(), name="mobile-device-detail"),

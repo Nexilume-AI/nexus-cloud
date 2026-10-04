@@ -7,7 +7,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from apps.common.models import SoftDeleteModel
+from apps.common.models import BaseModel, SoftDeleteModel
 from apps.tenancy.models import Project, Tenant
 
 
@@ -158,6 +158,24 @@ class MobileDevice(SoftDeleteModel):
         return f"{self.name} ({self.platform})"
 
 
+class MobileVideoSession(BaseModel):
+    device = models.ForeignKey(MobileDevice, on_delete=models.CASCADE, related_name="video_sessions")
+    owner_subject_hash = models.CharField(max_length=64)
+    pairing_hash = models.CharField(max_length=64)
+    state = models.CharField(max_length=24, default="pending")
+    error_code = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField()
+    viewer_seen_at = models.DateTimeField()
+    device_seen_at = models.DateTimeField(null=True)
+    geometry = models.JSONField(default=dict)
+    geometry_version = models.PositiveIntegerField(default=0)
+    signals = models.JSONField(default=list)
+    sequence = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        indexes = [models.Index(fields=["device", "state", "expires_at"], name="mobile_video_active_idx")]
+
+
 class MobileCommand(SoftDeleteModel):
     STATUS_PENDING_APPROVAL = "pending_approval"
     STATUS_QUEUED = "queued"
@@ -186,6 +204,9 @@ class MobileCommand(SoftDeleteModel):
     ACTION_OPEN_APP = "open_app"
     ACTION_WAIT_FOR_STATE = "wait_for_state"
     ACTION_CAPTURE_SCREEN = "capture_screen"
+    ACTION_PRESS_HOME = "press_home"
+    ACTION_PRESS_RECENTS = "press_recents"
+    ACTION_LONG_PRESS = "long_press"
     ACTION_CHOICES = (
         (ACTION_OBSERVE, "Observe"),
         (ACTION_TAP_TEXT, "Tap text"),
@@ -196,6 +217,9 @@ class MobileCommand(SoftDeleteModel):
         (ACTION_OPEN_APP, "Open app"),
         (ACTION_WAIT_FOR_STATE, "Wait for state"),
         (ACTION_CAPTURE_SCREEN, "Capture screen"),
+        (ACTION_PRESS_HOME, "Home"),
+        (ACTION_PRESS_RECENTS, "Recent apps"),
+        (ACTION_LONG_PRESS, "Long press"),
     )
 
     RISK_LOW = "low"
@@ -232,6 +256,9 @@ class MobileCommand(SoftDeleteModel):
     risk_level = models.CharField(max_length=32, choices=RISK_CHOICES, default=RISK_MEDIUM)
     requires_approval = models.BooleanField(default=False)
     result = models.JSONField(default=dict, blank=True)
+    # Receipt identity refers to the original report, including screenshot bytes
+    # that completion normalizes out of the public result representation.
+    result_receipt_sha256 = models.CharField(max_length=64, blank=True, editable=False)
     screenshot = models.BinaryField(null=True, blank=True, editable=False)
     screenshot_content_type = models.CharField(max_length=32, blank=True)
     error = models.CharField(max_length=1024, blank=True)

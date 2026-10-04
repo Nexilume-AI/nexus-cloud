@@ -1565,6 +1565,8 @@ export type WorkspaceToolConfigPreview = {
 };
 
 export type MobileDevice = {
+  available_actions?: string[];
+  screen_frame?: { id: string; expires_at: string; controllable: boolean } | null;
   id: string;
   tenant_id: string;
   project_id: string | null;
@@ -1610,6 +1612,21 @@ export type MobileDevice = {
 
 export type MobileDeviceWithPairingToken = MobileDevice & {
   pairing_token: string;
+  pairing_base_url?: string | null;
+  pairing_error?: { code: string; message: string } | null;
+};
+
+export type MobileVideoSession = {
+  id: string;
+  state: "pending" | "connecting" | "live" | "stopped" | "failed" | "expired";
+  error_code: string;
+  expires_at: string;
+  geometry: { screen_width?: number; screen_height?: number; rotation?: number };
+  geometry_version: number;
+  sequence: number;
+  signals: { type: "answer" | "ice" | "state"; sequence: number; sdp?: string; candidate?: RTCIceCandidateInit }[];
+  ice_servers?: RTCIceServer[];
+  ice_transport_policy?: RTCIceTransportPolicy;
 };
 
 export type MobileAggregateStatus = {

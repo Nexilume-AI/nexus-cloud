@@ -89,7 +89,9 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
           setCommandOpen(true);
         }
       }
-      if (event.key === "Escape" && mobileOpen) closeMobileNavigation();
+      if (event.key === "Escape" && mobileOpen) {
+        closeMobileNavigation();
+      }
     }
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
@@ -98,7 +100,8 @@ export function AppShell({ children, navigationDomains }: { children: ReactNode;
   useEffect(() => {
     if (!mobileOpen) return;
     const dialog = document.querySelector<HTMLElement>('.nexilume-mobile-navigation[role="dialog"]');
-    const focusable = () => dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])') ?? [])
+      .filter(element => element.getClientRects().length > 0);
     window.requestAnimationFrame(() => dialog?.querySelector<HTMLElement>('[data-close-navigation]')?.focus());
     function trapFocus(event: KeyboardEvent) {
       if (event.key !== "Tab") return;

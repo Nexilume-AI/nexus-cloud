@@ -1,6 +1,5 @@
-.notification-trigger { position: relative; min-width: 44px; min-height: 44px; }
-.notification-trigger__attention { position: absolute; right: calc(100% + 7px); white-space: nowrap; color: #8b3825; font: 600 9px/1.4 "IBM Plex Mono", monospace; letter-spacing: .05em; text-transform: uppercase; }
-.notification-trigger__count, .notification-trigger__error { position: absolute; top: 0; right: -4px; background: var(--nexilume-ink, #041A14); color: var(--nexilume-lume, #BDFC73); border-radius: 12px; padding: 1px 5px; font-size: 10px; line-height: 16px; min-width: 18px; font-weight: 700; }
+.notification-trigger { position: relative; min-width: 44px; min-height: 44px; flex: none; }
+.notification-trigger__count, .notification-trigger__error { position: absolute; top: 1px; right: 1px; background: var(--nexilume-ink, #041A14); color: var(--nexilume-lume, #BDFC73); border-radius: 12px; padding: 1px 5px; font-size: 10px; line-height: 16px; min-width: 18px; font-weight: 700; }
 .notification-center { color: var(--nexilume-ink, #041A14); }
 .notification-center__toolbar { display: flex; gap: 12px; align-items: end; }
 .notification-center__toolbar label { display: grid; gap: 6px; flex: 1; font-size: 13px; }
@@ -29,4 +28,3 @@
 .work-inbox-drawer__modes button[aria-selected="true"] { border-bottom-color: #496245; color: #041a14; background: #f0f5eb; }
 .work-inbox-drawer__footer { position: sticky; bottom: 0; background: #fbfcf8; padding-bottom: 4px; }
 @media (max-width: 520px) { .work-inbox-drawer__modes { grid-template-columns: 1fr; } .work-inbox-drawer__modes button { text-align: left; } }
-@media (max-width: 1199px) { .notification-trigger__attention { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }

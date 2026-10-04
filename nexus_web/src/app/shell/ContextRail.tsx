@@ -1,14 +1,13 @@
-import { LanguageSelect } from "../../localization/LanguageSelect";
 import { t, useLocale } from "../../localization";
 import { useRef, useState } from "react";
 import {
   Command,
-  HelpCircle,
   LogIn,
   LogOut,
   Menu,
   RotateCcw,
   Search,
+  Settings,
   UserRound
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,6 +15,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { useApplicationDistribution } from "../distribution";
 import { useDismissiblePopover } from "./useDismissiblePopover";
+import { AccountLanguageControl } from "./AccountLanguageControl";
 import { NotificationCenter } from "../../components/NotificationCenter";
 import type { NavigationDomain, NavigationItem } from "./navigation";
 import type { SidebarPreference } from "./ShellNavigation";
@@ -54,12 +54,12 @@ export function ContextRail({
       </div>
 
       <div className="nexilume-context-rail__tools">
-        <LanguageSelect />
-        {ScopeSwitcher ? <ScopeSwitcher /> : null}
+        {ScopeSwitcher ? <div className="nexilume-context-rail__scope"><ScopeSwitcher /></div> : null}
         <button
           className="nexilume-command-trigger"
           onClick={(event) => onOpenCommand(event.currentTarget)}
           aria-label={t("Find anything")}
+          title={t("Find anything")}
           type="button"
         >
           <Search size={16} />
@@ -85,6 +85,7 @@ function AccountControl({
 }) {
   useLocale();
   const auth = useAuth();
+  const ScopeSwitcher = useApplicationDistribution().contextSwitcher;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -93,37 +94,48 @@ function AccountControl({
   const identity = auth.user?.display_name || auth.user?.email || "User";
   const initial = identity.slice(0, 1).toUpperCase();
 
-  if (!auth.isAuthenticated) {
-    return (
-      <button className="nexilume-sign-in" onClick={() => auth.requestLogin(t("Sign in to select a workspace and access private Nexilume AI capability."))} type="button">
-        <LogIn size={16} />
-        <span>{t("Sign in")}</span>
-      </button>
-    );
-  }
-
   return (
-    <div className="nexilume-account" ref={rootRef}>
-      <button ref={triggerRef} className="nexilume-account__trigger" onClick={() => setOpen((value) => !value)} aria-label={t("Open account menu")} aria-haspopup="menu" aria-expanded={open} type="button">
-        <span>{initial}</span>
-      </button>
-      {open ? (
-        <div className="nexilume-account__menu" role="menu">
-          <header>
-            <span className="nexilume-account__avatar"><UserRound size={17} /></span>
-            <div>
-              <strong>{identity}</strong>
-              <small>{auth.user?.email}</small>
-            </div>
-          </header>
-          <Link to="/settings" onClick={() => setOpen(false)} role="menuitem">
-            <HelpCircle size={16} />{t("Profile & organization settings")}</Link>
-          <button onClick={() => { onResetSidebarPreference(); setOpen(false); }} disabled={sidebarPreference === "auto"} role="menuitem" type="button">
-            <RotateCcw size={16} />{t("Use automatic sidebar")}</button>
-          <button onClick={() => void auth.logout()} role="menuitem" type="button">
-            <LogOut size={16} />{t("Sign out")}</button>
-        </div>
+    <>
+      {!auth.isAuthenticated ? (
+        <button className="nexilume-sign-in" onClick={() => auth.requestLogin("Sign in to select a workspace and access private Nexilume AI capability.")} type="button">
+          <LogIn size={16} />
+          <span>{t("Sign in")}</span>
+        </button>
       ) : null}
-    </div>
+      <div className="nexilume-account" ref={rootRef}>
+        <button ref={triggerRef} className="nexilume-account__trigger" onClick={() => setOpen((value) => !value)} aria-label={t("Open account menu")} aria-haspopup="dialog" aria-expanded={open} type="button">
+          {auth.isAuthenticated ? <span>{initial}</span> : <UserRound size={17} aria-hidden="true" />}
+        </button>
+        {open ? (
+          <div className="nexilume-account__menu" role="dialog" aria-label={t("Account menu")}>
+            <header>
+              <span className="nexilume-account__avatar" aria-hidden="true">{auth.isAuthenticated ? initial : <UserRound size={18} />}</span>
+              <div>
+                <strong title={auth.isAuthenticated ? identity : undefined}>{auth.isAuthenticated ? identity : t("Account")}</strong>
+                {auth.isAuthenticated ? <small title={auth.user?.email}>{auth.user?.email}</small> : null}
+              </div>
+            </header>
+            <div className="nexilume-account__preferences">
+              <AccountLanguageControl />
+              {auth.isAuthenticated && ScopeSwitcher ? (
+                <div className="nexilume-account__context"><ScopeSwitcher presentation="account" /></div>
+              ) : null}
+            </div>
+            {auth.isAuthenticated ? (
+              <div className="nexilume-account__actions">
+                <Link to="/settings" onClick={() => setOpen(false)}>
+                  <Settings size={16} aria-hidden="true" />{t("Profile & organization settings")}</Link>
+                {sidebarPreference !== "auto" ? (
+                  <button onClick={() => { onResetSidebarPreference(); setOpen(false); }} type="button">
+                    <RotateCcw size={16} aria-hidden="true" />{t("Use automatic sidebar")}</button>
+                ) : null}
+                <button onClick={() => { setOpen(false); void auth.logout(); }} type="button">
+                  <LogOut size={16} aria-hidden="true" />{t("Sign out")}</button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }

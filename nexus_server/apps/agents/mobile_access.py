@@ -40,6 +40,9 @@ ACTION_CAPABILITY = {
     MobileCommand.ACTION_TYPE_TEXT: "mobile.type_text",
     MobileCommand.ACTION_SWIPE: "mobile.swipe",
     MobileCommand.ACTION_PRESS_BACK: "mobile.press_back",
+    MobileCommand.ACTION_PRESS_HOME: "mobile.press_back",
+    MobileCommand.ACTION_PRESS_RECENTS: "mobile.press_back",
+    MobileCommand.ACTION_LONG_PRESS: "mobile.tap",
     MobileCommand.ACTION_OPEN_APP: "mobile.open_app",
     MobileCommand.ACTION_WAIT_FOR_STATE: "mobile.wait_for_state",
 }
@@ -533,12 +536,16 @@ def _delegate_run(*, run_id: str, token: str, capability: str = "") -> AgentDisp
 def mobile_delegate_status(*, run_id: str, token: str) -> dict[str, object]:
     run = _delegate_run(run_id=run_id, token=token)
     device = run.mobile_binding.device
+    from apps.mobile.control import available_actions
+    capabilities = effective_mobile_capabilities_for_run(run)
     return {
         "enabled": True,
         "available": device.lifecycle_status == MobileDevice.LIFECYCLE_ONLINE,
         "platform": device.platform,
         "status": device.lifecycle_status,
-        "capabilities": effective_mobile_capabilities_for_run(run),
+        "capabilities": capabilities,
+        "supported_actions": [action for action in available_actions(device)
+                              if ACTION_CAPABILITY.get(action) in capabilities],
     }
 
 

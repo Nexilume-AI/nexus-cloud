@@ -33,10 +33,12 @@ import { toast } from "sonner";
 import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
 import type { MobileCommand, MobileDevice, MobileDeviceWithPairingToken } from "../lib/types";
+import { MobileLiveVideo } from "../components/MobileLiveVideo";
 import { compactId, formatDate } from "../lib/format";
 import { Badge } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Form";
+import { MobileScreenControl } from "../components/MobileScreenControl";
 
 type CommandAction =
   | "observe"
@@ -45,6 +47,10 @@ type CommandAction =
   | "type_text"
   | "swipe"
   | "press_back"
+  | "press_home"
+  | "press_recents"
+  | "long_press"
+  | "capture_screen"
   | "open_app"
   | "wait_for_state";
 
@@ -79,14 +85,18 @@ const deviceViews: Array<{ id: DeviceView; label: string; icon: typeof Activity 
 ];
 
 const actionOptions: Array<{ value: CommandAction; label: string; description: string }> = [
-  { value: "observe", label: "Refresh screen", description: "Request the latest device observation." },
+  { value: "observe", label: "Refresh UI observation", description: "Refresh visible text and controls; this does not take a screenshot." },
+  { value: "capture_screen", label: "Capture screen", description: "Request a protected screen image." },
   { value: "tap_text", label: "Tap visible text", description: "Tap the first matching label on screen." },
   { value: "type_text", label: "Type text", description: "Type into the currently focused field." },
   { value: "open_app", label: "Open Android app", description: "Open an installed app by package name." },
   { value: "press_back", label: "Go back", description: "Press the Android system back button." },
+  { value: "press_home", label: "Home", description: "Return to the Android home screen." },
+  { value: "press_recents", label: "Recent apps", description: "Open the Android recent apps view." },
+  { value: "long_press", label: "Long press", description: "Hold a normalized screen position." },
   { value: "wait_for_state", label: "Wait for text", description: "Wait until matching text appears." },
-  { value: "tap_coordinates", label: "Advanced: tap coordinates", description: "Tap a normalized screen position." },
-  { value: "swipe", label: "Advanced: swipe", description: "Swipe between normalized positions." }
+  { value: "tap_coordinates", label: "Tap coordinates", description: "Tap a normalized screen position." },
+  { value: "swipe", label: "Swipe", description: "Swipe between normalized positions." }
 ];
 
 export function MobileDevicesPage() {
@@ -100,16 +110,17 @@ export function MobileDevicesPage() {
   const [deviceName, setDeviceName] = useState("android-phone");
   const [approvalMode, setApprovalMode] = useState<"manual" | "confirm_high_risk" | "auto">("confirm_high_risk");
   const [pairing, setPairing] = useState<MobileDeviceWithPairingToken | null>(null);
-  const [pairingServerUrl, setPairingServerUrl] = useState("");
   const [pairingQrUrl, setPairingQrUrl] = useState("");
   const [showPairingAdvanced, setShowPairingAdvanced] = useState(false);
-  const [showAdvancedActions, setShowAdvancedActions] = useState(false);
+  const [screenCommandId, setScreenCommandId] = useState("");
+  const [screenActionError, setScreenActionError] = useState("");
   const [showRawObservation, setShowRawObservation] = useState(false);
   const [commandForm, setCommandForm] = useState<CommandForm>(initialCommandForm);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [deviceSearch, setDeviceSearch] = useState("");
   const [mcpExport, setMcpExport] = useState("");
   const [screenshotUrl, setScreenshotUrl] = useState("");
+  const [screenshotFrameId, setScreenshotFrameId] = useState("");
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [screenshotError, setScreenshotError] = useState("");
 
@@ -160,8 +171,7 @@ export function MobileDevicesPage() {
     ["setup_required", "offline", "token_expired", "disabled"].includes(deviceLifecycle(device))
   ).length;
   const awaitingCount = deviceData.filter((device) => deviceLifecycle(device) === "awaiting_pairing").length;
-  const runtime = useMemo(() => runtimeHints(), []);
-  const pairingDeepLink = pairing ? buildPairingDeepLink(pairing, pairingServerUrl || defaultPairingBaseUrl(runtime)) : "";
+  const pairingDeepLink = pairing ? buildPairingDeepLink(pairing) : "";
 
   useEffect(() => {
     if (!pairingDeepLink) {
@@ -190,21 +200,23 @@ export function MobileDevicesPage() {
     let canceled = false;
     let objectUrl = "";
     setScreenshotUrl("");
+    setScreenshotFrameId("");
     setScreenshotError("");
     if (!selectedDevice?.screenshot_available) {
       setScreenshotLoading(false);
       return;
     }
     setScreenshotLoading(true);
-    api.mobileScreenshot(apiContext, selectedDevice.id)
-      .then((blob) => {
+    api.mobileScreenImage(apiContext, selectedDevice.id)
+      .then(({ blob, frameId }) => {
         if (canceled) return;
         objectUrl = URL.createObjectURL(blob);
         setScreenshotUrl(objectUrl);
+        setScreenshotFrameId(frameId);
       })
       .catch((error) => {
         if (!canceled) {
-          setScreenshotError(error instanceof Error ? error.message : t("The latest screenshot could not be loaded."));
+          setScreenshotError(error instanceof Error ? error.message : "The latest screenshot could not be loaded.");
         }
       })
       .finally(() => {
@@ -220,7 +232,8 @@ export function MobileDevicesPage() {
     apiContext.token,
     selectedDevice?.id,
     selectedDevice?.screenshot_available,
-    selectedDevice?.screenshot_captured_at
+    selectedDevice?.screenshot_captured_at,
+    selectedDevice?.screen_frame?.id
   ]);
 
   const createDevice = useMutation({
@@ -243,9 +256,9 @@ export function MobileDevicesPage() {
     mutationFn: (deviceId: string) => api.rotateMobileDeviceToken(apiContext, deviceId),
     onSuccess: async (device) => {
       setPairing(device);
-      setPairingServerUrl("");
       setShowPairingAdvanced(false);
-      toast.success(t("New pairing QR generated"));
+      if (buildPairingDeepLink(device)) toast.success(t("New pairing QR generated"));
+      else toast.error(t("Cloud pairing address unavailable"));
       await queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to generate pairing QR"))
@@ -279,7 +292,7 @@ export function MobileDevicesPage() {
 
   const createCommand = useMutation({
     mutationFn: () => {
-      if (!selectedDevice) throw new Error(t("Select a mobile device first."));
+      if (!selectedDevice) throw new Error("Select a mobile device first.");
       return api.createMobileCommand(apiContext, selectedDevice.id, buildCommandBody(commandForm));
     },
     onSuccess: async (command) => {
@@ -306,6 +319,34 @@ export function MobileDevicesPage() {
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to request screen capture"))
   });
+
+  const screenCommand = useMutation({
+    mutationFn: (command: { action: "tap_coordinates" | "swipe" | "long_press"; arguments: Record<string, unknown> }) => {
+      if (!selectedDevice) throw new Error("Select a mobile device first.");
+      return api.createMobileCommand(apiContext, selectedDevice.id, { ...command, ttl_seconds: command.arguments.video_session_id ? 10 : 30 });
+    },
+    onSuccess: async command => {
+      setScreenActionError("");
+      setScreenCommandId(command.id);
+      await queryClient.invalidateQueries({ queryKey: ["mobile-commands"] });
+    },
+    onError: error => {
+      const message = error instanceof Error ? error.message : t("Failed to run action");
+      setScreenActionError(message);
+      toast.error(message);
+      void queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
+    }
+  });
+  const activeScreenCommand = commandData.find(command => command.id === screenCommandId);
+  useEffect(() => { setScreenCommandId(""); setScreenActionError(""); }, [selectedId]);
+  useEffect(() => {
+    if (!activeScreenCommand || !["succeeded", "failed", "rejected", "canceled"].includes(activeScreenCommand.status)) return;
+    setScreenCommandId("");
+    if (activeScreenCommand.status === "succeeded") {
+      if (selectedDevice && !activeScreenCommand.arguments?.video_session_id) captureScreen.mutate(selectedDevice.id);
+    } else setScreenActionError(activeScreenCommand.error || t("Action did not complete. Capture a fresh screen before retrying."));
+    void queryClient.invalidateQueries({ queryKey: ["mobile-devices"] });
+  }, [activeScreenCommand?.id, activeScreenCommand?.status]);
 
   const approveCommand = useMutation({
     mutationFn: (commandId: string) => api.approveMobileCommand(apiContext, commandId),
@@ -370,7 +411,6 @@ export function MobileDevicesPage() {
     setPairing(null);
     setDeviceName("android-phone");
     setApprovalMode("confirm_high_risk");
-    setPairingServerUrl("");
     setShowPairingAdvanced(false);
     setPairDialogOpen(true);
   }
@@ -379,7 +419,10 @@ export function MobileDevicesPage() {
   const selectedLifecycle = selectedDevice ? deviceLifecycle(selectedDevice) : "awaiting_pairing";
   const actionRisk = inferActionRisk(commandForm);
   const actionDescription = actionOptions.find((option) => option.value === commandForm.action)?.description ?? "";
-  const actionReady = commandFormReady(commandForm) && selectedLifecycle === "online";
+  const availableActions = selectedDevice?.available_actions ?? actionOptions
+    .map(option => option.value).filter(action => !["press_home", "press_recents", "long_press"].includes(action)
+      && (action !== "capture_screen" || selectedDevice?.capabilities?.screenshot === true));
+  const actionReady = commandFormReady(commandForm) && selectedLifecycle === "online" && availableActions.includes(commandForm.action);
   const captureInFlight = captureScreen.isPending || commandData.some(
     (command) => command.action === "capture_screen" && ["pending_approval", "queued", "running"].includes(command.status)
   );
@@ -561,12 +604,9 @@ export function MobileDevicesPage() {
                       pairing={pairing?.id === selectedDevice.id ? pairing : null}
                       pairingQrUrl={pairing?.id === selectedDevice.id ? pairingQrUrl : ""}
                       pairingDeepLink={pairing?.id === selectedDevice.id ? pairingDeepLink : ""}
-                      pairingServerUrl={pairingServerUrl}
-                      runtime={runtime}
                       isRotating={rotateToken.isPending}
                       showAdvanced={showPairingAdvanced}
                       onShowAdvanced={() => setShowPairingAdvanced((current) => !current)}
-                      onServerUrlChange={setPairingServerUrl}
                       onGenerate={() => rotateToken.mutate(selectedDevice.id)}
                     />
                   )}
@@ -656,7 +696,16 @@ export function MobileDevicesPage() {
 
               {selectedView === "control" && (
                 <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)]">
-                  <ObservationPreview
+                  <div className="grid content-start gap-4">
+                  {selectedDevice.capabilities.live_video === 1 ? <MobileLiveVideo device={selectedDevice} context={apiContext}
+                    busy={screenCommand.isPending || Boolean(screenCommandId)} onCommand={command => screenCommand.mutate(command)}
+                    canCapture={selectedLifecycle === "online" && screenshotSupported} capturePending={captureInFlight}
+                    onCapture={() => captureScreen.mutate(selectedDevice.id)}
+                    capturePreview={<ObservationPreview device={selectedDevice} embedded screenshotUrl={screenshotUrl}
+                      screenshotLoading={screenshotLoading} screenshotError={screenshotError} capturePending={captureInFlight}
+                      canCapture={selectedLifecycle === "online" && screenshotSupported} onCapture={() => captureScreen.mutate(selectedDevice.id)}
+                      onScreenCommand={command => screenCommand.mutate(command)} screenshotFrameId={screenshotFrameId}
+                      screenBusy={screenCommand.isPending || Boolean(screenCommandId) || captureInFlight} />} /> : <ObservationPreview
                     device={selectedDevice}
                     prominent
                     screenshotUrl={screenshotUrl}
@@ -665,8 +714,16 @@ export function MobileDevicesPage() {
                     capturePending={captureInFlight}
                     canCapture={selectedLifecycle === "online" && screenshotSupported}
                     onCapture={() => captureScreen.mutate(selectedDevice.id)}
-                  />
+                    onScreenCommand={command => screenCommand.mutate(command)}
+                    screenshotFrameId={screenshotFrameId}
+                    screenBusy={screenCommand.isPending || Boolean(screenCommandId) || captureInFlight}
+                  />}
+                  </div>
                   <section className="rounded-xl border border-line bg-white p-4 sm:p-5" aria-labelledby="mobile-action-heading">
+                    {(screenCommandId || screenActionError) && <div role={screenActionError ? "alert" : "status"} className="mb-4 rounded-lg border border-line bg-slate-50 p-3 text-sm">
+                      {screenActionError || (activeScreenCommand?.status === "pending_approval" ? t("Waiting for approval") : t("Phone action in progress"))}
+                      {activeScreenCommand?.status === "pending_approval" && <button type="button" className="btn ml-2 min-h-11" onClick={() => setSelectedView("activity")}>{t("Review approval")}</button>}
+                    </div>}
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 id="mobile-action-heading" className="font-semibold text-ink">{t("Run an action")}</h3>
@@ -692,8 +749,8 @@ export function MobileDevicesPage() {
                           value={commandForm.action}
                           onChange={(event) => setCommandForm((current) => ({ ...initialCommandForm, action: event.target.value as CommandAction }))}
                         >
-                          {actionOptions.filter((option) => showAdvancedActions || !option.label.startsWith("Advanced:")).map((option) => (
-                            <option key={option.value} value={option.value}>{t(option.label)}</option>
+                          {actionOptions.map((option) => (
+                            <option key={option.value} value={option.value} disabled={!availableActions.includes(option.value)}>{t(option.label)}{!availableActions.includes(option.value) ? ` · ${t("Update phone app to enable")}` : ""}</option>
                           ))}
                         </select>
                       </Field>
@@ -739,9 +796,6 @@ export function MobileDevicesPage() {
                         </div>
                       )}
 
-                      <button className="text-left text-sm font-semibold text-accent underline-offset-4 hover:underline" onClick={() => setShowAdvancedActions((current) => !current)}>
-                        {showAdvancedActions ? t("Hide coordinate actions") : t("Show advanced coordinate actions")}
-                      </button>
                     </div>
 
                     <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4" aria-label={t("Execution preview")}>
@@ -760,7 +814,7 @@ export function MobileDevicesPage() {
                     <button
                       className="btn btn-primary mt-4 min-h-11 w-full sm:w-fit"
                       onClick={() => createCommand.mutate()}
-                      disabled={!actionReady || createCommand.isPending}
+                      disabled={!actionReady || createCommand.isPending || screenCommand.isPending || Boolean(screenCommandId)}
                     >
                       {createCommand.isPending ? <Loader2 size={16} className="animate-spin" /> : commandIcon(commandForm.action)}
                       {actionRisk === "high" && selectedDevice.approval_mode !== "auto" ? t("Send for approval") : t("Run action")}
@@ -888,12 +942,9 @@ export function MobileDevicesPage() {
                           pairing={pairing}
                           pairingQrUrl={pairingQrUrl}
                           pairingDeepLink={pairingDeepLink}
-                          pairingServerUrl={pairingServerUrl}
-                          runtime={runtime}
                           isRotating={rotateToken.isPending}
                           showAdvanced={showPairingAdvanced}
                           onShowAdvanced={() => setShowPairingAdvanced((current) => !current)}
-                          onServerUrlChange={setPairingServerUrl}
                           onGenerate={() => rotateToken.mutate(selectedDevice.id)}
                         />
                       </div>
@@ -912,7 +963,7 @@ export function MobileDevicesPage() {
                           {exportMcp.isPending ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}{t("Prepare MCP configuration")}</button>
                       </div>
                       <pre className="max-h-80 min-h-40 overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-5 text-slate-100">
-                        {mcpExport || t("Prepare the MCP configuration to connect this device to a trusted agent.")}
+                        {mcpExport || "Prepare the MCP configuration to connect this device to a trusted agent."}
                       </pre>
                     </div>
                   </details>
@@ -1000,6 +1051,8 @@ export function MobileDevicesPage() {
                         </div>
                       </div>
                     </div>
+                  ) : !pairingDeepLink ? (
+                    <PairingAddressUnavailable onRetry={() => rotateToken.mutate(pairing.id)} isPending={rotateToken.isPending} />
                   ) : (
                     <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
                       <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-line bg-white p-3">
@@ -1018,15 +1071,12 @@ export function MobileDevicesPage() {
                       </div>
                     </div>
                   )}
-                  <button className="text-left text-sm font-semibold text-accent underline-offset-4 hover:underline" type="button" onClick={() => setShowPairingAdvanced((current) => !current)}>
+                  {pairingDeepLink && <button className="text-left text-sm font-semibold text-accent underline-offset-4 hover:underline" type="button" onClick={() => setShowPairingAdvanced((current) => !current)}>
                     {showPairingAdvanced ? t("Hide connection details") : t("Show connection details")}
-                  </button>
-                  {showPairingAdvanced && (
+                  </button>}
+                  {showPairingAdvanced && pairingDeepLink && (
                     <div className="grid gap-3 rounded-xl border border-line bg-slate-50 p-4 sm:grid-cols-2">
-                      <Field label={t("Server URL encoded in QR")}>
-                        <input className="input min-h-11" value={pairingServerUrl} onChange={(event) => setPairingServerUrl(event.target.value)} placeholder={runtime.lanBaseUrl} />
-                      </Field>
-                      <PairingField label={t("Android emulator URL")} value={runtime.emulatorBaseUrl} />
+                      <PairingField label={t("Cloud address (provided by server)")} value={pairing.pairing_base_url!} />
                       <PairingField label={t("Device ID")} value={pairing.id} />
                       <PairingField label={t("Pairing token")} value={pairing.pairing_token} secret />
                       <div className="sm:col-span-2"><PairingField label={t("Deep link")} value={pairingDeepLink} secret /></div>
@@ -1122,24 +1172,18 @@ function PairingPanel({
   pairing,
   pairingQrUrl,
   pairingDeepLink,
-  pairingServerUrl,
-  runtime,
   isRotating,
   showAdvanced,
   onShowAdvanced,
-  onServerUrlChange,
   onGenerate
 }: {
   device: MobileDevice;
   pairing: MobileDeviceWithPairingToken | null;
   pairingQrUrl: string;
   pairingDeepLink: string;
-  pairingServerUrl: string;
-  runtime: ReturnType<typeof runtimeHints>;
   isRotating: boolean;
   showAdvanced: boolean;
   onShowAdvanced: () => void;
-  onServerUrlChange: (value: string) => void;
   onGenerate: () => void;
 }) {
   useLocale();
@@ -1159,7 +1203,8 @@ function PairingPanel({
             {isRotating ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}{t("Generate QR")}</button>
         )}
       </div>
-      {pairing && (
+      {pairing && !pairingDeepLink && <div className="mt-5"><PairingAddressUnavailable onRetry={onGenerate} isPending={isRotating} /></div>}
+      {pairing && pairingDeepLink && (
         <div className="mt-5 grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
           <div className="mx-auto flex h-[200px] w-[200px] items-center justify-center rounded-xl border border-line bg-white p-3">
             {pairingQrUrl ? <img className="h-full w-full" src={pairingQrUrl} alt={t("Nexus Mobile Android pairing QR code")} /> : <Loader2 size={20} className="animate-spin text-muted" />}
@@ -1173,9 +1218,7 @@ function PairingPanel({
             </button>
             {showAdvanced && (
               <div className="grid gap-3">
-                <Field label={t("Server URL encoded in QR")}>
-                  <input className="input min-h-11" value={pairingServerUrl} onChange={(event) => onServerUrlChange(event.target.value)} placeholder={runtime.lanBaseUrl} />
-                </Field>
+                <PairingField label={t("Cloud address (provided by server)")} value={pairing.pairing_base_url!} />
                 <PairingField label={t("Device ID")} value={pairing.id} />
                 <PairingField label={t("Pairing token")} value={pairing.pairing_token} secret />
                 <PairingField label={t("Deep link")} value={pairingDeepLink} secret />
@@ -1190,15 +1233,20 @@ function PairingPanel({
 
 function ObservationPreview({
   device,
+  embedded = false,
   prominent = false,
   screenshotUrl,
   screenshotLoading,
   screenshotError,
   capturePending,
   canCapture,
-  onCapture
+  onCapture,
+  onScreenCommand,
+  screenshotFrameId = "",
+  screenBusy = false
 }: {
   device: MobileDevice;
+  embedded?: boolean;
   prominent?: boolean;
   screenshotUrl: string;
   screenshotLoading: boolean;
@@ -1206,13 +1254,16 @@ function ObservationPreview({
   capturePending: boolean;
   canCapture: boolean;
   onCapture: () => void;
+  onScreenCommand?: (command: { action: "tap_coordinates" | "swipe" | "long_press"; arguments: Record<string, unknown> }) => void;
+  screenBusy?: boolean;
+  screenshotFrameId?: string;
 }) {
   useLocale();
   const observationText = observationTextLines(device.last_observation);
   const screenshotSupported = device.capabilities?.screenshot === true;
   return (
-    <section className={`rounded-xl border border-line bg-white ${prominent ? "p-5" : "p-4"}`} aria-labelledby={`observation-${device.id}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className={embedded ? "" : `rounded-xl border border-line bg-white ${prominent ? "p-5" : "p-4"}`} aria-label={embedded ? t("Screen capture preview") : undefined} aria-labelledby={embedded ? undefined : `observation-${device.id}`}>
+      {!embedded && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 id={`observation-${device.id}`} className="font-semibold text-ink">{t("Latest screen")}</h3>
           <p className="mt-1 text-sm text-muted">
@@ -1242,16 +1293,18 @@ function ObservationPreview({
             {capturePending ? t("Capturing") : t("Capture screen")}
           </button>
         </div>
-      </div>
-      <div className={`mx-auto mt-4 overflow-hidden rounded-[1.5rem] border-[6px] border-slate-900 bg-slate-950 shadow-sm ${prominent ? "max-w-sm" : "max-w-xs"}`}>
-        <div className="flex h-7 items-center justify-between bg-slate-900 px-4 text-[10px] text-slate-300">
+      </div>}
+      <div className={embedded ? "" : `mx-auto mt-4 overflow-hidden rounded-[1.5rem] border-[6px] border-slate-900 bg-slate-950 shadow-sm ${prominent ? "max-w-sm" : "max-w-xs"}`}>
+        {!embedded && <div className="flex h-7 items-center justify-between bg-slate-900 px-4 text-[10px] text-slate-300">
           <span>{deviceLifecycle(device) === "online" ? t("Connected") : t("Last known state")}</span>
           <span>{friendlyAppName(device.current_package) || t("Nexus Mobile")}</span>
-        </div>
+        </div>}
         <div className="min-h-72 bg-white">
           {screenshotLoading ? (
             <div className="flex min-h-72 items-center justify-center text-sm text-slate-500">
               <Loader2 className="mr-2 animate-spin" size={18} />{t("Loading protected image")}</div>
+          ) : screenshotUrl && onScreenCommand ? (
+            <MobileScreenControl device={device} url={screenshotUrl} displayedFrameId={screenshotFrameId} busy={screenBusy} onCommand={onScreenCommand} />
           ) : screenshotUrl ? (
             <img
               src={screenshotUrl}
@@ -1278,7 +1331,7 @@ function ObservationPreview({
           )}
         </div>
       </div>
-      <div className="mt-3 text-xs leading-5 text-muted">
+      <div className="p-3 text-xs leading-5 text-muted">
         {screenshotError
           ? t("Image unavailable: {{0}}", { 0: screenshotError })
           : t("Screenshots are requested manually, blocked on sensitive screens, and removed after 5 minutes.")}
@@ -1580,12 +1633,12 @@ function lifecycleLabel(value: string) {
 function lifecycleDetail(device: MobileDevice) {
   if (device.lifecycle_detail) return device.lifecycle_detail;
   const lifecycle = deviceLifecycle(device);
-  if (lifecycle === "awaiting_pairing") return t("Scan the pairing QR on the Android device.");
-  if (lifecycle === "setup_required") return t("Enable Nexus Mobile Accessibility control to finish setup.");
-  if (lifecycle === "online") return t("The device is connected and ready for actions.");
-  if (lifecycle === "offline") return t("Open Nexus Mobile and check its connection.");
-  if (lifecycle === "token_expired") return t("Generate a new pairing QR to continue.");
-  return t("Enable this device before using it.");
+  if (lifecycle === "awaiting_pairing") return "Scan the pairing QR on the Android device.";
+  if (lifecycle === "setup_required") return "Enable Nexus Mobile Accessibility control to finish setup.";
+  if (lifecycle === "online") return "The device is connected and ready for actions.";
+  if (lifecycle === "offline") return "Open Nexus Mobile and check its connection.";
+  if (lifecycle === "token_expired") return "Generate a new pairing QR to continue.";
+  return "Enable this device before using it.";
 }
 
 function recommendedActionLabel(device: MobileDevice) {
@@ -1606,21 +1659,21 @@ function approvalModeLabel(value: string) {
 }
 
 function approvalModeDetail(value: string) {
-  if (value === "manual") return t("Every action waits for approval.");
-  if (value === "auto") return t("Trusted test device; no manual checkpoint.");
-  return t("High-risk actions wait for approval.");
+  if (value === "manual") return "Every action waits for approval.";
+  if (value === "auto") return "Trusted test device; no manual checkpoint.";
+  return "High-risk actions wait for approval.";
 }
 
 function approvalPreview(mode: string, risk: "low" | "medium" | "high") {
-  if (mode === "manual") return t("Administrator approval required");
-  if (mode === "auto") return t("Runs automatically under device policy");
-  return risk === "high" ? t("Administrator approval required") : t("Runs after submission");
+  if (mode === "manual") return "Administrator approval required";
+  if (mode === "auto") return "Runs automatically under device policy";
+  return risk === "high" ? "Administrator approval required" : "Runs after submission";
 }
 
 function inferActionRisk(form: CommandForm): "low" | "medium" | "high" {
   if (form.action === "type_text") return "high";
   if (form.action === "tap_text" && /pay|send|delete|purchase|付款|支付|删除/i.test(form.text)) return "high";
-  if (["tap_text", "tap_coordinates", "swipe", "open_app"].includes(form.action)) return "medium";
+  if (["tap_text", "tap_coordinates", "swipe", "open_app", "long_press", "capture_screen"].includes(form.action)) return "medium";
   return "low";
 }
 
@@ -1638,7 +1691,7 @@ function buildCommandBody(form: CommandForm): Parameters<typeof api.createMobile
   const argumentsValue: Record<string, unknown> = {};
   if (actionNeedsText(form.action)) argumentsValue.text = form.text.trim();
   if (form.action === "open_app") argumentsValue.package = form.packageName.trim();
-  if (form.action === "tap_coordinates") {
+  if (form.action === "tap_coordinates" || form.action === "long_press") {
     argumentsValue.x = Number(form.x);
     argumentsValue.y = Number(form.y);
   }
@@ -1657,15 +1710,18 @@ function actionNeedsText(action: CommandAction) {
 }
 
 function actionNeedsCoordinates(action: CommandAction) {
-  return action === "tap_coordinates" || action === "swipe";
+  return action === "tap_coordinates" || action === "long_press" || action === "swipe";
 }
 
 function actionLabel(action: string) {
   return {
-    observe: "Refresh screen",
+    observe: "Refresh UI observation",
+    press_home: "Home",
+    press_recents: "Recent apps",
+    long_press: "Long press",
     capture_screen: "Capture screen",
     tap_text: "Tap visible text",
-    tap_coordinates: t("Tap coordinates"),
+    tap_coordinates: "Tap coordinates",
     type_text: "Type text",
     swipe: "Swipe",
     press_back: "Go back",
@@ -1684,7 +1740,7 @@ function commandIcon(action: CommandAction) {
 
 function commandStatusLabel(status: string) {
   return {
-    pending_approval: t("Needs approval"),
+    pending_approval: "Needs approval",
     queued: "Queued",
     running: "Running",
     succeeded: "Completed",
@@ -1702,7 +1758,7 @@ function commandMatchesFilter(command: MobileCommand, filter: ActivityFilter) {
 }
 
 function activityFilterLabel(filter: ActivityFilter) {
-  return { all: "All", attention: "Needs attention", running: t("In progress"), completed: "Completed" }[filter];
+  return { all: "All", attention: "Needs attention", running: "In progress", completed: "Completed" }[filter];
 }
 
 function friendlyArguments(command: MobileCommand) {
@@ -1714,7 +1770,7 @@ function friendlyArguments(command: MobileCommand) {
   if (command.action === "tap_coordinates") return `Tap at ${args.x}, ${args.y}`;
   if (command.action === "swipe") return `Swipe from ${args.start_x}, ${args.start_y} to ${args.end_x}, ${args.end_y}`;
   if (command.action === "capture_screen") return "Capture the current screen once";
-  return t("No additional input");
+  return "No additional input";
 }
 
 function friendlyAppName(packageName: string) {
@@ -1784,29 +1840,28 @@ function maskToken(value: string) {
   return `${value.slice(0, 14)}…${value.slice(-6)}`;
 }
 
-function runtimeHints() {
-  const host = window.location.hostname;
-  const currentPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
-  const apiPort = currentPort === "5173" ? "8000" : currentPort;
-  return {
-    emulatorBaseUrl: `${window.location.protocol}//10.0.2.2:${apiPort}`,
-    lanBaseUrl: `${window.location.protocol}//${host}:${apiPort}`
-  };
-}
-
-function defaultPairingBaseUrl(runtime: ReturnType<typeof runtimeHints>) {
-  const currentHost = window.location.hostname.toLowerCase();
-  return currentHost === "localhost" || currentHost === "127.0.0.1" ? runtime.emulatorBaseUrl : runtime.lanBaseUrl;
-}
-
-function buildPairingDeepLink(pairing: MobileDeviceWithPairingToken, baseUrl: string) {
+function buildPairingDeepLink(pairing: MobileDeviceWithPairingToken) {
+  if (!pairing.pairing_base_url || pairing.pairing_error) return "";
   const params = new URLSearchParams({
-    base_url: baseUrl.trim().replace(/\/+$/, ""),
+    base_url: pairing.pairing_base_url,
     device_id: pairing.id,
     token: pairing.pairing_token
   });
   if (pairing.pairing_expires_at) params.set("expires_at", pairing.pairing_expires_at);
   return `nexus-mobile://pair?${params.toString()}`;
+}
+
+function PairingAddressUnavailable({ onRetry, isPending }: { onRetry: () => void; isPending: boolean }) {
+  useLocale();
+  return (
+    <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <h3 className="font-semibold text-amber-950">{t("Cloud pairing address unavailable")}</h3>
+      <p className="mt-2 text-sm leading-6 text-amber-900">{t("Ask the administrator to configure a phone-accessible HTTPS Cloud address, then generate a new pairing QR. Older Cloud versions may need an upgrade. You do not need to enter an address on your phone.")}</p>
+      <button type="button" className="btn mt-3 min-h-11" onClick={onRetry} disabled={isPending}>
+        {isPending ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}{t("Generate QR")}
+      </button>
+    </div>
+  );
 }
 
 async function copyText(value: string) {

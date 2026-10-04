@@ -18,6 +18,8 @@ class Command(BaseCommand):
         interval = max(1, min(int(options["interval"]), 3600))
         while True:
             expired = expire_edge_node_presence()
+            from apps.mobile.video import sweep_sessions
+            sweep_sessions()
             if expired:
                 self.stdout.write(f"Materialized {expired} expired Router Presence lease(s).")
             if options["once"]:

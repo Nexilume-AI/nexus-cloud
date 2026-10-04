@@ -13,6 +13,7 @@ describe("shared navigation decoration slot", () => {
     expect(html).toContain('nexilume-shell-link__stage');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('href="/routers"');
+    expect(html).not.toContain('Capability fabric');
   });
 
   it("renders a build-owned decoration without taking over the link's accessibility or navigation", () => {
@@ -29,5 +30,16 @@ describe("shared navigation decoration slot", () => {
     expect(html).toContain('nexilume-shell-link--extension is-active');
     expect(html).toContain('Test resource');
     expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("keeps mobile navigation focused on destinations, with account preferences outside the drawer", () => {
+    const render = (mobile: boolean) => renderToString(<MemoryRouter><ShellNavigation domains={coreNavigationDomains} currentPath="/agents" expandedDomain="build"
+      compact={false} mobile={mobile}
+      onToggleDomain={() => {}} onNavigate={() => {}} onToggleCompact={() => {}} /></MemoryRouter>);
+    for (const mobile of [true, false]) {
+      expect(render(mobile)).toContain('Primary navigation');
+      expect(render(mobile)).not.toContain('nexilume-mobile-navigation__context');
+      expect(render(mobile)).not.toContain('nexus-language-select');
+    }
   });
 });

@@ -1,4 +1,7 @@
 {
+  "Cloud address (provided by server)": "Cloud 地址（由服务端提供）",
+  "Cloud pairing address unavailable": "Cloud 配对地址不可用",
+  "Ask the administrator to configure a phone-accessible HTTPS Cloud address, then generate a new pairing QR. Older Cloud versions may need an upgrade. You do not need to enter an address on your phone.": "请管理员配置手机可访问的 HTTPS Cloud 地址，然后重新生成配对二维码。旧版 Cloud 可能需要升级。您无需在手机上手动输入地址。",
   "Refresh screen": "刷新屏幕",
   "Request the latest device observation.": "请求最新的设备观察。",
   "Tap visible text": "点击可见文本",

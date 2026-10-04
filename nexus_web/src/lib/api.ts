@@ -1,4 +1,3 @@
-import { t } from "../localization";
 import type {
   AlertEvent,
   AlertRule,
@@ -54,6 +53,7 @@ import type {
   MobileAggregateStatus,
   MobileDevice,
   MobileDeviceWithPairingToken,
+  MobileVideoSession,
   PasswordResetResult,
   Provider,
   ProviderAccount,
@@ -203,7 +203,7 @@ export async function parseEnvelope<T>(response: Response): Promise<T> {
     .catch(() => null)) as Envelope<T> | null;
   if (!payload || typeof payload !== "object" || !("ok" in payload)) {
     if (!response.ok) {
-      throw new ApiError(response.statusText || t("Request failed"), {
+      throw new ApiError(response.statusText || "Request failed", {
         status: response.status,
       });
     }
@@ -239,6 +239,10 @@ export async function requestBlob(
   ctx: ApiContext = {},
   extraHeaders: HeadersInit = {},
 ): Promise<Blob> {
+  return (await requestBlobResponse(path, ctx, extraHeaders)).blob();
+}
+
+async function requestBlobResponse(path: string, ctx: ApiContext, extraHeaders: HeadersInit = {}): Promise<Response> {
   const response = await fetch(path, {
     credentials: "same-origin",
     // DRF negotiates the request before this endpoint returns its raw image
@@ -248,11 +252,11 @@ export async function requestBlob(
   });
   if (!response.ok) {
     await parseEnvelope<never>(response);
-    throw new ApiError(response.statusText || t("Request failed"), {
+    throw new ApiError(response.statusText || "Request failed", {
       status: response.status,
     });
   }
-  return response.blob();
+  return response;
 }
 
 export const api = {
@@ -267,20 +271,20 @@ export const api = {
   previewRunFile: async (ctx: ApiContext, runId: string, path: string, token: string, limit: number, signal: AbortSignal) => {
     const base = `/api/v1/agent-runs/${runId}/`;
     const suffix = path.startsWith(base) ? path.slice(base.length) : "";
-    if (!/^(?:(?:files|outputs)\/[a-zA-Z0-9-]+\/download|display-assets\/[a-zA-Z0-9-]+)\/$/.test(suffix)) throw new Error(t("Untrusted file reference."));
+    if (!/^(?:(?:files|outputs)\/[a-zA-Z0-9-]+\/download|display-assets\/[a-zA-Z0-9-]+)\/$/.test(suffix)) throw new Error("Untrusted file reference.");
     const response = await fetch(path, { signal, credentials: "same-origin", redirect: "error",
       headers: headers(ctx, { Accept: "*/*", "X-Nexus-Agent-Display-Token": token, Range: `bytes=0-${limit}` }, "GET") });
-    if (!response.ok) { await parseEnvelope<never>(response); throw new Error(t("Preview unavailable.")); }
+    if (!response.ok) { await parseEnvelope<never>(response); throw new Error("Preview unavailable."); }
     const total = response.headers.get("Content-Range")?.split("/").at(-1) || response.headers.get("Content-Length");
-    if (total && Number(total) > limit) { await response.body?.cancel(); throw new Error(t("This file is too large to preview. Download it instead.")); }
+    if (total && Number(total) > limit) { await response.body?.cancel(); throw new Error("This file is too large to preview. Download it instead."); }
     const reader = response.body?.getReader();
-    if (!reader) throw new Error(t("Preview unavailable."));
+    if (!reader) throw new Error("Preview unavailable.");
     const chunks: Uint8Array<ArrayBuffer>[] = []; let size = 0;
     try {
       while (true) {
         const next = await reader.read(); if (next.done) break;
         size += next.value.byteLength;
-        if (size > limit) throw new Error(t("This file is too large to preview. Download it instead."));
+        if (size > limit) throw new Error("This file is too large to preview. Download it instead.");
         chunks.push(new Uint8Array(next.value));
       }
     } finally { await reader.cancel(); reader.releaseLock(); }
@@ -315,7 +319,7 @@ export const api = {
   testPush: (ctx: ApiContext, id: string) => request("/api/v1/inbox/push-subscriptions/test/", { method: "POST", body: JSON.stringify({ id }) }, ctx),
   streamInbox: async (ctx: ApiContext, onInvalidate: () => void, signal: AbortSignal) => {
     const response = await fetch("/api/v1/inbox/stream/", { credentials: "same-origin", headers: headers(ctx, { Accept: "text/event-stream" }, "GET"), signal });
-    if (!response.ok || !response.body) throw new Error(t("Inbox live updates are unavailable."));
+    if (!response.ok || !response.body) throw new Error("Inbox live updates are unavailable.");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let pending = "";
@@ -645,7 +649,7 @@ export const api = {
   ) => {
     const allowed = new Set(["status", "capabilities", "canonical_model_id"]);
     if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => !allowed.has(key))) {
-      throw new ApiError(t("Only model status, capabilities and canonical mapping may be configured here."), { code: "PROVIDER_MODEL_CONFIGURATION_INVALID" });
+      throw new ApiError("Only model status, capabilities and canonical mapping may be configured here.", { code: "PROVIDER_MODEL_CONFIGURATION_INVALID" });
     }
     return request<ProviderRuntimeModelOffer>(
       `/api/v1/provider-runtimes/${runtimeId}/models/${offerId}/`,
@@ -745,7 +749,7 @@ export const api = {
     },
   ) => {
     if (body?.origin?.type !== "provider_runtime" || typeof body.origin.provider_runtime_id !== "string" || !body.origin.provider_runtime_id) {
-      throw new ApiError(t("Unsupported Source origin."), { code: "MODEL_SOURCE_ORIGIN_INVALID" });
+      throw new ApiError("Unsupported Source origin.", { code: "MODEL_SOURCE_ORIGIN_INVALID" });
     }
     return request<Deployment[]>(
       "/api/v1/model-sources/batch/",
@@ -1405,7 +1409,7 @@ export const api = {
     );
     if (!response?.run?.id || !response.run_id || !response.display_url)
       throw new ApiError(
-        t("The Nexus server is not upgraded for Run-only Private Display."),
+        "The Nexus server is not upgraded for Run-only Private Display.",
         { code: "PRIVATE_RUN_SERVER_UPGRADE_REQUIRED" },
       );
     return response;
@@ -1434,7 +1438,7 @@ export const api = {
       ctx,
     );
     if (!response?.run?.id || response.run_id !== runId || !response.resumed)
-      throw new ApiError(t("Nexus could not resume the selected Run."), {
+      throw new ApiError("Nexus could not resume the selected Run.", {
         code: "PRIVATE_RUN_RESUME_FAILED",
       });
     return response;
@@ -1456,7 +1460,7 @@ export const api = {
         `/api/v1/agent-runs/${runId}/follow-ups/?idempotency_key=${encodeURIComponent(key)}`,
         { signal: controller.signal, headers: { "X-Nexus-Agent-Display-Token": displayToken } }, ctx);
       // Older servers return the list here. That is not proof of delivery.
-      if (!result || !("submission" in result)) throw new Error(t("Delivery lookup is unavailable."));
+      if (!result || !("submission" in result)) throw new Error("Delivery lookup is unavailable.");
       return result.submission;
     } finally {
       clearTimeout(timeout);
@@ -1935,7 +1939,7 @@ export const api = {
 
   agentPythonBuilds: async (ctx: ApiContext, agentId: string) => {
     const result = await request<import("./types").AgentPythonBuildList>(`/api/v1/agents/${agentId}/runtime/python-builds/`, {}, ctx);
-    if (!result?.configuration || !Array.isArray(result.results)) throw new ApiError(t("Python build service is unavailable."));
+    if (!result?.configuration || !Array.isArray(result.results)) throw new ApiError("Python build service is unavailable.");
     return result;
   },
 
@@ -2156,11 +2160,11 @@ export const api = {
       ownership?: ResourceOwnershipInput;
     } = {},
   ) =>
-    request<{ pairing_code: string; expires_at: string; project_id: string }>(
+    request<{ pairing_code: string; pairing_url?: string; expires_at: string; project_id: string }>(
       "/api/v1/edge/pairing-codes/",
       {
         method: "POST",
-        body: JSON.stringify({ expires_in_seconds: 600, ...body }),
+        body: JSON.stringify({ expires_in_seconds: 600, include_pairing_link: true, ...body }),
       },
       ctx,
     ),
@@ -2291,7 +2295,7 @@ export const api = {
 
   previewDatasetImage: (ctx: ApiContext, path: string) => {
     if (!/^\/api\/v1\/datasets\/[a-zA-Z0-9/-]+\/download\/$/.test(path)) {
-      throw new Error(t("Invalid image preview address."));
+      throw new Error("Invalid image preview address.");
     }
     return requestBlob(`${path}?preview=1`, ctx);
   },
@@ -2741,6 +2745,15 @@ export const api = {
   mobileDevices: (ctx: ApiContext) =>
     request<MobileDevice[]>("/api/v1/mobile-devices/", {}, ctx),
 
+  startMobileVideo: (ctx: ApiContext, deviceId: string) =>
+    request<MobileVideoSession>(`/api/v1/mobile-devices/${deviceId}/video/`, { method: "POST", body: "{}" }, ctx),
+  mobileVideo: (ctx: ApiContext, sessionId: string, after: number) =>
+    request<MobileVideoSession>(`/api/v1/mobile-video/${sessionId}/?after=${after}`, {}, ctx),
+  signalMobileVideo: (ctx: ApiContext, sessionId: string, signal: Record<string, unknown>) =>
+    request<MobileVideoSession>(`/api/v1/mobile-video/${sessionId}/`, {
+      method: "POST", body: JSON.stringify({ ...signal, message_id: crypto.randomUUID() })
+    }, ctx),
+
   mobileAggregateStatus: (ctx: ApiContext) =>
     request<MobileAggregateStatus>(
       "/api/v1/mobile-devices/aggregate-status/",
@@ -2812,6 +2825,10 @@ export const api = {
 
   mobileScreenshot: (ctx: ApiContext, deviceId: string) =>
     requestBlob(`/api/v1/mobile-devices/${deviceId}/screenshot/`, ctx),
+  mobileScreenImage: async (ctx: ApiContext, deviceId: string) => {
+    const response = await requestBlobResponse(`/api/v1/mobile-devices/${deviceId}/screenshot/`, ctx);
+    return { blob: await response.blob(), frameId: response.headers.get("X-Nexus-Mobile-Screen-Frame") || "" };
+  },
 
   createMobileCommand: (
     ctx: ApiContext,
@@ -2820,6 +2837,9 @@ export const api = {
       action:
         | "observe"
         | "capture_screen"
+        | "press_home"
+        | "press_recents"
+        | "long_press"
         | "tap_text"
         | "tap_coordinates"
         | "type_text"
