@@ -4,9 +4,9 @@ type: software
 title: "Nexus Cloud"
 authors:
   - name: "Nexus contributors"
-repository-code: "https://github.com/Nexilume-AI/nexus-cloud-community"
-url: "https://github.com/Nexilume-AI/nexus-cloud-community"
-license-url: "https://github.com/Nexilume-AI/nexus-cloud-community/blob/main/LICENSE"
+repository-code: "https://github.com/Nexilume-AI/nexus-cloud"
+url: "https://github.com/Nexilume-AI/nexus-cloud"
+license-url: "https://github.com/Nexilume-AI/nexus-cloud/blob/main/LICENSE"
 keywords:
   - "Self-hosted"
   - "Docker Compose"

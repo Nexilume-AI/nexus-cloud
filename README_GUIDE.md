@@ -33,8 +33,8 @@ memory. Access to this repository is required while it is private.
 Clone the source, then start the stack:
 
 ```sh
-git clone https://github.com/Nexilume-AI/nexus-cloud-community.git
-cd nexus-cloud-community
+git clone https://github.com/Nexilume-AI/nexus-cloud.git
+cd nexus-cloud
 docker compose -f deploy/community/compose.yaml up -d --build --wait
 ```
 

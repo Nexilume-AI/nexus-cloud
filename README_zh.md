@@ -76,8 +76,8 @@ privately**。发送生成发布清单的请求，并回答目标读者问题。
 需要 Git、使用 Linux 容器的 Docker、Compose v2；推荐 x86_64 主机且至少有 4 GiB 可用内存，并具备仓库访问权限。
 
 ```sh
-git clone https://github.com/Nexilume-AI/nexus-cloud-community.git
-cd nexus-cloud-community
+git clone https://github.com/Nexilume-AI/nexus-cloud.git
+cd nexus-cloud
 docker compose -f deploy/community/compose.yaml up -d --build --wait
 ```
 
@@ -127,7 +127,7 @@ README 可以同时展示两个版本。截图和视频必须标注实际录制�
 
 | 项目 | 职责 |
 | --- | --- |
-| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud-community) | Server、Web Console 与配套 Cloud Relay |
+| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud) | Server、Web Console 与配套 Cloud Relay |
 | [Python SDK](https://github.com/Nexilume-AI/nexus-agent-sdk-python) | Agent 应用与主动出站的 Computer Runtime |
 | [OpenWrt](https://github.com/Nexilume-AI/nexus-openwrt) | 边缘注册、发现与能力路由 |
 | [Mobile](https://github.com/Nexilume-AI/nexus-mobile) | 已授权的 Android 设备接入 |

@@ -83,8 +83,8 @@ original screenshots, not a video or a claim that every integration was tested.
 **Before you start:** Git, Docker with Linux containers, Compose v2 and at least 4 GiB available memory on the recommended x86_64 host. Repository access is required.
 
 ```sh
-git clone https://github.com/Nexilume-AI/nexus-cloud-community.git
-cd nexus-cloud-community
+git clone https://github.com/Nexilume-AI/nexus-cloud.git
+cd nexus-cloud
 docker compose -f deploy/community/compose.yaml up -d --build --wait
 ```
 
@@ -148,7 +148,7 @@ The reference retains the previous setup and troubleshooting material. Historica
 
 | Project | Role | Install separately? |
 | --- | --- | --- |
-| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud-community) | Server, Web Console and bundled Cloud Relay | Main workspace |
+| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud) | Server, Web Console and bundled Cloud Relay | Main workspace |
 | [Python SDK](https://github.com/Nexilume-AI/nexus-agent-sdk-python) | Agent applications and outbound Computer Runtime | Yes |
 | [OpenWrt](https://github.com/Nexilume-AI/nexus-openwrt) | Edge registration and capability routing | Optional |
 | [Mobile](https://github.com/Nexilume-AI/nexus-mobile) | Authorized Android device integration | Optional |
@@ -158,7 +158,7 @@ Repository access, release availability and compatibility determine which integr
 
 ## Contributing
 
-Small reproducible fixes, clearer tutorials, translations and sanitized examples are welcome. Before submitting a change, follow the setup and checks for the component you touch. Use [Issues](https://github.com/Nexilume-AI/nexus-cloud-community/issues) for reproducible bugs; include versions and redacted diagnostics, never credentials or private files.
+Small reproducible fixes, clearer tutorials, translations and sanitized examples are welcome. Before submitting a change, follow the setup and checks for the component you touch. Use [Issues](https://github.com/Nexilume-AI/nexus-cloud/issues) for reproducible bugs; include versions and redacted diagnostics, never credentials or private files.
 
 Report sensitive security issues privately to the repository maintainers. Release checks and CI are not a guarantee of production readiness on every platform.
 

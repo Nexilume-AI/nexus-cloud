@@ -1,6 +1,6 @@
 # Computer Runtime compatibility update
 
-This update adopts the runtime fixes from [PR #5](https://github.com/Nexilume-AI/nexus-cloud-community/pull/5) while preserving the existing installation and pairing flow.
+This update adopts the runtime fixes from [PR #5](https://github.com/Nexilume-AI/nexus-cloud/pull/5) while preserving the existing installation and pairing flow.
 
 ## Scope
 

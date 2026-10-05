@@ -27,7 +27,7 @@ export function ProviderExecutionSetup({ engine, status }: {
       ? t("Execution setup could not be checked. Retry before starting a Provider.")
       : availability?.message ? t(availability.message) : t("Codex Proxy and CLIProxyAPI need the optional Docker execution environment. Direct API connections do not.")}</p>
     <div className="mt-3 flex flex-wrap gap-3">
-      <a className="btn min-h-11" href="https://github.com/Nexilume-AI/nexus-cloud-community/blob/main/deploy/community/PROVIDERS.md" target="_blank" rel="noreferrer">{t("Provider setup guide")}</a>
+      <a className="btn min-h-11" href="https://github.com/Nexilume-AI/nexus-cloud/blob/main/deploy/community/PROVIDERS.md" target="_blank" rel="noreferrer">{t("Provider setup guide")}</a>
       <button type="button" className="btn min-h-11" onClick={() => void status.refetch()} disabled={status.isFetching}>{t("Check again")}</button>
     </div>
   </section>;
