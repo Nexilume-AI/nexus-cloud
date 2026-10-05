@@ -2,11 +2,11 @@
   <img src="nexus_web/public/brand/nexilume-mark-primary.svg" width="80" alt="Nexilume" />
 </p>
 
-# Nexus Cloud Community
+# Nexus Cloud
 
 **Run your own Agents. Connect your models, data and devices.**
 
-Nexus Cloud Community is a self-hosted, single-owner workspace for deploying
+Nexus Cloud is a self-hosted, single-owner workspace for deploying
 Agents, routing model requests and connecting authorized Computer, Mobile and
 OpenWrt runtimes. This repository includes the Cloud Server, Web Console and Relay.
 
@@ -88,7 +88,7 @@ adds organization administration and commercial services. The table describes
 implementation boundaries, not a support SLA or a guarantee that every service
 is enabled in a particular Enterprise deployment.
 
-| Area | Nexus Cloud Community | Nexus Cloud Enterprise |
+| Area | Nexus Cloud | Nexus Cloud Enterprise |
 | --- | --- | --- |
 | Intended use | Your own self-hosted Agent workspace | Organization and commercial platform operation |
 | Identity and access | Single owner; authenticated requests, scoped credentials and device consent | Organization/tenant membership and role administration, with enterprise access policies |
@@ -118,7 +118,7 @@ bundled, configured device runtime. Third-party documentation was checked on
 
 | Project | Main focus and approach | When to evaluate it |
 | --- | --- | --- |
-| **Nexus Cloud Community** | An owner-local workspace combining Agent execution, model routing, Data Assets and authorized device integration | You want to operate your own Agents alongside Computer, Mobile or OpenWrt runtimes |
+| **Nexus Cloud** | An owner-local workspace combining Agent execution, model routing, Data Assets and authorized device integration | You want to operate your own Agents alongside Computer, Mobile or OpenWrt runtimes |
 | **[Dify](https://www.dify.ai/)** | Visual AI applications, agentic workflows and knowledge retrieval pipelines | Your main task is building visual AI applications and RAG workflows |
 | **[Flowise](https://docs.flowiseai.com/)** (archived) | Visual Agent and LLM orchestration through Assistant, Chatflow and Agentflow | You are evaluating existing Flowise flows; check upstream maintenance status first |
 | **[LiteLLM](https://docs.litellm.ai/docs/)** | A unified model SDK and Proxy with retries/fallbacks, virtual keys and cost tracking | You need model access and gateway operations for an existing application |

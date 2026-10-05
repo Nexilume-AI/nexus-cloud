@@ -1,11 +1,11 @@
 <div align="center">
 
-# Nexus Cloud Community
+# Nexus Cloud
 
 **Your Agents. Your models. Your devices.**
 
 [![License: Apache-2.0 modified](https://img.shields.io/badge/License-Apache--2.0_modified-17251d.svg)](LICENSE)
-[![Commercial demo](https://img.shields.io/badge/Demo-Commercial_edition-b8ef73.svg)](https://cloud.nexilume.com/)
+[![Try online](https://img.shields.io/badge/Try-Nexus_Cloud-b8ef73.svg)](https://cloud.nexilume.com/)
 [![Documentation](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![Cite the technical report](https://img.shields.io/badge/Cite-technical_report-e8e9e4.svg)](#citation)
 
@@ -17,11 +17,11 @@
 
 </div>
 
-> **[Try the Nexus Cloud commercial demo](https://cloud.nexilume.com/)**: Explore the hosted commercial edition. Some features in the demo are not included in the self-hosted Community edition.
+> **[Try Nexus Cloud online](https://cloud.nexilume.com/)**: Explore Nexus Cloud in your browser, or self-host to get started.
 
 A self-hosted, single-owner workspace for running Agents, routing model requests, managing Data Assets and connecting authorized devices.
 
-![Nexus Cloud Community: illustrated workflow](docs/media/overview.svg)
+![Nexus Cloud: illustrated workflow](docs/media/overview.svg)
 
 *Workflow illustration, not a product screenshot. Connections require the setup and authorization described below.*
 
@@ -148,7 +148,7 @@ The reference retains the previous setup and troubleshooting material. Historica
 
 | Project | Role | Install separately? |
 | --- | --- | --- |
-| [Cloud Community](https://github.com/Nexilume-AI/nexus-cloud-community) | Server, Web Console and bundled Cloud Relay | Main workspace |
+| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud-community) | Server, Web Console and bundled Cloud Relay | Main workspace |
 | [Python SDK](https://github.com/Nexilume-AI/nexus-agent-sdk-python) | Agent applications and outbound Computer Runtime | Yes |
 | [OpenWrt](https://github.com/Nexilume-AI/nexus-openwrt) | Edge registration and capability routing | Optional |
 | [Mobile](https://github.com/Nexilume-AI/nexus-mobile) | Authorized Android device integration | Optional |
@@ -166,7 +166,7 @@ Report sensitive security issues privately to the repository maintainers. Releas
 
 If Nexus supports your research or engineering work, please cite the technical report below, rather than the software repository. [CITATION.cff](CITATION.cff) provides the same report metadata through `preferred-citation`.
 
-Nexilume Research. *Nexus: Operating AI Agents Beyond the Cloud*. Technical Report NX-SYS-2026-001, v0.56-E3, September 2026. Research Draft.
+Nexilume Research. *Nexus: Operating AI Agents Beyond the Cloud*. Technical Report NX-SYS-2026-001, September 2026.
 
 ```bibtex
 @techreport{nexilume2026nexus,
@@ -176,8 +176,7 @@ Nexilume Research. *Nexus: Operating AI Agents Beyond the Cloud*. Technical Repo
   type        = {Technical Report},
   number      = {NX-SYS-2026-001},
   year        = {2026},
-  month       = sep,
-  note        = {Version v0.56-E3; Research Draft}
+  month       = sep
 }
 ```
 
