@@ -16,6 +16,10 @@ from .identity import ExternalIdentityError as GoogleOAuthError, authenticate_ex
 
 GOOGLE_SCOPES = ("openid", "email", "profile")
 GOOGLE_SESSION_KEY = "nexus_google_oauth"
+_GOOGLE_SCOPE_ALIASES = {
+    "https://www.googleapis.com/auth/userinfo.email": "email",
+    "https://www.googleapis.com/auth/userinfo.profile": "profile",
+}
 
 
 @dataclass(frozen=True)
@@ -121,6 +125,32 @@ def consume_google_oauth_session(*, request, state: str) -> dict:
     return stored
 
 
+def _normalize_google_token_scopes(response):
+    """Handle Google's equivalent scope names before oauthlib compares them."""
+    if not 200 <= response.status_code < 300:
+        return response
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Invalid Google token response")
+    # An omitted scope means the requested scopes, per OAuth 2.0. Leave error
+    # responses to oauthlib; neither case should trigger another code exchange.
+    if "error" in payload or "scope" not in payload:
+        return response
+    scope = payload["scope"]
+    if not isinstance(scope, str):
+        raise ValueError("Invalid Google token scope")
+    normalized = {_GOOGLE_SCOPE_ALIASES.get(item, item) for item in scope.split()}
+    if normalized != set(GOOGLE_SCOPES):
+        raise ValueError("Google token scopes do not match the requested permissions")
+    # This hook is local to the Google exchange, not a global scope relaxation.
+    payload["scope"] = " ".join(GOOGLE_SCOPES)
+    response._content = json.dumps(payload).encode("utf-8")
+    response.encoding = "utf-8"
+    if "Content-Length" in response.headers:
+        response.headers["Content-Length"] = str(len(response.content))
+    return response
+
+
 def exchange_google_identity(*, code: str, state: str, nonce: str) -> dict:
     client = load_google_oauth_client()
     try:
@@ -130,6 +160,7 @@ def exchange_google_identity(*, code: str, state: str, nonce: str) -> dict:
 
         flow = Flow.from_client_config(client.as_client_config(), scopes=list(GOOGLE_SCOPES), state=state)
         flow.redirect_uri = client.redirect_uri
+        flow.oauth2session.register_compliance_hook("access_token_response", _normalize_google_token_scopes)
         flow.fetch_token(code=code)
         claims = verify_oauth2_token(flow.credentials.id_token, GoogleRequest(), client.client_id)
     except Exception as exc:
