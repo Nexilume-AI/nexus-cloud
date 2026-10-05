@@ -1,4 +1,13 @@
-# Nexus Cloud Community source release notes
+# Nexus Cloud source release notes
+
+## v2026.10.05-beta.1 — 2026-10-05
+
+First tagged Beta of the public Cloud + Web source tree. Includes the Provider
+request-identity and HTTP 403 classification fixes. See the
+[release guide](docs/releases/v2026.10.05-beta.1.md) for setup, verification and limitations.
+
+The notes below record earlier source updates. The initial export manifest is
+historical provenance, not a checksum inventory or license for this tag.
 
 ## 2026-09-23 repository update: runtime recovery
 
@@ -71,14 +80,14 @@ Skipped live scenarios are not represented as passed.
 
 ## Known limits
 
-- Infrastructure, reverse-proxy TLS/WSS and process supervision require operator
-  setup. There is no unattended all-in-one infrastructure installer.
+- The documented Docker Compose stack starts Cloud and its infrastructure.
+  Public HTTPS/WSS and optional execution controllers still require operator setup.
 - Interrupted database migrations require operator recovery; initialization
   must not silently adopt an existing unrelated database.
 - Hosted execution requires Docker, configured controllers, image admission,
   and verified network isolation. Enabling a UI feature does not supply these.
-- Edge operation requires installation-local enrollment/TLS material. A Relay
-  service is not automatically provisioned by the Community host.
+- Edge operation requires installation-local enrollment/TLS material. Bundled
+  Relay startup is available; public ingress requires the documented network setup.
 - Custom executable policies require a trusted installation operator and
   deployment resource limits; this snapshot is not a zero-vulnerability or
   general hostile-code sandbox certification.
@@ -87,13 +96,15 @@ Skipped live scenarios are not represented as passed.
 
 ## Licenses and attribution
 
-Nexus Cloud source is Apache-2.0. Keep the complete root license and component
+This release uses modified Apache-2.0 with additional terms
+(`LicenseRef-Nexus-Additional-Terms-1.0`); read LICENSE and LICENSING.md.
+Earlier artifacts retain their original licenses. Keep all component
 notices. Web builds generate bundled dependency notices, including PDF font
 attribution. Independently released OpenWrt, Mobile and SDK packages retain
 their own license files and upstream notices; this archive does not relicense
 or distribute those components.
 
-## Unreleased: bundled Relay startup
+## Included: bundled Relay startup
 
 Windows, Linux and Compose launchers now include a separately configured Relay
 runtime within the Community Server distribution. First start provisions
@@ -102,5 +113,5 @@ by default. See README for first-start advertised IP and Docker bind settings.
 Verified locally: independent Docker build/start, Cloud Relay availability, TLS
 client-certificate and JWT rejection, credential reuse, and Relay restart.
 External router pairing and public ingress require the documented Edge mTLS and
-network setup. This working-tree change is not a new published source archive;
-community-source-manifest.json still describes the previous exported release.
+network setup. The Beta tag includes this previously published source;
+community-source-manifest.json still describes the initial exported release.
