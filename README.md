@@ -5,6 +5,7 @@
 **Your Agents. Your models. Your devices.**
 
 [![License: Apache-2.0 modified](https://img.shields.io/badge/License-Apache--2.0_modified-17251d.svg)](LICENSE)
+[![Commercial demo](https://img.shields.io/badge/Demo-Commercial_edition-b8ef73.svg)](https://cloud.nexilume.com/)
 [![Documentation](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![Cite the technical report](https://img.shields.io/badge/Cite-technical_report-e8e9e4.svg)](#citation)
 
@@ -15,6 +16,8 @@
 [Highlights](#highlights) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
 
 </div>
+
+> **[Try the Nexus Cloud commercial demo](https://cloud.nexilume.com/)**: Explore the hosted commercial edition. Some features in the demo are not included in the self-hosted Community edition.
 
 A self-hosted, single-owner workspace for running Agents, routing model requests, managing Data Assets and connecting authorized devices.
 

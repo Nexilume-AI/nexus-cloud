@@ -5,6 +5,7 @@
 **Your Agents. Your models. Your devices.**
 
 [![License: Apache-2.0 modified](https://img.shields.io/badge/License-Apache--2.0_modified-17251d.svg)](LICENSE)
+[![商业版 Demo](https://img.shields.io/badge/Demo-Commercial_edition-b8ef73.svg)](https://cloud.nexilume.com/)
 [![文档](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![引用技术报告](https://img.shields.io/badge/Cite-technical_report-e8e9e4.svg)](#引用)
 
@@ -15,6 +16,8 @@
 [功能](#可以做什么) · [快速开始](#快速开始) · [项目生态](#项目生态) · [参与贡献](#参与贡献) · [引用](#引用)
 
 </div>
+
+> **[体验 Nexus Cloud 商业版 Demo](https://cloud.nexilume.com/)**：这是托管的商业版演示；演示中的部分功能不包含在自托管社区版中。
 
 自托管、单用户的 Agent 工作区：运行 Agent、路由模型请求、管理数据文件，并连接已授权的设备。
 
