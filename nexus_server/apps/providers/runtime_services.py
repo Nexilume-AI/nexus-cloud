@@ -31,6 +31,7 @@ from apps.common.crypto import decrypt_secret, encrypt_secret
 from apps.common.models import SoftDeleteModel
 from apps.common.project_scope import scope_queryset_to_current_project
 from apps.deployments.models import CanonicalModel, Deployment, ModelGroup, ModelGroupDeployment
+from apps.gateway.provider_http import PROVIDER_USER_AGENT
 from apps.common.authorization import has_nexus_permission
 from apps.tenancy.models import Project, Tenant
 from apps.common.request_context import get_tenant_from_request
@@ -640,7 +641,7 @@ def discover_runtime_model_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
             key = decrypt_secret(runtime.encrypted_proxy_api_key)
     except Exception as exc:
         raise ProviderRuntimeError("Provider Runtime credentials could not be decrypted.") from exc
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", "User-Agent": PROVIDER_USER_AGENT}
     if key:
         headers["Authorization"] = f"Bearer {key}"
     request = Request(url, headers=headers, method="GET")
@@ -696,8 +697,14 @@ def _read_provider_catalog(request):
             exc.close()
             if attempt == 0 and status in {429, 500, 502, 503, 504}:
                 continue
-            if status in {401, 403}:
+            if status == 401:
                 raise ProviderRuntimeError("PROVIDER_LOGIN_REQUIRED: Provider model catalog rejected authentication. Check credentials or sign in again.") from None
+            if status == 403:
+                raise ProviderRuntimeError(
+                    "PROVIDER_CATALOG_FORBIDDEN: Provider model catalog returned HTTP 403. "
+                    "Check upstream access permissions, IP allowlists, or gateway policies; "
+                    "this response alone does not mean the API key is invalid."
+                ) from None
             raise ProviderRuntimeError(f"PROVIDER_CATALOG_HTTP_{status}: Provider model catalog returned HTTP {status}; known models retained.") from None
         except (URLError, TimeoutError, OSError, RemoteDisconnected, IncompleteRead) as exc:
             if attempt == 0:
@@ -735,7 +742,8 @@ def probe_runtime_model(*, runtime: ProviderRuntimeAccount, upstream_model_id: s
         key = runtime_api_key(runtime=runtime)
     except ProviderRuntimeError as exc:
         return False, str(exc.detail if hasattr(exc, "detail") else exc)
-    headers = {"Accept": "application/json", "Content-Type": "application/json; charset=utf-8"}
+    headers = {"Accept": "application/json", "Content-Type": "application/json; charset=utf-8",
+               "User-Agent": PROVIDER_USER_AGENT}
     if key:
         headers["Authorization"] = f"Bearer {key}"
     payload = {

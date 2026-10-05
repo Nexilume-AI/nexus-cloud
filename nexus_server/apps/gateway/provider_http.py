@@ -17,6 +17,9 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 
 
+PROVIDER_USER_AGENT = "Nexus/1.0"
+
+
 class ProviderEndpointRejected(ValueError):
     """Raised before any bytes are sent to an unsafe Provider endpoint."""
 
@@ -194,7 +197,10 @@ def open_provider_url(
     else:
         connection = _PinnedHTTPConnection(endpoint, timeout)
     try:
-        connection.request(method.upper(), endpoint.path, body=body, headers=headers or {})
+        request_headers = dict(headers or {})
+        if not any(name.lower() == "user-agent" for name in request_headers):
+            request_headers["User-Agent"] = PROVIDER_USER_AGENT
+        connection.request(method.upper(), endpoint.path, body=body, headers=request_headers)
         response = connection.getresponse()
         if response.status < 200 or response.status >= 300:
             encoded = response.read(error_body_limit + 1)[:error_body_limit]

@@ -116,7 +116,9 @@ class ProviderEndpointRecoveryTests(SimpleTestCase):
     def test_confirmed_mismatch_recreates_only_target_preserving_key(self):
         runner = rr.DockerProviderRuntimeRunner()
         result = rr.ProviderRuntimeStartResult("new-container", "http://localhost/login", "http://localhost/v1")
-        with patch.object(rr, "approved_release", return_value=None), patch.object(
+        with patch.object(rr.CodexProxyRuntimeAdapter, "prepare_storage", return_value=False), patch.object(
+            rr, "approved_release", return_value=None
+        ), patch.object(
             rr, "_provider_runtime_container_id", return_value="managed-container"
         ), patch.object(rr, "_container_has_managed_restart_policy", return_value=True), patch.object(
             rr, "_container_is_running", return_value=True
@@ -198,6 +200,7 @@ class ProviderCatalogReliabilityTests(SimpleTestCase):
             (TimeoutError("secret"), "PROVIDER_CATALOG_TIMEOUT", 2),
             (URLError("secret"), "PROVIDER_CATALOG_CONNECTION_FAILED", 2),
             (HTTPError("private", 401, "secret", {}, None), "PROVIDER_LOGIN_REQUIRED", 1),
+            (HTTPError("private", 403, "secret", {}, None), "PROVIDER_CATALOG_FORBIDDEN", 1),
             (HTTPError("private", 503, "secret", {}, None), "PROVIDER_CATALOG_HTTP_503", 2),
         ):
             with self.subTest(code=code):
@@ -206,6 +209,8 @@ class ProviderCatalogReliabilityTests(SimpleTestCase):
                 with self.assertRaisesMessage(ProviderRuntimeError, code) as caught:
                     discover_runtime_model_ids(runtime=self.runtime)
                 self.assertNotIn("secret", str(caught.exception))
+                if isinstance(error, HTTPError) and error.code == 403:
+                    self.assertNotIn("PROVIDER_LOGIN_REQUIRED", str(caught.exception))
                 self.assertEqual(open_url.call_count, attempts)
 
     @patch("apps.providers.runtime_services.urlopen")
@@ -250,7 +255,8 @@ class ProviderCatalogReliabilityTests(SimpleTestCase):
         self.assertEqual(offer.health_status, "degraded")
         from datetime import timedelta
         _apply_model_probe(offer, (None, "Still pending."), timezone.now() + timedelta(minutes=6))
-        self.assertEqual(offer.health_status, "unknown")
+        # A transient check still cannot erase the last verified model state.
+        self.assertEqual(offer.health_status, "degraded")
         _apply_model_probe(offer, (True, "Verified."), timezone.now())
         self.assertEqual(offer.health_status, "healthy")
         self.assertEqual(offer.metadata["health_probe"]["state"], "verified")
