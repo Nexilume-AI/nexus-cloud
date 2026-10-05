@@ -9,6 +9,7 @@ import { useApplicationDistribution } from "../app/distribution";
 import { api } from "../lib/api";
 import type { ProviderImportBatch } from "../lib/providerImportTypes";
 import { NexilumeDialog, NexilumeTabs } from "./NexilumeControls";
+import { FilePicker } from "./FilePicker";
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -95,7 +96,7 @@ export function ProviderImportDialog() {
           <NexilumeTabs idBase="provider-import-input" label={t("Import input")} value={mode} onChange={(next) => { setMode(next); changed(); }} options={[{ value: "file", label: t("Upload file") }, { value: "paste", label: t("Paste table") }]} />
           <section role="tabpanel" id={`provider-import-input-panel-${mode}`} aria-labelledby={`provider-import-input-tab-${mode}`} className="grid gap-4">
             {mode === "file" ? <>
-              <label className="grid gap-2">{t("API workbook or CSV")}<input className="input min-h-11" type="file" accept=".xlsx,.csv" disabled={busy} onChange={(e) => { setFile(e.target.files?.[0] ?? null); changed(); }} /></label>
+              <FilePicker label={t("API workbook or CSV")} accept=".xlsx,.csv" disabled={busy} files={file ? [file] : []} onFilesChange={(files) => { setFile(files[0] ?? null); changed(); }} />
 
             </> : <>
               <label className="grid gap-2">{t("API table, including headers")}<textarea className="input min-h-36 font-mono" value={apisText} spellCheck={false} autoComplete="off" disabled={busy} onChange={(e) => { setApisText(e.target.value); changed(); }} placeholder={t("api_ref name base_url api_key")} /></label>

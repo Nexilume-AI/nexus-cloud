@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from django.http import HttpResponse
+from django.http import HttpResponse, RawPostDataException
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -167,7 +167,13 @@ class MobileMCPExportView(APIView):
 class MobileMCPView(APIView):
     def post(self, request, device_id):
         try:
-            status_code, body = handle_mobile_mcp(request=request, device_id=device_id, body=request.body)
+            try:
+                request_body = request.body
+            except RawPostDataException:
+                # Authentication may already have parsed the DRF request.
+                # Reuse that data without reading the consumed stream again.
+                request_body = json.dumps(request.data).encode("utf-8")
+            status_code, body = handle_mobile_mcp(request=request, device_id=device_id, body=request_body)
         except json.JSONDecodeError:
             body = b'{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error"},"id":null}'
             status_code = 400

@@ -1579,6 +1579,7 @@ export type MobileDevice = {
   lifecycle_status:
     | "awaiting_pairing"
     | "setup_required"
+    | "control_disconnected"
     | "online"
     | "offline"
     | "token_expired"
@@ -1588,6 +1589,7 @@ export type MobileDevice = {
   recommended_action:
     | "continue_pairing"
     | "complete_setup"
+    | "reconnect_control"
     | "open_control"
     | "troubleshoot"
     | "regenerate_pairing"

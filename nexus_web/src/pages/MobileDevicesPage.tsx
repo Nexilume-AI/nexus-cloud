@@ -168,7 +168,7 @@ export function MobileDevicesPage() {
   const pendingCommands = commandData.filter((command) => command.status === "pending_approval");
   const onlineCount = deviceData.filter((device) => deviceLifecycle(device) === "online").length;
   const attentionCount = deviceData.filter((device) =>
-    ["setup_required", "offline", "token_expired", "disabled"].includes(deviceLifecycle(device))
+    ["setup_required", "control_disconnected", "offline", "token_expired", "disabled"].includes(deviceLifecycle(device))
   ).length;
   const awaitingCount = deviceData.filter((device) => deviceLifecycle(device) === "awaiting_pairing").length;
   const pairingDeepLink = pairing ? buildPairingDeepLink(pairing) : "";
@@ -646,16 +646,16 @@ export function MobileDevicesPage() {
                     </section>
                   )}
 
-                  {selectedLifecycle === "setup_required" && (
+                  {["setup_required", "control_disconnected"].includes(selectedLifecycle) && (
                     <section className="rounded-xl border border-amber-200 bg-amber-50 p-4" aria-labelledby="mobile-setup-required-heading">
                       <div className="flex gap-3">
                         <ShieldCheck className="mt-0.5 shrink-0 text-amber-700" size={20} />
                         <div>
-                          <h3 id="mobile-setup-required-heading" className="font-semibold text-amber-950">{t("Finish setup on Android")}</h3>
-                          <p className="mt-1 text-sm leading-6 text-amber-900">{t("Pairing is complete. On the phone, open Nexus Mobile, enable Nexus Mobile Control in Accessibility settings, then return here.")}</p>
+                          <h3 id="mobile-setup-required-heading" className="font-semibold text-amber-950">{t(selectedLifecycle === "control_disconnected" ? "Reconnect Android control" : "Finish setup on Android")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-amber-900">{selectedLifecycle === "control_disconnected" ? t(controlRecoveryMessage) : t("Pairing is complete. On the phone, open Nexus Mobile, enable Nexus Mobile Control in Accessibility settings, then return here.")}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button className="btn min-h-11 bg-white" onClick={() => void devices.refetch()} disabled={devices.isFetching}>
-                              <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />{t("Check permission")}</button>
+                              <RefreshCw size={16} className={devices.isFetching ? "animate-spin" : ""} />{t(selectedLifecycle === "control_disconnected" ? "Check again" : "Check permission")}</button>
                             <button className="btn min-h-11 bg-white" onClick={() => setSelectedView("settings")}>
                               <Settings size={16} />{t("Pairing details")}</button>
                           </div>
@@ -1039,15 +1039,15 @@ export function MobileDevicesPage() {
                         </div>
                       </div>
                     </div>
-                  ) : selectedDevice && deviceLifecycle(selectedDevice) === "setup_required" ? (
+                  ) : selectedDevice && ["setup_required", "control_disconnected"].includes(deviceLifecycle(selectedDevice)) ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
                       <div className="flex items-start gap-3">
                         <ShieldCheck className="mt-0.5 text-amber-700" size={22} />
                         <div>
-                          <h3 className="font-semibold text-amber-950">{t("Pairing confirmed — one permission remains")}</h3>
-                          <p className="mt-1 text-sm leading-6 text-amber-900">{t("On Android, tap Enable control and allow Nexus Mobile Control in Accessibility settings. Commands remain blocked until this permission is active.")}</p>
+                          <h3 className="font-semibold text-amber-950">{t(deviceLifecycle(selectedDevice) === "control_disconnected" ? "Pairing confirmed — reconnect control" : "Pairing confirmed — one permission remains")}</h3>
+                          <p className="mt-1 text-sm leading-6 text-amber-900">{deviceLifecycle(selectedDevice) === "control_disconnected" ? t(controlRecoveryMessage) : t("On Android, tap Enable control and allow Nexus Mobile Control in Accessibility settings. Commands remain blocked until this permission is active.")}</p>
                           <button className="btn mt-4 min-h-11 bg-white" type="button" onClick={() => void devices.refetch()}>
-                            <RefreshCw size={16} />{t("Check permission")}</button>
+                            <RefreshCw size={16} />{t(deviceLifecycle(selectedDevice) === "control_disconnected" ? "Check again" : "Check permission")}</button>
                         </div>
                       </div>
                     </div>
@@ -1155,6 +1155,7 @@ function LifecycleBadge({ device }: { device: MobileDevice }) {
     offline: { icon: WifiOff, className: "border-amber-200 bg-amber-50 text-amber-800" },
     awaiting_pairing: { icon: Smartphone, className: "border-blue-200 bg-blue-50 text-blue-700" },
     setup_required: { icon: ShieldCheck, className: "border-amber-200 bg-amber-50 text-amber-800" },
+    control_disconnected: { icon: ShieldCheck, className: "border-amber-200 bg-amber-50 text-amber-800" },
     token_expired: { icon: AlertTriangle, className: "border-rose-200 bg-rose-50 text-rose-700" },
     disabled: { icon: WifiOff, className: "border-line bg-slate-50 text-slate-600" }
   }[lifecycle] ?? { icon: AlertTriangle, className: "border-line bg-slate-50 text-slate-600" };
@@ -1613,6 +1614,8 @@ function DeviceListSkeleton() {
   );
 }
 
+const controlRecoveryMessage = "Permission is already granted, but Android has not connected the control service. On the phone, turn Nexus Mobile Control off and on in Accessibility settings, then return to the app. No re-pairing or screen sharing permission is needed.";
+
 function deviceLifecycle(device: MobileDevice): string {
   if (device.lifecycle_status) return device.lifecycle_status;
   if (device.status === "disabled") return "disabled";
@@ -1623,6 +1626,7 @@ function deviceLifecycle(device: MobileDevice): string {
 function lifecycleLabel(value: string) {
   if (value === "awaiting_pairing") return t("Awaiting pairing");
   if (value === "setup_required") return t("Setup required");
+  if (value === "control_disconnected") return t("Control disconnected");
   if (value === "online") return t("Online");
   if (value === "offline") return t("Offline");
   if (value === "token_expired") return t("QR expired");
@@ -1631,10 +1635,12 @@ function lifecycleLabel(value: string) {
 }
 
 function lifecycleDetail(device: MobileDevice) {
+  if (deviceLifecycle(device) === "control_disconnected") return t(controlRecoveryMessage);
   if (device.lifecycle_detail) return device.lifecycle_detail;
   const lifecycle = deviceLifecycle(device);
   if (lifecycle === "awaiting_pairing") return "Scan the pairing QR on the Android device.";
   if (lifecycle === "setup_required") return "Enable Nexus Mobile Accessibility control to finish setup.";
+  if (lifecycle === "control_disconnected") return controlRecoveryMessage;
   if (lifecycle === "online") return "The device is connected and ready for actions.";
   if (lifecycle === "offline") return "Open Nexus Mobile and check its connection.";
   if (lifecycle === "token_expired") return "Generate a new pairing QR to continue.";
@@ -1646,6 +1652,7 @@ function recommendedActionLabel(device: MobileDevice) {
   if (lifecycle === "online") return t("Open");
   if (lifecycle === "awaiting_pairing") return t("Pair");
   if (lifecycle === "setup_required") return t("Finish");
+  if (lifecycle === "control_disconnected") return t("Reconnect control");
   if (lifecycle === "token_expired") return t("New QR");
   if (lifecycle === "offline") return t("Diagnose");
   return t("Review");

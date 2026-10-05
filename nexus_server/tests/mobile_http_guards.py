@@ -2,7 +2,9 @@
 from __future__ import annotations
 import base64
 import json
+import uuid
 from datetime import timedelta
+from django.db import IntegrityError, transaction
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -11,6 +13,53 @@ from apps.mobile.models import MobileCommand, MobileDevice
 
 
 class MobileHTTPGuards:
+    def test_repeated_same_name_device_deletion_preserves_history(self):
+        deleted_ids = []
+        for device_status in (MobileDevice.STATUS_ACTIVE, MobileDevice.STATUS_DISABLED, MobileDevice.STATUS_ACTIVE):
+            created = self.client.post(
+                "/api/v1/mobile-devices/", {"name": "Reusable Android name"},
+                format="json", HTTP_X_NEXUS_TENANT=str(self.tenant.id),
+            )
+            self.assertEqual(created.status_code, 201, created.content)
+            payload = self.mobile_payload(created)
+            device = MobileDevice.objects.get(pk=payload["id"])
+            if device_status == MobileDevice.STATUS_DISABLED:
+                device.status = device_status
+                device.save(update_fields=["status"])
+            command = MobileCommand.objects.create(
+                tenant=self.tenant, device=device, action=MobileCommand.ACTION_OBSERVE,
+                status=MobileCommand.STATUS_QUEUED,
+            )
+            path = f"/api/v1/mobile-devices/{device.id}/"
+            removed = self.client.delete(path, HTTP_X_NEXUS_TENANT=str(self.tenant.id))
+            self.assertEqual(removed.status_code, 200, removed.content)
+            self.assertEqual(self.mobile_payload(removed)["status"], MobileDevice.STATUS_DELETED)
+            device.refresh_from_db()
+            command.refresh_from_db()
+            self.assertEqual(device.name, "Reusable Android name")
+            self.assertIsNotNone(device.deleted_at)
+            self.assertEqual(command.status, MobileCommand.STATUS_CANCELED)
+            self.assertEqual(self.client.get(path, HTTP_X_NEXUS_TENANT=str(self.tenant.id)).status_code, 404)
+            self.assertIn(APIClient().post(
+                path + "device/commands/next/", HTTP_X_NEXUS_MOBILE_TOKEN=payload["pairing_token"],
+            ).status_code, (403, 404))
+            deleted_ids.append(device.id)
+        self.assertEqual(MobileDevice.objects.filter(pk__in=deleted_ids, status="deleted").count(), 3)
+        self.assertEqual(AuditLog.objects.filter(action="mobile.device.delete", resource_id__in=map(str, deleted_ids)).count(), 3)
+        listed = self.client.get("/api/v1/mobile-devices/", HTTP_X_NEXUS_TENANT=str(self.tenant.id))
+        self.assertEqual(self.mobile_payload(listed), [])
+
+    def test_same_owner_name_and_live_status_remain_unique(self):
+        device, _token = self._create_device()
+        for device_status in (MobileDevice.STATUS_ACTIVE, MobileDevice.STATUS_DISABLED):
+            device.status = device_status
+            device.save(update_fields=["status"])
+            with self.assertRaises(IntegrityError), transaction.atomic():
+                MobileDevice.objects.create(
+                    tenant=device.tenant, owner_subject_hash=device.owner_subject_hash,
+                    name=device.name, status=device_status, token_hash=uuid.uuid4().hex,
+                )
+
     def test_create_device_returns_pairing_token_once_and_redacts_list(self) -> None:
         response = self.client.post(
             "/api/v1/mobile-devices/",
@@ -103,6 +152,26 @@ class MobileHTTPGuards:
         )
         self.assertEqual(ready_response.status_code, 200, ready_response.content)
         self.assertEqual(self.mobile_payload(ready_response)["lifecycle_status"], MobileDevice.LIFECYCLE_ONLINE)
+
+    def test_granted_but_disconnected_control_recovers_without_pairing_again(self) -> None:
+        device, token = self._create_device()
+        heartbeat_url = f"/api/v1/mobile-devices/{device.id}/device/heartbeat/"
+        for connected, lifecycle in ((False, "control_disconnected"), (True, "online"), (False, "control_disconnected")):
+            response = self.client.post(heartbeat_url, {
+                "online_status": "online" if connected else "offline",
+                "capabilities": {"accessibility": connected, "accessibility_permission_granted": True},
+            }, format="json", HTTP_X_NEXUS_MOBILE_TOKEN=token)
+            self.assertEqual(response.status_code, 200, response.content)
+            detail = self.mobile_payload(self.client.get(
+                f"/api/v1/mobile-devices/{device.id}/", HTTP_X_NEXUS_TENANT=str(self.tenant.id)))
+            self.assertEqual(detail["lifecycle_status"], lifecycle)
+            self.assertIsNotNone(detail["paired_at"])
+            if not connected:
+                self.assertEqual(detail["recommended_action"], "reconnect_control")
+                self.assertIn("already granted", detail["lifecycle_detail"])
+                poll = self.client.post(f"/api/v1/mobile-devices/{device.id}/device/commands/next/",
+                                       HTTP_X_NEXUS_MOBILE_TOKEN=token)
+                self.assertEqual(poll.status_code, 409, poll.content)
 
     def test_expired_unpaired_token_requires_new_pairing_qr(self) -> None:
         device, token = self._create_device()
@@ -232,6 +301,17 @@ class MobileHTTPGuards:
         command = MobileCommand.objects.get(id=payload["result"]["structuredContent"]["command_id"])
         self.assertEqual(command.action, MobileCommand.ACTION_TAP_TEXT)
         self.assertEqual(command.arguments["text"], "Settings")
+
+    def test_mobile_mcp_invalid_json_does_not_queue_commands(self) -> None:
+        device, _token = self._create_device(approval_mode=MobileDevice.APPROVAL_AUTO)
+        response = self.client.post(
+            f"/api/v1/mobile-devices/{device.id}/mcp/",
+            data='{"method": "tools/call",',
+            content_type="application/json",
+            HTTP_X_NEXUS_TENANT=str(self.tenant.id),
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertFalse(MobileCommand.objects.filter(device=device).exists())
 
     def test_delete_mobile_command_unblocks_device_delete(self) -> None:
         device, _token = self._create_device(approval_mode=MobileDevice.APPROVAL_AUTO)

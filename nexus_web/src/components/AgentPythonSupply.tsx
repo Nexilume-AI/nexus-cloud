@@ -7,6 +7,7 @@ import { Check, Code2, Download, Loader2, Plus, Trash2, Upload, X } from "lucide
 import { api, ApiError, type ApiContext } from "../lib/api";
 import type { AgentPythonBuild } from "../lib/types";
 import { NexilumeDialog } from "./NexilumeControls";
+import { FilePicker } from "./FilePicker";
 import "./agent-python-supply.css";
 
 const steps = [
@@ -117,7 +118,7 @@ function PythonUploadDialog({ agentId, apiContext, onClose, onUploaded }: {
   const [entrypoint, setEntrypoint] = useState("");
   const [secrets, setSecrets] = useState<Array<{ key: string; value: string }>>([]);
   const [localError, setLocalError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLButtonElement>(null);
   const submit = useMutation({
     mutationFn: () => api.uploadAgentPython(apiContext, agentId, file!, requirements, entrypoint, Object.fromEntries(secrets.map(s => [s.key.trim(), s.value]))),
     onSuccess: onUploaded,
@@ -127,12 +128,12 @@ function PythonUploadDialog({ agentId, apiContext, onClose, onUploaded }: {
   const fieldError = (field: string) => submit.isError && errorMessage.startsWith(`${field}:`) ? errorMessage.slice(field.length + 1).trim() : "";
   return <NexilumeDialog open title={t("Upload Python Agent")} eyebrow={t("Runtime source")} description={t("Upload a single-file NexusAgent, NexusMCPServer or FastMCP Agent. Nexus detects the instance and serves its tools without an OpenWrt Router.")} busy={submit.isPending} onClose={onClose} initialFocusRef={fileRef} footer={<><button className="btn" disabled={submit.isPending} onClick={onClose}>{t("Cancel")}</button><button className="btn btn-primary" disabled={!valid || submit.isPending} onClick={() => submit.mutate()}>{submit.isPending ? t("Uploading…") : t("Build image")}</button></>}>
     <div className="python-upload">
-      <label className="python-upload__file">{t("Python file")}{" "}<span>{t("UTF-8 · maximum 1 MiB")}</span><input ref={fileRef} type="file" accept=".py" disabled={submit.isPending} onChange={event => {
-        const value = event.target.files?.[0] || null;
+      <FilePicker className="python-upload__file" label={t("Python file")} hint={t("UTF-8 · maximum 1 MiB")} ref={fileRef} accept=".py" disabled={submit.isPending} files={file ? [file] : []} onFilesChange={files => {
+        const value = files[0] || null;
         setFile(value); setLocalError(value && (!value.name.endsWith(".py") || value.size > 1048576) ? t("Choose a .py file no larger than 1 MiB.") : ""); submit.reset();
-      }} /></label>
+      }} />
       {(localError || fieldError("file")) && <p role="alert">{localError || fieldError("file")}</p>}
-      <label>{t("requirements.txt")}{" "}<span>{t("Optional · public wheel packages only · 32 KiB")}</span><input type="file" accept=".txt" disabled={submit.isPending} onChange={event => setRequirements(event.target.files?.[0] || null)} /></label>
+      <FilePicker label={t("requirements.txt")} hint={t("Optional · public wheel packages only · 32 KiB")} accept=".txt" disabled={submit.isPending} files={requirements ? [requirements] : []} onFilesChange={files => setRequirements(files[0] || null)} />
       {fieldError("requirements") && <p role="alert">{fieldError("requirements")}</p>}
       <p>{t("Nexus SDK and FastMCP are included. Dependencies are resolved at build time. Ordinary scripts, system packages and private package indexes are not supported in this first version.")}</p>
       <p>{t("Keep your Agent instance and decorators at module level. Put agent.run() or server.run() inside the __main__ guard. Computer and Mobile declarations are applied only when the verified version is deployed; callers still authorize their own resources.")}</p>

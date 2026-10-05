@@ -48,5 +48,14 @@
   "Attached image": "已附加图片",
   "Message image": "消息图片",
   "Input file": "输入文件",
-  "Run output": "运行输出"
+  "Run output": "运行输出",
+  "Choose file": "选择文件",
+  "No file selected": "未选择文件",
+  "No files selected": "未选择文件",
+  "{{count}} files selected": "已选择 {{count}} 个文件",
+  "Control disconnected": "控制服务未连接",
+  "Reconnect control": "恢复控制连接",
+  "Reconnect Android control": "恢复 Android 控制连接",
+  "Pairing confirmed — reconnect control": "配对已完成，请恢复控制连接",
+  "Permission is already granted, but Android has not connected the control service. On the phone, turn Nexus Mobile Control off and on in Accessibility settings, then return to the app. No re-pairing or screen sharing permission is needed.": "权限已开启，但 Android 尚未连接控制服务。请在手机辅助功能设置中关闭再开启 Nexus Mobile Control，然后返回 App。无需重新配对或开启屏幕共享。"
 }

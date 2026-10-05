@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Loader2, Upload } from "lucide-react";
 import { api, type ApiContext } from "../lib/api";
 import type { DatasetCapabilities } from "../lib/types";
+import { FilePicker } from "./FilePicker";
 
 type Item = {
   file: File;
@@ -88,15 +89,15 @@ export function DatasetFileImport({
   return (
     <section aria-label={t("Import files")} className="grid min-w-0 gap-4">
       <p className="text-sm text-muted">{t("Import images or text files into this collection. Existing permissions, storage limits and release rules still apply.")}</p>
-      <label className="grid gap-2 text-sm font-medium">{t("Choose files")}<input
-          className="input min-h-11 w-full min-w-0"
-          type="file"
+      <FilePicker
+          label={t("Choose files")}
           multiple
           accept={policy.extensions.join(",")}
           disabled={busy}
-          onChange={(event) => {
+          files={items.map(item => item.file)}
+          onFilesChange={(files) => {
             setItems(
-              Array.from(event.target.files ?? []).map((file) => ({
+              files.map((file) => ({
                 file,
                 key: crypto.randomUUID(),
                 state: "pending",
@@ -107,7 +108,6 @@ export function DatasetFileImport({
             setError("");
           }}
         />
-      </label>
       <p className="text-xs text-muted">
         {policy.extensions.join(", ")}{" "}{t("· Up to")}{" "}
         {Math.floor(policy.max_bytes / 1024 ** 2)}{" "}{t("MiB per file; images up to")}{" "}

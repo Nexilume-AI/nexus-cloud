@@ -62,6 +62,7 @@ import { AgentMobileAttachDialog } from "../components/AgentMobileAttachDialog";
 import { agentDisplayEntryUrl } from "../lib/agentDisplayNavigation";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Form";
+import { FilePicker } from "../components/FilePicker";
 import { NexilumeDialog, NexilumeTabs } from "../components/NexilumeControls";
 import { AgentPublicationSummary, AgentPublicationWorkspace } from "../components/ResourcePublishing";
 import { api } from "../lib/api";
@@ -1171,17 +1172,14 @@ function RuntimeImageDialog({
           />
         </Field>
         {mode === "upload" && (
-          <Field
+          <FilePicker
             label={t("Docker image tar")}
             hint={t("Select an archive produced by docker save.")}
-          >
-            <input
-              className="input h-auto py-2"
-              type="file"
-              accept=".tar,application/x-tar"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
-          </Field>
+            accept=".tar,application/x-tar"
+            disabled={submit.isPending}
+            files={file ? [file] : []}
+            onFilesChange={(files) => setFile(files[0] || null)}
+          />
         )}
       </div>
     </NexilumeDialog>

@@ -23,6 +23,7 @@ import { CursorPageControls } from "../components/CursorPageControls";
 import { useCatalogSearch, useCursorPage } from "../lib/useCursorPage";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Form";
+import { FilePicker } from "../components/FilePicker";
 import { Badge, StatusBadge } from "../components/Badge";
 import { ResourceAccessState, ResourceOwnershipBadge, ResourceOwnershipPicker } from "../components/ResourceOwnership";
 import { ResourceSharingAction, ShareResourceModal, type ShareResourceTarget } from "../components/ShareResourceModal";
@@ -1493,13 +1494,12 @@ function AgentContainerModal({
           <div className="rounded-md border border-line p-4">
             <div className="mb-3 font-medium text-ink">{t("Upload image tar")}</div>
             <div className="grid gap-3">
-              <input
-                className="input"
-                type="file"
+              <FilePicker
+                label={t("Docker image tar")}
                 accept=".tar,application/x-tar,application/octet-stream"
-                onChange={(event) =>
-                  setImageFile(event.target.files?.[0] ?? null)
-                }
+                disabled={uploadImage.isPending}
+                files={imageFile ? [imageFile] : []}
+                onFilesChange={(files) => setImageFile(files[0] ?? null)}
               />
               <input
                 className="input font-mono"

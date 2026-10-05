@@ -35,6 +35,7 @@ class MobileDevice(SoftDeleteModel):
 
     LIFECYCLE_AWAITING_PAIRING = "awaiting_pairing"
     LIFECYCLE_SETUP_REQUIRED = "setup_required"
+    LIFECYCLE_CONTROL_DISCONNECTED = "control_disconnected"
     LIFECYCLE_ONLINE = "online"
     LIFECYCLE_OFFLINE = "offline"
     LIFECYCLE_TOKEN_EXPIRED = "token_expired"
@@ -72,7 +73,8 @@ class MobileDevice(SoftDeleteModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["tenant", "owner_subject_hash", "name", "status"],
-                name="unique_caller_mobile_device_name_status",
+                condition=~models.Q(status="deleted"),
+                name="unique_caller_mobile_live_name_status",
             ),
         ]
         indexes = [
@@ -126,6 +128,8 @@ class MobileDevice(SoftDeleteModel):
         if self.last_seen_at is None:
             return self.LIFECYCLE_AWAITING_PAIRING
         if not bool((self.capabilities or {}).get("accessibility")):
+            if (self.capabilities or {}).get("accessibility_permission_granted") is True:
+                return self.LIFECYCLE_CONTROL_DISCONNECTED
             return self.LIFECYCLE_SETUP_REQUIRED
         stale_seconds = max(int(getattr(settings, "NEXUS_MOBILE_ONLINE_STALE_SECONDS", 90)), 1)
         if self.online_status == self.ONLINE_ONLINE and (timezone.now() - self.last_seen_at).total_seconds() <= stale_seconds:
@@ -137,6 +141,7 @@ class MobileDevice(SoftDeleteModel):
         return {
             self.LIFECYCLE_AWAITING_PAIRING: "Scan the pairing QR on the Android device.",
             self.LIFECYCLE_SETUP_REQUIRED: "Enable Android Accessibility control to finish setup.",
+            self.LIFECYCLE_CONTROL_DISCONNECTED: "Permission is already granted, but Android has not connected the control service. On the phone, turn Nexus Mobile Control off and on in Accessibility settings, then return to the app. No re-pairing or screen sharing permission is needed.",
             self.LIFECYCLE_ONLINE: "The device is connected and ready for actions.",
             self.LIFECYCLE_OFFLINE: "The device has stopped sending heartbeats.",
             self.LIFECYCLE_TOKEN_EXPIRED: "Generate a new pairing QR to continue.",
@@ -148,6 +153,7 @@ class MobileDevice(SoftDeleteModel):
         return {
             self.LIFECYCLE_AWAITING_PAIRING: "continue_pairing",
             self.LIFECYCLE_SETUP_REQUIRED: "complete_setup",
+            self.LIFECYCLE_CONTROL_DISCONNECTED: "reconnect_control",
             self.LIFECYCLE_ONLINE: "open_control",
             self.LIFECYCLE_OFFLINE: "troubleshoot",
             self.LIFECYCLE_TOKEN_EXPIRED: "regenerate_pairing",
