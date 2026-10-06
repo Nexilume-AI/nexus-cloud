@@ -13,7 +13,7 @@
 
 **English** · [Chinese](README_zh.md)
 
-[Highlights](#highlights) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
+[Motivation](#motivation) · [Highlights](#highlights) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
 
 </div>
 
@@ -23,7 +23,62 @@ A self-hosted, single-owner workspace for running Agents, routing model requests
 
 ![Nexus Cloud: illustrated workflow](docs/media/overview.svg)
 
-*Workflow illustration, not a product screenshot. Connections require the setup and authorization described below.*
+## Motivation
+
+| Product | From the user's perspective |
+| --- | --- |
+| **Nexus** | **A developer builds and deploys the Agent. I choose my own device for it to work on.** |
+| OpenClaw | I deploy and configure an assistant that works for me through channels and nodes. |
+| Codex | I choose a working environment, give Codex a task, then review and refine the results. |
+
+
+
+Your files may be on your computer, your next task in a browser, and another
+workflow on your phone. You should not have to move that work to the developer's
+machine—or install every Agent's application and dependencies on your own.
+
+Nexus lets a separately hosted Agent work with the devices you attach and
+authorize. For you, that means:
+
+- **Less to install and maintain.** Use a cloud- or developer-hosted Agent without
+  deploying that Agent on your computer. Pair the device Runtime once, then
+  authorize the Agents you choose to use with it.
+- **Work in your own environment.** Let an Agent handle files in your authorized
+  workspace, use your Computer's terminal or isolated browser, or operate your
+  attached phone. You choose the device and approve the requested access.
+- **Choose the device that fits the task.** Use the same Agent with different
+  supported devices for different tasks, without redeploying it for each device.
+  The Agent and device do not need to share a machine or local network.
+- **One place to follow the work.** Private Display gives you a consistent place
+  to chat, see progress, answer questions, add instructions and inspect results,
+  even when the work happens on an attached device.
+
+For example, an Agent hosted in Docker can process a file in your authorized
+Computer workspace and return the result to Private Display. You do not need to
+deploy that Agent on the Computer first.
+
+This is the idea behind a **decoupled Agent execution fabric**: **separate where
+an Agent is deployed from the user-authorized devices it can operate, and connect
+them through a shared execution context—the Run Context.**
+
+```mermaid
+flowchart LR
+    agent["Agent deployment<br/>Cloud / Edge / Developer host"] <--> context["Nexus Run Context<br/>Authorization · Interaction · Artifacts"]
+    display["Caller<br/>Private Display"] <--> context
+    context <--> computer["Attached Computer<br/>Files · Terminal · Browser"]
+    context <--> mobile["Attached Mobile<br/>Screen · Device actions"]
+```
+
+For developers, the same separation reduces repeated work on device connectivity,
+interaction UIs and execution state. Nexus provides Python Agent build and
+deployment workflows, Run authorization and observability; Enterprise adds
+commercial billing.
+
+Devices still need a compatible Runtime, working connectivity and explicit
+authorization. Pairing alone does not grant Agent access, and choosing another
+device does not automatically migrate an in-progress terminal or browser session.
+
+**The Agent can live elsewhere. The task can happen on the device you choose.**
 
 ## See it in action
 
