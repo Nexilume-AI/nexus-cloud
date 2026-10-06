@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="396" viewBox="0 0 1100 396" role="img" aria-labelledby="title desc">
+  <title id="title">Agent deployment and your devices, connected through Nexus Run Context</title>
+  <desc id="desc">An Agent deployed in Cloud, at the edge or on a developer host exchanges information with Nexus Run Context. The caller uses Private Display through the same context. Run Context connects the Agent to the caller's attached and authorized Computer for files, terminal and browser operations, or Mobile for screen and device actions. All four connections are bidirectional. This is a conceptual diagram, not a direct network topology.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#65806e" stroke-width="1.6"/>
+    </marker>
+  </defs>
+  <rect x="1" y="1" width="1098" height="394" rx="16" fill="#f6f7f2" stroke="#d8dfd4"/>
+  <g fill="none" stroke="#65806e" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)">
+    <path d="M324 110 H378 V164 H418"/>
+    <path d="M324 286 H378 V232 H418"/>
+    <path d="M682 164 H728 V110 H776"/>
+    <path d="M682 232 H728 V286 H776"/>
+  </g>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <g fill="#fff" stroke="#d5dfd1">
+      <rect x="24" y="50" width="296" height="120" rx="12"/>
+      <rect x="24" y="226" width="296" height="120" rx="12"/>
+      <rect x="780" y="50" width="296" height="120" rx="12"/>
+      <rect x="780" y="226" width="296" height="120" rx="12"/>
+    </g>
+    <rect x="422" y="122" width="256" height="152" rx="12" fill="#182a20"/>
+    <g fill="#182a20" font-size="23" font-weight="700">
+      <text x="46" y="90">Agent deployment</text>
+      <text x="46" y="269">Caller</text>
+      <text x="802" y="94">Attached Computer</text>
+      <text x="802" y="269">Attached Mobile</text>
+    </g>
+    <g fill="#516358" font-size="19">
+      <text x="46" y="122">Cloud / Edge /</text>
+      <text x="46" y="148">Developer host</text>
+      <text x="46" y="304">Private Display</text>
+      <text x="802" y="130">Files · Terminal · Browser</text>
+      <text x="802" y="304">Screen · Device actions</text>
+    </g>
+    <g text-anchor="middle">
+      <text x="550" y="165" fill="#fff" font-size="24" font-weight="700">Nexus Run Context</text>
+      <text x="550" y="204" fill="#d7e6d1" font-size="18">Authorization · Interaction</text>
+      <text x="550" y="234" fill="#c7f58b" font-size="19">Artifacts</text>
+    </g>
+  </g>
+</svg>

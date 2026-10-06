@@ -55,13 +55,7 @@ Nexus 让部署在别处的 Agent 使用你 Attach 并授权的设备。对你�
 这就是**解耦的 Agent 执行 Fabric**：**将 Agent 的部署位置与它能够操作的用户
 设备解耦，并通过统一的执行上下文 Run Context 连接起来。**
 
-```mermaid
-flowchart LR
-    agent["Agent 部署位置<br/>Cloud / Edge / 开发者设备"] <--> context["Nexus Run Context<br/>授权 · 交互 · 产物"]
-    display["调用者<br/>Private Display"] <--> context
-    context <--> computer["Attached Computer<br/>文件 · 终端 · 浏览器"]
-    context <--> mobile["Attached Mobile<br/>屏幕 · 设备操作"]
-```
+![Agent 与调用者通过 Nexus Run Context，连接调用者已绑定并授权的 Computer 和 Mobile](docs/media/execution-fabric.svg)
 
 对开发者而言，这种分离也减少了设备连接、交互界面和执行状态管理的重复建设。
 Nexus 提供 Python Agent 构建、部署、Run 授权和可观测能力；Enterprise 进一步

@@ -61,13 +61,7 @@ This is the idea behind a **decoupled Agent execution fabric**: **separate where
 an Agent is deployed from the user-authorized devices it can operate, and connect
 them through a shared execution context—the Run Context.**
 
-```mermaid
-flowchart LR
-    agent["Agent deployment<br/>Cloud / Edge / Developer host"] <--> context["Nexus Run Context<br/>Authorization · Interaction · Artifacts"]
-    display["Caller<br/>Private Display"] <--> context
-    context <--> computer["Attached Computer<br/>Files · Terminal · Browser"]
-    context <--> mobile["Attached Mobile<br/>Screen · Device actions"]
-```
+![The Agent and caller connect through Nexus Run Context to the caller's attached Computer and Mobile](docs/media/execution-fabric.svg)
 
 For developers, the same separation reduces repeated work on device connectivity,
 interaction UIs and execution state. Nexus provides Python Agent build and
