@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "edition": "Enterprise",
+  "capture_date": "2026-10-06",
+  "timezone": "Asia/Shanghai",
+  "capture_method": "live-browser-keyframes",
+  "editing": "Real UI keyframes; waits omitted and reading holds added; minor pane changes padded; no UI content replacement",
+  "environment": "Existing local Cloud; dedicated demo Organizations; real Linux Docker Agent and Windows Computer Runtime; isolated synthetic Workspace",
+  "source": "../../examples/readme_computer_agent.py",
+  "source_sha256": "f660bb7bdac7623c479db8188a0897729d56c85068b98c8b0d71b9bab50bdc86",
+  "input": {
+    "file": "../../examples/expenses.csv",
+    "sha256": "5a41797a791ee40d1d96ade0c13dbeeaf4560c5a7d11ae0145361317de907444"
+  },
+  "output": {
+    "name": "expense-report.md",
+    "size_bytes": 370,
+    "sha256": "654165d0fa62df5d8f7293f866417559c34857d62f4f808ba34fee8c87bd5659",
+    "matches": ["Computer Workspace file", "scanned private Run artifact", "browser download"]
+  },
+  "verified": [
+    "Python upload built and deployed through the existing service",
+    "Marketplace discovery, scope approval and Computer Attach",
+    "Computer Runtime executed workspace.read_file and workspace.write_file",
+    "Plan and inline Confirm driven by the SDK",
+    "Run completed and source CSV unchanged",
+    "Output scan passed and policy approved through the existing API",
+    "Private file preview, browser download and refresh recovery"
+  ],
+  "not_demonstrated": ["LLM inference", "least-privilege caller isolation", "cross-NAT networking", "Mobile", "Browser", "Terminal", "OpenWrt", "billing", "performance"],
+  "assets": [
+    {"file": "device-demo-marketplace.gif", "sha256": "bdeb99373806054cacc7c8156b67a2d97e94aada33c66a28c969e3426fb9f310", "width": 756, "height": 668, "frames": 5, "duration_ms": 18500},
+    {"file": "device-demo-confirm.gif", "sha256": "1facadded50a8285527d997f4a14d1353625bbcc1a2b22ad46d0d0cd4cf0543d", "width": 756, "height": 668, "frames": 5, "duration_ms": 17000},
+    {"file": "device-demo-result.gif", "sha256": "50582b136fd6a742b36724fcf283c50524df0ff53d2b83153972fb6efe4b1501", "width": 756, "height": 668, "frames": 3, "duration_ms": 14000}
+  ]
+}

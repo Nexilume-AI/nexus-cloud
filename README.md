@@ -13,7 +13,7 @@
 
 **English** · [Chinese](README_zh.md)
 
-[Motivation](#motivation) · [Highlights](#highlights) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
+[Motivation](#motivation) · [Watch the workflow](#see-it-in-action) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
 
 </div>
 
@@ -82,47 +82,73 @@ device does not automatically migrate an in-progress terminal or browser session
 
 ## See it in action
 
- An isolated demo account runs a
-small Python Agent in a real Docker container. The example is deterministic: no
-paid model, personal Computer or Mobile is used. Enterprise menus and commercial
-features shown here.
+**An Agent in Docker. A CSV on your Computer. A report you approve.**
 
-### Ask, confirm, inspect
+You want a short report from `expenses.csv` on your Computer. The developer has
+already deployed the Agent; you do not install its code or dependencies locally.
+Your Computer only needs the paired Nexus Computer Runtime.
 
-![Private Display asks the caller to choose the checklist audience](docs/media/enterprise-inline-question.jpg)
+### 1. Pick the Agent, then choose your Computer
 
-*An SDK `chat.ask()` question stays inline with the conversation. The caller
-chooses the audience before the Agent continues.*
+Find the assistant in **Marketplace**, open its details and select **Attach
+Computer**. Approve its file permissions and choose your online device.
+
+![Marketplace discovery, requested file permissions and attaching My demo Computer](docs/media/device-demo-marketplace.gif)
+
+*The Agent is already hosted. You supply the authorized place to work—not another
+Agent installation.*
+
+### 2. Ask once. Stay in control.
+
+Open **Private Display** and ask: “Turn my expenses.csv into a short report. Ask
+before writing it.” The Agent reads the file through Run Context, updates its Plan
+and asks for confirmation **inside the same conversation**.
+
+![A real file read, inline confirmation and SDK Plan in Private Display](docs/media/device-demo-confirm.gif)
+
+*The sample contains three synthetic expenses totaling $128.50. Nothing is written
+until the caller chooses **Save my report**.*
+
+### 3. Get the result where you need it
+
+The Agent writes `expense-report.md` beside the CSV **on the Attached Computer**.
+A private copy opens in **Files** for preview and download. The original CSV is
+unchanged; the Computer file, Run artifact and browser download have matching
+SHA-256 hashes.
+
+![Completed Run and the generated Markdown report in Files preview](docs/media/device-demo-result.gif)
+
+**One Agent deployment. Your chosen device. One place to follow the work.**
 
 <details>
-<summary>See the live plan, completed conversation and Markdown output</summary>
+<summary>Run this example yourself · source, setup and capture notes</summary>
 
-![The SDK plan tracks the three steps of the private Run](docs/media/enterprise-run-plan.jpg)
+1. Configure a supported Python build worker, Docker execution and private file
+   storage. Upload [readme_computer_agent.py](examples/readme_computer_agent.py)
+   through **Build → Agents → Runtime → Upload Python**, then build and deploy.
+2. Pair Nexus Computer Runtime with an isolated test Workspace. Attach it to the
+   Agent and approve `files.list`, `files.read` and `files.write`—no terminal or
+   browser permission is requested.
+3. Place [expenses.csv](examples/expenses.csv) in this Agent's Workspace on the
+   Computer (`<paired-root>/agents/<agent-id>/workspace/` in this capture), then
+   open Private Display and send the request above.
+4. Choose **Save my report**. Where output scanning is required, an authorized
+   operator must scan and approve the private artifact before preview/download.
 
-*Plan updates come from the running Agent, not a presentation mockup.*
+The example is deterministic and needs no model API key; it demonstrates device
+execution, not model reasoning. File contents travel through the authorized Cloud
+execution path—this is not a claim that data never leaves the Computer.
 
-![The private Run completed and returned its checklist](docs/media/enterprise-run-completed.jpg)
+Recorded on the existing **Enterprise** installation with a real Docker Agent and
+Windows Computer Runtime in an isolated demo workspace. Marketplace is an
+Enterprise entry point; self-hosters can open the Agent from **Build → Agents**.
+These GIFs are edited real-browser keyframes with shortened waits, not UI mockups,
+a continuous video or a speed benchmark.
 
-![The generated Markdown checklist opens in Files preview](docs/media/enterprise-file-preview.jpg)
-
-*Files distinguishes outputs and provides a preview and download controls.*
-
-![The approved output archived in a private Data Assets collection](docs/media/enterprise-data-assets.jpg)
-
-*The scanned file was archived to the demo Project's collection. No public release
-or Marketplace publication was created.*
+[Verified steps, boundaries and reproduction notes](docs/media/device-demo-notes.md)
+· [Capture checksums](docs/media/device-demo-manifest.json)
 
 </details>
-
-**Try the same example:** upload [readme_launch_agent.py](examples/readme_launch_agent.py)
-through **Agents → Runtime → Upload Python**, build, deploy, then choose **Test Agent
-privately**. Ask for a launch checklist and answer the audience question. A supported
-Python build profile, execution worker and private file storage must be configured.
-This installation requires **Data Assets → Scan output** approval before file preview;
-the linked capture guide includes that step.
-
-[Capture details and reproduction steps](docs/media/capture-notes.md). These are
-original screenshots, not a video or a claim that every integration was tested.
 
 ## Highlights
 

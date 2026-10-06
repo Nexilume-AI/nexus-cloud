@@ -13,7 +13,7 @@
 
 [English](README.md) · **简体中文**
 
-[设计动机](#设计动机) · [功能](#可以做什么) · [快速开始](#快速开始) · [项目生态](#项目生态) · [参与贡献](#参与贡献) · [引用](#引用)
+[设计动机](#设计动机) · [看一次完整流程](#真实运行画面) · [快速开始](#快速开始) · [项目生态](#项目生态) · [参与贡献](#参与贡献) · [引用](#引用)
 
 </div>
 
@@ -74,42 +74,63 @@ Nexus 提供 Python Agent 构建、部署、Run 授权和可观测能力；Enter
 
 ## 真实运行画面
 
-**Enterprise 企业版 · 2026 年 10 月 1 日采集。** 使用隔离演示账号，在真实 Docker
-容器中运行 Python Agent。示例采用确定性逻辑，不调用付费模型，也不访问个人 Computer
-或 Mobile。画面中的企业版菜单及商业功能不代表已包含在社区版。
+**Agent 在 Docker 中，CSV 在你的电脑上，报告经你确认后生成。**
 
-### 发起任务、内联确认、查看产物
+你想把电脑上的 `expenses.csv` 整理成一份简短报告。开发者已经部署好 Agent，
+你无需在本机安装它的代码和依赖，只需配对一次 Nexus Computer Runtime。
 
-![Private Display 中选择清单的目标读者](docs/media/enterprise-inline-question.jpg)
+### 1. 选好 Agent，再选择自己的电脑
 
-*SDK 的 `chat.ask()` 问题直接出现在对话中；用户选择目标读者后，Agent 才继续执行。*
+在 **Marketplace** 找到助手，打开详情并点击 **Attach Computer**。
+批准它请求的文件权限，再选择自己的在线设备。
+
+![从 Marketplace 发现 Agent、批准文件权限并绑定 My demo Computer](docs/media/device-demo-marketplace.gif)
+
+*Agent 已经托管运行。你提供的是获授权的执行环境，而不是再部署一份 Agent。*
+
+### 2. 说出任务，关键步骤由你确认
+
+打开 **Private Display**，输入：“把我的 expenses.csv 整理成简短报告，写入前先问我。”
+Agent 通过 Run Context 读取文件、更新 Plan，并在**同一段对话中**请求确认。
+
+![Private Display 中真实读取文件、内联确认并查看 SDK Plan](docs/media/device-demo-confirm.gif)
+
+*样例包含 3 条合成费用，共 $128.50。只有点击 **Save my report** 后才会写入报告。*
+
+### 3. 结果回到你需要的位置
+
+Agent 在 **Attached Computer** 的 CSV 旁写入 `expense-report.md`，并提供私有副本，
+可在 **Files** 中预览、下载。原始 CSV 未被修改；Computer 文件、Run 产物和浏览器
+下载文件的 SHA-256 一致。
+
+![Run 完成后在 Files 中预览生成的 Markdown 报告](docs/media/device-demo-result.gif)
+
+**Agent 部署一次，设备由你选择，过程在一个界面里跟进。**
 
 <details>
-<summary>展开查看实时 Plan、完成对话和 Markdown 文件预览</summary>
+<summary>自己运行此例：源码、准备步骤与采集说明</summary>
 
-![SDK Plan 显示当前 Run 的三个步骤](docs/media/enterprise-run-plan.jpg)
+1. 配置受支持的 Python 构建 Worker、Docker 执行环境和私有文件存储。在
+   **Build → Agents → Runtime → Upload Python** 上传
+   [readme_computer_agent.py](examples/readme_computer_agent.py)，构建并部署。
+2. 为 Nexus Computer Runtime 配对一个隔离测试 Workspace，Attach 到 Agent，
+   批准 `files.list`、`files.read`、`files.write`，不需要终端或浏览器权限。
+3. 将 [expenses.csv](examples/expenses.csv) 放进 Computer 上该 Agent 的工作目录
+   （本次为 `<paired-root>/agents/<agent-id>/workspace/`），打开 Private Display 发起任务。
+4. 点击 **Save my report**。若安装环境要求产物扫描，须由有权限的操作员扫描并批准
+   该私有产物，之后才能预览和下载。
 
-*Plan 状态由运行中的 Agent 上报，不是设计稿。*
+此例采用确定性逻辑，不需要模型 API Key，演示的是设备执行链路，而不是模型推理能力。
+文件内容会经过已授权的 Cloud 执行链路，不代表数据始终不离开电脑。
 
-![真实 Run 已完成并返回清单](docs/media/enterprise-run-completed.jpg)
+画面采集自现有 **Enterprise** 安装，使用真实 Docker Agent、Windows Computer Runtime
+和独立演示空间。Marketplace 是企业版入口；自托管用户可从 **Build → Agents** 打开
+该 Agent。GIF 由真实浏览器关键帧剪辑，缩短了等待，不是界面设计稿、连续视频或速度测试。
 
-![Files 中预览生成的 Markdown 清单](docs/media/enterprise-file-preview.jpg)
-
-*Files 区分文件产物，提供预览与下载入口。*
-
-![扫描后的文件已归档到私有 Data Assets 集合](docs/media/enterprise-data-assets.jpg)
-
-*该文件已归档到演示 Project 的集合，未创建公开发行版或上架 Marketplace。*
+[验收结果、边界与复现记录](docs/media/device-demo-notes.md)
+· [采集校验信息](docs/media/device-demo-manifest.json)
 
 </details>
-
-**复现此例：** 在 **Agents → Runtime → Upload Python** 上传
-[readme_launch_agent.py](examples/readme_launch_agent.py)，构建并部署后点击 **Test Agent
-privately**。发送生成发布清单的请求，并回答目标读者问题。需要先配置受支持的 Python
-构建环境、执行 Worker 和私有文件存储。本次安装须先通过 **Data Assets → Scan output**
-扫描才能预览文件，详细步骤见采集记录。
-
-[采集记录与复现步骤](docs/media/capture-notes.md)。以上为原始截图，不是视频，也不代表已验证全部集成能力。
 
 ## 可以做什么
 
