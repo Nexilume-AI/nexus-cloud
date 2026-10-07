@@ -9,17 +9,16 @@
 [![Documentation](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![Cite the technical report](https://img.shields.io/badge/Cite-technical_report-e8e9e4.svg)](#citation)
 
-`Self-hosted` · `Docker Compose` · `Single owner`
 
 **English** · [Chinese](README_zh.md)
 
-[Motivation](#motivation) · [Watch the workflow](#see-it-in-action) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
+[Motivation](#motivation) · [Watch the workflow](#see-it-in-action) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem downloads](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
 
 </div>
 
 > **[Try Nexus Cloud online](https://cloud.nexilume.com/)**: Explore Nexus Cloud in your browser, or self-host to get started.
 
-A self-hosted, single-owner workspace for running Agents, routing model requests, managing Data Assets and connecting authorized devices.
+An Execution Fabric for AI Agents Across Cloud, Edge, and Devices.
 
 ![Nexus Cloud: illustrated workflow](docs/media/overview.svg)
 
@@ -201,9 +200,6 @@ Choose the edition for your deployment:
 | Agent, model and data Marketplaces | Not included | Marketplace workflows |
 | Source distribution | Source-available community source in this repository | Separately distributed proprietary implementation |
 
-Enterprise can be featured here alongside Community. Screenshots and recordings must identify the edition used; an Enterprise demonstration is not proof that its menus or commercial features ship in Community. Publishing Enterprise product media does not publish its source code.
-
-[Compare editions in detail](README_GUIDE.md#community-or-enterprise). Do not point Community and Enterprise at the same database.
 
 ## Documentation
 
@@ -221,15 +217,35 @@ The reference retains the previous setup and troubleshooting material. Historica
 
 ## Ecosystem
 
-| Project | Role | Install separately? |
-| --- | --- | --- |
-| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud) | Server, Web Console and bundled Cloud Relay | Main workspace |
-| [Python SDK](https://github.com/Nexilume-AI/nexus-agent-sdk-python) | Agent applications and outbound Computer Runtime | Yes |
-| [OpenWrt](https://github.com/Nexilume-AI/nexus-openwrt) | Edge registration and capability routing | Optional |
-| [Mobile](https://github.com/Nexilume-AI/nexus-mobile) | Authorized Android device integration | Optional |
-| [Documentation](https://github.com/Nexilume-AI/nexus-docs) | User guides and reference | Read online or build locally |
+Install only the components you need. Cloud, the SDK and device runtimes are distributed separately.
 
-Repository access, release availability and compatibility determine which integrations you can install. Cloud installation does not install device runtimes.
+| Component | Use it for | Download / setup |
+| --- | --- | --- |
+| **[Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud)** | Server, Web Console and bundled Cloud Relay | [Quick start](#quick-start) |
+| **Python SDK** | Build Agent applications | [PyPI: nexilume](https://pypi.org/project/nexilume/) · [Wheel / source package](https://pypi.org/project/nexilume/#files) · [SDK guide](https://github.com/Nexilume-AI/nexus-agent-sdk-python#quick-start) |
+| **Computer Runtime** | Connect your computer for authorized file, terminal and browser operations | Included in the SDK · [Setup guide](https://github.com/Nexilume-AI/nexus-agent-sdk-python#connect-your-computer) |
+| **Android app** | Connect your phone for authorized Agent workflows | [Download APK · 0.1.2-beta.2](https://github.com/Nexilume-AI/nexus-mobile/releases/download/v0.1.2-beta.2/nexus-mobile-0.1.2-beta.2.apk) · [Release notes & checksums](https://github.com/Nexilume-AI/nexus-mobile/releases/tag/v0.1.2-beta.2) |
+| **OpenWrt** | Edge registration and capability routing | [Download x86_64 packages · Beta](https://github.com/Nexilume-AI/nexus-openwrt/releases/tag/v0.1.0-beta.1) · [Installation guide](https://github.com/Nexilume-AI/nexus-openwrt/blob/main/docs/package-install.md) |
+| **Documentation** | Tutorials and reference | [Read the docs](https://github.com/Nexilume-AI/nexus-docs) |
+
+**Install the Python SDK:**
+
+```sh
+python -m pip install --upgrade nexilume
+```
+
+For MCP integrations, install `"nexilume[fastmcp]"` instead. The package name is `nexilume`; the Python import remains `nexus_agent`.
+
+**Connect a Computer, including optional browser support:**
+
+```sh
+python -m pip install --upgrade "nexilume[computer,browser]"
+nexus-computer setup "<pairing-url-from-your-cloud>"
+```
+
+Use a virtual environment; Python 3.12 is recommended for optional integrations. Browser control also requires a compatible local Chromium browser.
+
+**Android:** requires Android 8.0+. Check the release notes and checksums before installing; [all Android releases](https://github.com/Nexilume-AI/nexus-mobile/releases) are available separately.
 
 ## Contributing
 

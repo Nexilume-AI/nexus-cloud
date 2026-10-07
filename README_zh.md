@@ -9,17 +9,15 @@
 [![文档](https://img.shields.io/badge/Read-the_docs-b8ef73.svg)](nexus_server/nexus_personal/WORKFLOWS.md)
 [![引用技术报告](https://img.shields.io/badge/Cite-technical_report-e8e9e4.svg)](#引用)
 
-`Self-hosted` · `Docker Compose` · `Single owner`
 
 [English](README.md) · **简体中文**
 
-[设计动机](#设计动机) · [看一次完整流程](#真实运行画面) · [快速开始](#快速开始) · [项目生态](#项目生态) · [参与贡献](#参与贡献) · [引用](#引用)
+[设计动机](#设计动机) · [看一次完整流程](#真实运行画面) · [快速开始](#快速开始) · [生态安装包](#项目生态) · [参与贡献](#参与贡献) · [引用](#引用)
 
 </div>
 
 > **[在线体验 Nexus Cloud](https://cloud.nexilume.com/)**：在浏览器中探索 Nexus Cloud，也可以自行部署，开始使用。
 
-自托管、单用户的 Agent 工作区：运行 Agent、路由模型请求、管理数据文件，并连接已授权的设备。
 
 ![Nexus Cloud 流程示意图](docs/media/overview.svg)
 
@@ -181,21 +179,42 @@ docker compose -f deploy/community/compose.yaml run --rm --no-deps --entrypoint 
 | Agent、模型与数据 Marketplace | 不包含 | Marketplace 工作流 |
 | 源码发布 | 本仓库 源码可用的社区源码 | 独立分发的闭源实现 |
 
-README 可以同时展示两个版本。截图和视频必须标注实际录制版本；企业版演示不代表其中的菜单或商业功能已包含在社区版。公开企业版产品素材不等于开放企业版源码。
 
-社区版与企业版不能共用数据库；独立设备项目需分别安装。
+
 
 ## 项目生态
 
-| 项目 | 职责 |
-| --- | --- |
-| [Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud) | Server、Web Console 与配套 Cloud Relay |
-| [Python SDK](https://github.com/Nexilume-AI/nexus-agent-sdk-python) | Agent 应用与主动出站的 Computer Runtime |
-| [OpenWrt](https://github.com/Nexilume-AI/nexus-openwrt) | 边缘注册、发现与能力路由 |
-| [Mobile](https://github.com/Nexilume-AI/nexus-mobile) | 已授权的 Android 设备接入 |
-| [Documentation](https://github.com/Nexilume-AI/nexus-docs) | 中英文教程与参考 |
+按需安装生态组件。Cloud、SDK 与设备 Runtime 独立分发。
 
-设备组件独立安装与发布；是否可安装取决于仓库访问、发行包及版本兼容性。Cloud 启动不会自动安装它们。
+| 组件 | 用途 | 下载 / 安装 |
+| --- | --- | --- |
+| **[Nexus Cloud](https://github.com/Nexilume-AI/nexus-cloud)** | Server、Web Console 与配套 Cloud Relay | [快速开始](#快速开始) |
+| **Python SDK** | 开发 Agent 应用 | [PyPI：nexilume](https://pypi.org/project/nexilume/) · [Wheel / 源码包](https://pypi.org/project/nexilume/#files) · [SDK 指南](https://github.com/Nexilume-AI/nexus-agent-sdk-python#quick-start) |
+| **Computer Runtime** | 连接电脑，执行已授权的文件、终端与浏览器操作 | 包含在 SDK 中 · [安装指南](https://github.com/Nexilume-AI/nexus-agent-sdk-python#connect-your-computer) |
+| **Android 应用** | 连接手机，参与已授权的 Agent 工作流 | [下载 APK · 0.1.2-beta.2](https://github.com/Nexilume-AI/nexus-mobile/releases/download/v0.1.2-beta.2/nexus-mobile-0.1.2-beta.2.apk) · [发行说明与校验值](https://github.com/Nexilume-AI/nexus-mobile/releases/tag/v0.1.2-beta.2) |
+| **OpenWrt** | 边缘注册、发现与能力路由 | [下载 x86_64 安装包 · Beta](https://github.com/Nexilume-AI/nexus-openwrt/releases/tag/v0.1.0-beta.1) · [安装指南](https://github.com/Nexilume-AI/nexus-openwrt/blob/main/docs/package-install.md) |
+| **Documentation** | 教程与参考 | [阅读文档](https://github.com/Nexilume-AI/nexus-docs) |
+
+**安装 Python SDK：**
+
+```sh
+python -m pip install --upgrade nexilume
+```
+
+使用 MCP 集成时，改为安装 `"nexilume[fastmcp]"`。安装包名为 `nexilume`，Python 导入名仍为 `nexus_agent`。
+
+**连接 Computer，包含可选浏览器支持：**
+
+```sh
+python -m pip install --upgrade "nexilume[computer,browser]"
+nexus-computer setup "<pairing-url-from-your-cloud>"
+```
+
+建议使用虚拟环境；可选集成推荐 Python 3.12。浏览器控制还需要在该 Computer 上安装兼容的 Chromium 浏览器。
+
+**Android：**需要 Android 8.0+，下载的 APK 为已签名的 **Beta** 版本。安装前请查看发行说明与校验值；也可浏览[全部 Android 发行版本](https://github.com/Nexilume-AI/nexus-mobile/releases)。
+
+在自己的 Cloud Console 中生成 Computer 配对链接或 Mobile 配对二维码。配对后仍需 Attach 设备，并批准 Agent 所需的权限；安装 Cloud 不会自动安装这些组件或授予设备访问权限。
 
 ## 参与贡献
 
