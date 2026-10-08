@@ -12,7 +12,7 @@
 
 **English** · [Chinese](README_zh.md)
 
-[Motivation](#motivation) · [Watch the workflow](#see-it-in-action) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem downloads](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
+[Motivation](#motivation) · [Watch the workflow](#see-it-in-action) · [Features](#features) · [Use cases](#use-cases) · [Quick start](#quick-start) · [Documentation](#documentation) · [Ecosystem downloads](#ecosystem) · [Contributing](#contributing) · [Citation](#citation)
 
 </div>
 
@@ -143,14 +143,56 @@ a continuous video or a speed benchmark.
 
 </details>
 
-## Highlights
+<a id="highlights"></a>
 
-| Bring your own | What you can do | First guide |
-| --- | --- | --- |
-| **Models** | Connect Providers, organize Sources and Pools, expose routing endpoints | [Workflows](nexus_server/nexus_personal/WORKFLOWS.md) |
-| **Agents** | Manage versions and deployments; interact through Private Display | [Execution setup](nexus_server/nexus_personal/HOST.md) |
-| **Data** | Manage files and Data Assets for supported Agent workflows | [Workflows](nexus_server/nexus_personal/WORKFLOWS.md) |
-| **Devices** | Attach separately installed Computer, Mobile or OpenWrt runtimes | [Operator guide](nexus_server/nexus_personal/HOST.md) |
+## Features
+
+- **Deploy agents independently of user devices.** Host agents in Docker, on a
+  developer's computer, or through an OpenWrt-connected edge deployment. Each user
+  chooses the authorized devices where the work happens.
+- **Connected computers and Android phones.** Work with files, terminals, isolated
+  browsers and supported Android actions through Attached Computer and Mobile.
+  The Computer Runtime and Android app connect outbound to Cloud, without requiring
+  inbound SSH access to the devices.
+- **Python SDK and MCP integration.** Turn Python capabilities into callable agent
+  services. Keep your preferred model and agent framework while using Nexus for
+  serving, device access and user interaction.
+- **A built-in interface for every agent.** Private Display brings chat, progress,
+  plans, inline questions, browser views and file outputs into one place, reducing
+  the need to build a separate interaction UI for each agent.
+- **User-authorized execution.** Users explicitly attach devices and approve
+  requested permissions. Run-scoped delegation connects each invocation to the
+  appropriate caller, device and workspace.
+- **Execution history and observability.** Track runs, inspect errors, review
+  terminal output and retrieve generated artifacts. Supported workflows can
+  continue across turns while retaining their execution context.
+- **Model API routing.** Connect Providers and organize access through Execution
+  and Aggregation Routers, giving applications a consistent API for configured
+  models.
+- **Files and reusable Data Assets.** Import files and images, preview supported
+  formats and archive agent-generated outputs into Data Assets, with scanning
+  and access controls where configured.
+- **Agent distribution and monetization.** Publish agents through Marketplace and
+  support fixed or agent-reported pricing in the commercial edition.
+
+Marketplace, Organization access administration and billing are Enterprise
+capabilities; see [Community or Enterprise?](#community-or-enterprise). Device
+operations require compatible runtimes, working connectivity and explicit
+authorization.
+
+## Use cases
+
+| Use case | How Nexus helps |
+| --- | --- |
+| **File assistants for other people** | Deploy a report-writing agent once. Users attach their own computers and authorize a workspace to analyze spreadsheets or generate documents, without installing the agent itself. |
+| **Browser automation on the user's computer** | Navigate websites, fill forms and collect results in an isolated browser on the Attached Computer, with screenshots and progress visible in Private Display. |
+| **Computer-to-phone workflows** | Combine computer files and processing with authorized Android interactions—for example, prepare information on a computer and use it in a mobile workflow. |
+| **Developer and operations assistants** | Inspect an approved workspace, execute authorized commands, analyze logs and produce diagnostic reports while the user follows the work. |
+| **Edge-hosted agent services** | Keep an agent on a developer machine or an OpenWrt-connected network and make it available through Nexus without moving its application into a Cloud container. |
+| **Shared agent products** | In Enterprise, offer the same deployed agent to multiple users, with each caller supplying their own authorized devices, workspace and private interaction session. |
+| **A unified model access layer** | Bring configured model Providers behind Router APIs so applications use consistent endpoints while routing policies remain centrally managed. |
+
+**Nexus separates where an agent runs from where its users need work done.**
 
 ## Quick start
 
