@@ -12,7 +12,7 @@ import { AlertCircle, ChevronRight, Copy, Filter, KeyRound, Loader2, MonitorPlay
 import { toast } from "sonner";
 
 import { useAuth } from "../app/AuthContext";
-import { AgentMcpSetup } from "../components/AgentMcpSetup";
+import { AgentConnectPanel } from "../components/AgentConnectPanel";
 import { api, type ApiContext } from "../lib/api";
 
 import type { Agent, AgentDisplayRun, AgentLog, AgentMemoryItem, AgentMcpExport, AgentRuntimeDeployment, Job } from "../lib/types";
@@ -1566,9 +1566,7 @@ function AgentAccessModal({
   onClose: () => void;
 }) {
   useLocale();
-  const [plaintextKey, setPlaintextKey] = useState("");
   const managementCopy = useResourceManagementCopy();
-  const [mcpPayload, setMcpPayload] = useState<AgentMcpExport | null>(null);
 
   const logs = useQuery({
     queryKey: ["agent-logs", apiContext, agent.id],
@@ -1576,27 +1574,6 @@ function AgentAccessModal({
     enabled: Boolean(agent.id),
   });
 
-  const createKey = useMutation({
-    mutationFn: () => api.createAgentKey(apiContext, agent.id),
-    onSuccess: (key) => {
-      setPlaintextKey(key.plaintext_key);
-      exportMcp.mutate();
-      toast.success(t("Agent API key created"));
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : t("Failed to create key"),
-      ),
-  });
-
-  const exportMcp = useMutation({
-    mutationFn: () => api.exportAgentMcp(apiContext, agent.id),
-    onSuccess: setMcpPayload,
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : t("Failed to export MCP config"),
-      ),
-  });
 
   const logColumns = useMemo<Array<ColumnDef<AgentLog, unknown>>>(
     () => [
@@ -1623,38 +1600,12 @@ function AgentAccessModal({
       maxWidth="max-w-6xl"
     >
       <div className="grid gap-5">
-        {plaintextKey && (
-          <KeyResultCard
-            title={t("Save this agent key now")}
-            value={plaintextKey}
-            onDismiss={() => setPlaintextKey("")}
-          />
-        )}
-
-        <div className="grid gap-4">
-          <div className="rounded-md border border-line p-4">
-            <div className="mb-3 font-medium text-ink">{t("Scoped API key")}</div>
-            <button
-              className="btn"
-              onClick={() => createKey.mutate()}
-              disabled={createKey.isPending}
-            >
-              <KeyRound size={16} />{t("Create key")}</button>
-          </div>
-        </div>
-
-        <AgentMcpSetup
-          config={mcpPayload}
-          plaintextKey={plaintextKey}
-          loading={exportMcp.isPending}
-          onLoad={() => exportMcp.mutate()}
-          onForgetPlaintext={() => setPlaintextKey("")}
-        />
+        <AgentConnectPanel agentId={agent.id} apiContext={apiContext} />
 
         {(logs.data ?? []).length === 0 ? (
           <EmptyState
             title={t("No recent events")}
-            description={t(managementCopy.agentEventsEmpty)}
+            description={managementCopy.agentEventsEmpty}
           />
         ) : (
           <DataTable data={logs.data ?? []} columns={logColumns} />

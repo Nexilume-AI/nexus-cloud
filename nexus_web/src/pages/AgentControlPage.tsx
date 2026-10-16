@@ -53,7 +53,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "../app/AuthContext";
 import { StatusBadge } from "../components/Badge";
-import { AgentMcpSetup } from "../components/AgentMcpSetup";
+import { AgentConnectPanel } from "../components/AgentConnectPanel";
 import { AgentPythonSupply } from "../components/AgentPythonSupply";
 import { AgentRuntimeImages } from "../components/AgentRuntimeImages";
 import { ObservabilityPaging, useObservabilityPage } from "../components/ObservabilityPaging";
@@ -1270,119 +1270,12 @@ function AgentAccess({
   );
 }
 
-function AgentApiAccess({
-  agent,
-  apiContext,
-}: {
-  agent: Agent;
-  apiContext: ApiContextValue;
-}) {
+function AgentApiAccess({ agent, apiContext }: { agent: Agent; apiContext: ApiContextValue }) {
   useLocale();
   const { tenants, projects } = useAuth();
-  const [showKeyDialog, setShowKeyDialog] = useState(false);
-  const [plaintextKey, setPlaintextKey] = useState("");
-  const [mcpConfig, setMcpConfig] = useState<AgentMcpExport | null>(null);
-  const createKey = useMutation({
-    mutationFn: () => api.createAgentKey(apiContext, agent.id),
-    onSuccess: (key) => {
-      setPlaintextKey(key.plaintext_key);
-      exportMcp.mutate();
-      toast.success(t("Scoped API key created"));
-    },
-    onError: mutationError("Failed to create scoped API key"),
-  });
-  const exportMcp = useMutation({
-    mutationFn: () => api.exportAgentMcp(apiContext, agent.id),
-    onSuccess: setMcpConfig,
-    onError: mutationError("Failed to export MCP config"),
-  });
-  function closeKeyDialog() {
-    if (!createKey.isPending) {
-      setShowKeyDialog(false);
-    }
-  }
-  useEffect(() => {
-    setPlaintextKey("");
-    setMcpConfig(null);
-  }, [agent.id, apiContext.tenantId, apiContext.projectId]);
-  return (
-    <div className="grid gap-6">
-      <div className="agent-control-section">
-        <div className="agent-control-section__header">
-          <div>
-            <p className="agent-control-eyebrow">{t("Credential task")}</p>
-            <h2>{t("Scoped API key")}</h2>
-            <p>{t("The plaintext value is shown once and is never added to Agent logs or Display events.")}</p>
-          </div>
-          {canAgent(agent, "manage_access") && (
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowKeyDialog(true)}
-            >
-              <KeyRound size={15} />{t("Create key")}</button>
-          )}
-        </div>
-      </div>
-      <AgentMcpSetup
-        config={mcpConfig}
-        plaintextKey={plaintextKey}
-        loading={exportMcp.isPending}
-        onLoad={() => exportMcp.mutate()}
-        onForgetPlaintext={() => setPlaintextKey("")}
-        workspaceName={
-          tenants.find((tenant) => tenant.id === apiContext.tenantId)?.name
-        }
-        projectName={
-          projects.find((project) => project.id === apiContext.projectId)?.name
-        }
-      />
-      <NexilumeDialog
-        open={showKeyDialog}
-        title={plaintextKey ? t("Store this key now") : t("Create scoped API key")}
-        eyebrow={t("Access task")}
-        description={
-          plaintextKey
-            ? t("This is the only time Nexilume AI will show the plaintext key.")
-            : t("The new credential will be limited to this Agent.")
-        }
-        busy={createKey.isPending}
-        onClose={closeKeyDialog}
-        footer={
-          plaintextKey ? (
-            <button className="btn btn-primary" onClick={closeKeyDialog}>{t("I have stored the key")}</button>
-          ) : (
-            <>
-              <button className="btn" onClick={closeKeyDialog}>{t("Cancel")}</button>
-              <button
-                className="btn btn-primary"
-                onClick={() => createKey.mutate()}
-                disabled={createKey.isPending}
-              >
-                {createKey.isPending && (
-                  <Loader2 size={15} className="animate-spin" />
-                )}{t("Create key")}</button>
-            </>
-          )
-        }
-      >
-        {plaintextKey ? (
-          <div className="grid gap-3">
-            <code className="agent-code-block break-all">{plaintextKey}</code>
-            <button
-              className="btn w-fit"
-              onClick={() => copyText(plaintextKey)}
-            >
-              <Copy size={14} />{t("Copy key")}</button>
-          </div>
-        ) : (
-          <InlineNotice
-            title={t("One-time secret")}
-            detail={t("Creating a new key does not revoke previously issued credentials.")}
-          />
-        )}
-      </NexilumeDialog>
-    </div>
-  );
+  return <AgentConnectPanel agentId={agent.id} apiContext={apiContext}
+      workspaceName={tenants.find((tenant) => tenant.id === apiContext.tenantId)?.name}
+      projectName={projects.find((project) => project.id === apiContext.projectId)?.name} />;
 }
 
 function AgentComputerAccess({

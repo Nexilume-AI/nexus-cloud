@@ -1,168 +1,118 @@
 import { t, useLocale } from "../localization";
-import { useId } from "react";
-import { Copy, FileOutput, Loader2, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
-
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import type { AgentMcpExport } from "../lib/types";
+import { mcpClients, serializeClientConfig, type McpClient } from "../lib/agentMcpConfig";
+export { serializeClientConfig } from "../lib/agentMcpConfig";
 
-type AgentMcpSetupProps = {
+const CLIENT_PREFERENCE = "nexus.mcp.client";
+function preferredClient(): McpClient {
+  try {
+    const value = localStorage.getItem(CLIENT_PREFERENCE);
+    if (value && Object.hasOwn(mcpClients, value)) return value as McpClient;
+  } catch { /* Preference storage is optional. */ }
+  return "claude";
+}
+
+type Props = {
   config: AgentMcpExport | null;
   plaintextKey?: string;
   loading?: boolean;
+  error?: string;
   onLoad: () => void;
-  onForgetPlaintext?: () => void;
-  title?: string;
-  description?: string;
+  credentials?: ReactNode;
   workspaceName?: string;
   projectName?: string;
 };
 
-export function AgentMcpSetup({
-  config,
-  plaintextKey = "",
-  loading = false,
-  onLoad,
-  onForgetPlaintext,
-  title = t("MCP setup"),
-  description = t("Use the same caller-scoped configuration in any Streamable HTTP MCP client."),
-  workspaceName = "",
-  projectName = "",
-}: AgentMcpSetupProps) {
+export function AgentMcpSetup({ config, plaintextKey = "", loading = false, error = "", onLoad,
+  credentials, workspaceName = "", projectName = "" }: Props) {
   useLocale();
-  const titleId = useId();
-  const server = config ? Object.values(config.mcpServers)[0] : null;
-  const secureConfig = config ? serializeClientConfig(config) : "";
-  const readyConfig =
-    config && plaintextKey
-      ? serializeClientConfig(config, plaintextKey)
-      : "";
-  const scopeLabel =
-    config?.scope.kind === "project"
-      ? projectName || t("Current project")
-      : config?.scope.kind === "workspace"
-        ? workspaceName
-          ? t("{{0}} · Organization-wide", { 0: workspaceName })
-          : t("Organization-wide")
-        : t("Authentication required");
-
-  return (
-    <section className="agent-control-section" aria-labelledby={titleId}>
-      <div className="agent-control-section__header">
-        <div>
-          <p className="agent-control-eyebrow">{t("Client configuration")}</p>
-          <h2 id={titleId}>{title}</h2>
-          <p>{description}</p>
-        </div>
-        <button className="btn" onClick={onLoad} disabled={loading}>
-          {loading ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : (
-            <FileOutput size={15} />
-          )}
-          {config ? t("Refresh setup") : t("Load setup")}
-        </button>
-      </div>
-
-      {config && server ? (
-        <div className="grid gap-4">
-          <div className="grid gap-px border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
-            <McpFact label={t("Transport")} value={config.transport} />
-            <McpFact label={t("Scope")} value={scopeLabel} />
-            <McpFact label={t("Server")} value={config.server_name} mono />
-            <McpFact
-              label={t("Authentication")}
-              value={plaintextKey ? "One-time key ready" : "Environment variable"}
-            />
-          </div>
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">{t("Endpoint")}</span>
-            <code className="agent-code-block break-all">{server.url}</code>
-          </div>
-          <div className="grid gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="text-sm font-medium text-ink">{t("Secure configuration")}</div>
-                <div className="text-xs text-muted">{t("Set")}{" "}{config.credential.environment_variable}{" "}{t("before starting the client.")}</div>
-              </div>
-              <button className="btn" onClick={() => copyValue(secureConfig)}>
-                <Copy size={14} />{t("Copy secure config")}</button>
+  const id = useId();
+  const [client, setClient] = useState<McpClient>(preferredClient);
+  const [credentialMode, setCredentialMode] = useState("reference");
+  const [copyError, setCopyError] = useState(false);
+  const [copied, setCopied] = useState("");
+  const target = mcpClients[client];
+  const inline = credentialMode === "inline" && Boolean(plaintextKey) && !config?.template;
+  let content = "", configError = "";
+  try {
+    if (config) content = serializeClientConfig(config, inline ? plaintextKey : undefined, client);
+  } catch { configError = t("MCP configuration is unavailable. Reload setup and try again."); }
+  const unavailable = error || configError;
+  const scope = config?.scope.kind === "project"
+    ? [workspaceName, projectName || t("Current project")].filter(Boolean).join(" / ")
+    : config?.scope.kind === "workspace" ? workspaceName || t("Organization-wide") : t("Authentication required");
+  const copiedCurrent = Boolean(content) && copied === content;
+  useEffect(() => { setCopied(""); setCopyError(false); }, [plaintextKey, config]);
+  async function copyConfiguration() {
+    try { await navigator.clipboard.writeText(content); setCopyError(false); setCopied(content); }
+    catch { setCopyError(true); setCopied(""); }
+  }
+  function selectClient(value: McpClient) {
+    setClient(value); setCopied(""); setCopyError(false);
+    try { localStorage.setItem(CLIENT_PREFERENCE, value); } catch { /* Preference only. */ }
+  }
+  return <section className="min-w-0 rounded-xl border border-line bg-white" aria-labelledby={id + "-title"}>
+    <header className="border-b border-line px-4 py-4 sm:px-6">
+      <h2 id={id + "-title"} className="text-lg font-semibold text-ink">{t("Connect Agent")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("Use this Agent in your development tools.")}</p>
+    </header>
+    <div className="grid min-w-0 gap-4 p-4 sm:p-6">
+      <label className="grid gap-2 text-sm font-medium" htmlFor={id + "-client"}>{t("MCP client")}
+        <select id={id + "-client"} className="input min-h-11 w-full sm:max-w-sm" value={client}
+          onChange={event => selectClient(event.target.value as McpClient)}>
+          {Object.entries(mcpClients).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}
+        </select>
+      </label>
+      {loading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted" role="status">
+        <Loader2 size={16} className="animate-spin" />{t("Preparing configuration…")}</div>
+        : unavailable || !content ? <div className="grid min-h-48 content-center justify-items-start gap-3">
+          <p role="alert" className="text-sm text-danger">{unavailable || t("Could not prepare the connection. Try again.")}</p>
+          <button className="btn min-h-11" onClick={onLoad}>{t("Retry configuration")}</button>
+        </div> : <>
+          <div className="min-w-0 overflow-hidden rounded-lg border border-line">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-paper px-4 py-3 text-sm">
+              <code className="min-w-0 break-all">{target.path}</code><span className="text-xs text-muted">{target.format}</span>
             </div>
-            <pre className="agent-json-block">{secureConfig}</pre>
+            <pre className="m-0 max-h-56 min-h-40 max-w-full overflow-auto bg-white p-4 font-mono text-xs leading-6 text-ink sm:text-sm"
+              aria-label={t("Generated MCP configuration")} tabIndex={0}>{content}</pre>
           </div>
-          {readyConfig && (
-            <div className="grid gap-3 border-l-2 border-lume bg-[#f5f8dc] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-start gap-2">
-                  <ShieldCheck size={17} className="mt-0.5 text-ink" />
-                  <div>
-                    <div className="text-sm font-medium text-ink">{t("One-time ready configuration")}</div>
-                    <div className="text-xs leading-5 text-muted">{t("Contains the plaintext key. It exists only in this browser session.")}</div>
-                  </div>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => copyValue(readyConfig)}
-                >
-                  <Copy size={14} />{t("Copy ready config")}</button>
-                {onForgetPlaintext && (
-                  <button className="btn" onClick={onForgetPlaintext}>{t("Forget plaintext key")}</button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="agent-inline-help">{t("Load setup to generate a caller-scoped configuration. Organization and Project values are filled by Nexus.")}</p>
-      )}
-    </section>
-  );
-}
-
-function McpFact({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  useLocale();
-  return (
-    <div className="min-w-0 bg-paper p-3">
-      <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted">
-        {label}
-      </div>
-      <div
-        className={`mt-1 truncate text-sm font-medium text-ink ${mono ? "font-mono" : ""}`}
-        title={value}
-      >
-        {value}
+          <div className="sticky bottom-0 z-10 grid gap-3 border-t border-line bg-white py-3 sm:static sm:flex sm:items-end sm:justify-between">
+            <label className="grid gap-1 text-sm" htmlFor={id + "-credential"}>{t("Credential method")}
+              <select id={id + "-credential"} className="input min-h-11" value={inline ? "inline" : "reference"}
+                onChange={event => { setCredentialMode(event.target.value); setCopied(""); setCopyError(false); }}>
+                <option value="reference">{client === "vscode" ? t("Secure input prompt") : t("Environment variable")}</option>
+                <option value="inline" disabled={!plaintextKey || config?.template}>{t("Include API key")}</option>
+              </select>
+            </label>
+            <button className="btn btn-primary min-h-11 min-w-40 justify-center" onClick={() => void copyConfiguration()}>
+              {copiedCurrent ? <Check size={15} /> : <Copy size={15} />}{t(copiedCurrent ? "Configuration copied" : "Copy configuration")}
+            </button>
+          </div>
+          {copyError && <p role="alert" className="text-sm text-danger">{t("Copy failed. Select the configuration above and copy it manually.")}</p>}
+          <div className="grid gap-2 text-sm leading-6 text-muted">
+            {inline ? <p>{t("Contains your API key. Keep the copied configuration private.")}</p>
+              : <p>{client === "vscode" ? t("VS Code will ask for your API key when connecting.")
+                : t("Set {{0}} in the environment that launches your client, then restart it. A project .env file is not automatically loaded.", { 0: config!.credential.environment_variable })}</p>}
+            <p>{t("Merge into {{0}}, keep your other servers, then reload {{1}}.", { 0: target.path, 1: target.label })}{" "}
+              <a href={target.docs} target="_blank" rel="noreferrer" className="underline underline-offset-4">{t("Client documentation")}</a></p>
+            <p role="status">{config?.template ? t("Sign in and load setup again to include your Organization and Project.")
+              : t("Configuration prepared · Client connection not verified")}</p>
+          </div>
+        </>}
+      <div className="grid min-w-0 gap-3 border-t border-line pt-4">
+        {credentials}
+        {config && <p className="break-words text-sm text-muted" title={projectName || workspaceName}>{t("Access scope")}: {scope}</p>}
+        {config && <details className="min-w-0 text-sm text-muted">
+          <summary className="min-h-11 cursor-pointer py-3">{t("Connection details")}</summary>
+          <dl className="grid min-w-0 gap-2 py-2">
+            <div><dt>{t("Transport")}</dt><dd className="break-all font-mono">{config.transport}</dd></div>
+            <div><dt>{t("Server")}</dt><dd className="break-all font-mono">{config.server_name}</dd></div>
+            <div><dt>{t("Endpoint")}</dt><dd className="break-all font-mono">{Object.values(config.mcpServers)[0]?.url}</dd></div>
+          </dl>
+        </details>}
       </div>
     </div>
-  );
-}
-
-export function serializeClientConfig(
-  config: AgentMcpExport,
-  plaintextKey?: string,
-) {
-  const mcpServers = structuredClone(config.mcpServers);
-  if (plaintextKey) {
-    for (const server of Object.values(mcpServers)) {
-      if (
-        server.headers.Authorization ===
-        `Bearer ${config.credential.placeholder}`
-      ) {
-        server.headers.Authorization = `Bearer ${plaintextKey}`;
-      }
-    }
-  }
-  return JSON.stringify({ mcpServers }, null, 2);
-}
-
-async function copyValue(value: string) {
-  if (!value) return;
-  await navigator.clipboard.writeText(value);
-  toast.success(t("Copied"));
+  </section>;
 }
