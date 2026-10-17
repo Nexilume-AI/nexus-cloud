@@ -1,4 +1,5 @@
 import type { Messages } from "../model";
+import agentTraining from "./agent-training.json";
 import group0 from "./agent-chat-message-content.json";
 import group1 from "./agent-computer-attach-dialog.json";
 import group2 from "./agent-control-1.json";
@@ -185,4 +186,5 @@ export const messages: Messages = {
   ...group89,
   ...group90,
   ...group91,
+  ...agentTraining,
 };

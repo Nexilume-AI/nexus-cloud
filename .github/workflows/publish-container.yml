@@ -1,0 +1,54 @@
+name: Publish community container
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build reviewed tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          case "$RELEASE_TAG" in v[0-9]*) ;; *) exit 1;; esac
+          docker build -f deploy/community/Dockerfile \
+            --label org.opencontainers.image.source=https://github.com/Nexilume-AI/nexus-cloud \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            --label org.opencontainers.image.version="$RELEASE_TAG" \
+            -t "ghcr.io/nexilume-ai/nexus-cloud:$RELEASE_TAG" .
+      - name: Verify runtime and public distribution boundary
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          image="ghcr.io/nexilume-ai/nexus-cloud:$RELEASE_TAG"
+          docker run --rm --entrypoint python "$image" -c "import importlib.util, pathlib, nexus_personal; assert pathlib.Path('/opt/nexus/web/index.html').is_file(); assert all(importlib.util.find_spec(name) is None for name in ('nexus_enterprise','apps.billing','apps.iam','apps.marketplace','apps.api_keys'))"
+          docker run --rm --entrypoint python "$image" -m pip check
+          docker run --rm --entrypoint node "$image" --version
+      - name: Verify isolated Compose startup
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          export NEXUS_COMMUNITY_IMAGE="ghcr.io/nexilume-ai/nexus-cloud:$RELEASE_TAG"
+          trap 'docker compose -p nexus-release-check -f deploy/community/compose.yaml down --volumes' EXIT
+          docker compose -p nexus-release-check -f deploy/community/compose.yaml up -d --no-build --wait --wait-timeout 180
+          curl --fail --max-time 15 http://127.0.0.1:18090/api/v1/public/bootstrap/ > /dev/null
+      - name: Publish versioned image
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker push "ghcr.io/nexilume-ai/nexus-cloud:$RELEASE_TAG"
