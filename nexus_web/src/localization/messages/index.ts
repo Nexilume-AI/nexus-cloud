@@ -94,6 +94,7 @@ import group90 from "./tool-setup-panel.json";
 import group91 from "./tool-setup-pending-change.json";
 
 export const messages: Messages = {
+  ...agentTraining,
   ...group0,
   ...group1,
   ...group2,
@@ -186,5 +187,4 @@ export const messages: Messages = {
   ...group89,
   ...group90,
   ...group91,
-  ...agentTraining,
 };
