@@ -1,0 +1,44 @@
+name: Export verified container archive
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing verified container release tag
+        required: true
+        default: v2026.10.17-beta.1
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Export immutable tagged image
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}-beta\.[0-9]+$ ]]
+          revision="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          image="ghcr.io/nexilume-ai/nexus-cloud:$RELEASE_TAG"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker pull "$image"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$revision"
+          docker image inspect --format '{{json .RepoDigests}}' "$image" > IMAGE-DIGESTS.json
+          gh api orgs/Nexilume-AI/packages/container/nexus-cloud --jq '{name,visibility,html_url}' > PACKAGE-ACCESS.json
+          cat PACKAGE-ACCESS.json
+          docker save "$image" | gzip -n > "nexus-cloud-$RELEASE_TAG-linux-amd64.docker.tar.gz"
+          sha256sum "nexus-cloud-$RELEASE_TAG-linux-amd64.docker.tar.gz" IMAGE-DIGESTS.json PACKAGE-ACCESS.json > SHA256SUMS
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "Nexus Cloud $RELEASE_TAG" --notes 'Versioned community container; final installation notes follow artifact verification.'
+          fi
+          gh release upload "$RELEASE_TAG" "nexus-cloud-$RELEASE_TAG-linux-amd64.docker.tar.gz" SHA256SUMS IMAGE-DIGESTS.json PACKAGE-ACCESS.json
