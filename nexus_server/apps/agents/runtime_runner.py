@@ -14,7 +14,7 @@ from datetime import timedelta
 from collections.abc import Iterator
 from http.client import BadStatusLine, HTTPException, HTTPSConnection, RemoteDisconnected
 from socket import timeout as SocketTimeout
-from typing import Any
+from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
@@ -105,6 +105,7 @@ class RuntimeMCPStreamResult:
     status_code: int
     headers: dict[str, str]
     chunks: Iterator[bytes]
+    close: Callable[[], None] | None = None
 
 
 class AgentRuntimeConnectionFailed(exceptions.APIException):
@@ -681,7 +682,11 @@ class OpenWrtIPv6RuntimeRunner(BaseAgentRuntimeRunner):
             raise AgentRuntimeStreamingUnsupported("Legacy SSE is only available for Docker Agent runtimes.")
         connection, request_path, outbound_headers = self._connection(deployment=deployment, headers=headers, body=body,
             timeout=float(getattr(settings, "NEXUS_AGENT_STREAM_IDLE_TIMEOUT_SECONDS", 120)))
-        outbound_headers["Accept"] = "text/event-stream"
+        # The edge MCP adapter may answer a POST with JSON or SSE. Preserve
+        # both negotiated media types, including for initialization responses.
+        # Remove differently cased copies before adding the canonical header.
+        outbound_headers = {key: value for key, value in outbound_headers.items() if key.lower() != "accept"}
+        outbound_headers["Accept"] = "application/json, text/event-stream"
         try:
             connection.request(method.upper(), request_path, body=body if method.upper() not in {"GET", "HEAD"} else None, headers=outbound_headers)
             response = connection.getresponse()
@@ -800,7 +805,7 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
             return False
         return True
 
-    def call_mcp(self, *, deployment: AgentRuntimeDeployment, method: str, headers: dict[str, str], body: bytes, path: str = "", timeout: int | float | None = None) -> RuntimeMCPResult:
+    def call_mcp(self, *, deployment: AgentRuntimeDeployment, method: str, headers: dict[str, str], body: bytes, path: str = "", timeout: int | float | None = None, streaming: bool = False):
         if path:
             return _relay_mcp_error(None, -32601, "Legacy SSE is not supported by Relay Agents.", status=405)
         if method.upper() != "POST":
@@ -835,6 +840,10 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
                     tool["title"] = mapping["title"]
                 tools.append(tool)
             return _relay_mcp_result(request_id, {"tools": tools})
+        if rpc_method == "ping":
+            if not isinstance(request_id, (str, int)) or isinstance(request_id, bool):
+                return _relay_mcp_error(request_id, -32600, "A string or integer JSON-RPC id is required")
+            return _relay_mcp_result(request_id, {})
         if rpc_method != "tools/call":
             return _relay_mcp_error(request_id, -32601, "Method not found")
 
@@ -887,7 +896,7 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
         from .relay_services import relay_invoke
 
         timeout = float(getattr(settings, "NEXUS_EDGE_REQUEST_TIMEOUT_SECONDS", 30))
-        status_code, response_headers, response_body = relay_invoke(
+        response = relay_invoke(
             relay_id=registration.relay_id,
             target_router_id=registration.relay_router_id,
             target_agent=registration.origin,
@@ -896,26 +905,29 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
             task_id=task_id,
             body=envelope_body,
             timeout=timeout,
+            streaming=streaming,
         )
+        if streaming:
+            token = (params.get("_meta") or {}).get("progressToken") if isinstance(params.get("_meta") or {}, dict) else None
+            return _relay_stream_result(response, request_id, token)
+        status_code, response_headers, response_body = response
         if status_code < 200 or status_code >= 300:
             return _relay_gateway_error(request_id, status_code, response_body)
-        text_body = response_body.decode("utf-8", errors="replace")
-        result: dict[str, Any] = {
-            "content": [{"type": "text", "text": text_body}],
-            "isError": False,
-        }
-        content_type = next((value for key, value in response_headers.items() if key.lower() == "content-type"), "")
-        if "json" in content_type.lower() or text_body.lstrip().startswith(("{", "[")):
-            try:
-                structured = json.loads(text_body)
-            except json.JSONDecodeError:
-                structured = None
-            if isinstance(structured, dict):
-                result["structuredContent"] = structured
+        try:
+            result = _relay_tool_result(response_body, response_headers)
+        except ValueError:
+            return _relay_gateway_error(request_id, 502, b'{"code":"INVALID_MCP_TOOL_RESULT"}')
         return _relay_mcp_result(request_id, result)
 
     def stream_mcp(self, *, deployment: AgentRuntimeDeployment, method: str, headers: dict[str, str], body: bytes, path: str = "") -> RuntimeMCPStreamResult:
-        raise AgentRuntimeStreamingUnsupported("OpenWrt Relay v1 does not support MCP streaming.")
+        result = self.call_mcp(deployment=deployment, method=method, headers=headers,
+                               body=body, path=path, streaming=True)
+        if isinstance(result, RuntimeMCPStreamResult):
+            return result
+        if result.status_code == 200 and result.body:
+            return RuntimeMCPStreamResult(200, {"Content-Type": "text/event-stream"},
+                iter((b"event: message\ndata: " + result.body + b"\n\n",)))
+        return RuntimeMCPStreamResult(result.status_code, result.headers, iter((result.body,)))
 
     def _registration(self, deployment: AgentRuntimeDeployment):
         from .models import EdgeAgentRegistration
@@ -933,6 +945,117 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
         if registration.relay_id != registration.node.relay_id or registration.relay_assignment_id != registration.node.relay_assignment_id:
             raise exceptions.APIException("OpenWrt Relay assignment has changed; wait for registration renewal.")
         return registration
+
+
+def _relay_stream_result(response, request_id, progress_token=None) -> RuntimeMCPStreamResult:
+    """Translate incremental Nexus SSE to MCP; never collect the whole stream."""
+    status = response.status if getattr(response, "status", None) is not None else response.code
+    if status != 200 or "text/event-stream" not in response.headers.get("Content-Type", ""):
+        try:
+            error = _relay_gateway_error(request_id, status if status != 200 else 502, response.read(1048576))
+        finally:
+            response.close()
+        return RuntimeMCPStreamResult(error.status_code, error.headers, iter((error.body,)))
+
+    def chunks():
+        buffer = b""
+        lines = []
+        event_bytes = total = 0
+        terminal = False
+        read = getattr(response, "read1", response.read)
+        try:
+            while block := read(4096):
+                total += len(block)
+                if total > 1048576:
+                    raise ValueError("Relay SSE exceeds response bound")
+                buffer += block
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    line = line.rstrip(b"\r")
+                    event_bytes += len(line) + 1
+                    if event_bytes > 1048576:
+                        raise ValueError("Relay SSE event exceeds bound")
+                    if line:
+                        lines.append(line)
+                        continue
+                    event = b"message"
+                    data = []
+                    for item in lines:
+                        if item.startswith(b"event:"): event = item[6:].strip()
+                        elif item.startswith(b"data:"): data.append(item[5:].lstrip(b" "))
+                    lines = []
+                    event_bytes = 0
+                    if not data:
+                        yield b": relay-heartbeat\n\n"
+                        continue
+                    value = json.loads(b"\n".join(data))
+                    if terminal:
+                        raise ValueError("Relay SSE data after terminal result")
+                    if event == b"result":
+                        business = value.get("result", value)
+                        result = _relay_tool_result(_json_dumps(business), {"Content-Type": "application/json"})
+                        packet = {"jsonrpc": "2.0", "id": request_id, "result": result}
+                        terminal = True
+                    elif event == b"error":
+                        packet = {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32000, "message": "Agent stream failed", "data": value}}
+                        yield b"event: message\ndata: " + _json_dumps(packet) + b"\n\n"
+                        raise ValueError("Agent stream failed")
+                    elif event == b"progress" and progress_token is not None:
+                        packet = {"jsonrpc": "2.0", "method": "notifications/progress", "params": {**value, "progressToken": progress_token}}
+                    else:
+                        yield b": relay-event\n\n"
+                        continue
+                    yield b"event: message\ndata: " + _json_dumps(packet) + b"\n\n"
+            if buffer.strip() or lines or not terminal:
+                raise ValueError("Relay SSE ended without a complete result")
+        finally:
+            response.close()
+    return RuntimeMCPStreamResult(200, {"Content-Type": "text/event-stream", "Cache-Control": "no-store"}, chunks(), response.close)
+
+
+def _relay_tool_result(body: bytes, headers: dict[str, str]) -> dict[str, Any]:
+    """Same explicit SDK result contract as the Direct IPv6 C adapter."""
+    text = body.decode("utf-8", errors="replace")
+    result = {"content": [{"type": "text", "text": text}], "isError": False}
+    content_type = next((v for k, v in headers.items() if k.lower() == "content-type"), "")
+    if "json" not in content_type.lower() and not text.lstrip().startswith(("{", "[")):
+        return result
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return result
+    if not isinstance(value, dict):
+        return result
+    if "nexus_mcp_result_version" not in value:
+        result["structuredContent"] = value
+        return result
+    native = value.get("result")
+    if (set(value) != {"nexus_mcp_result_version", "result"}
+            or type(value["nexus_mcp_result_version"]) is not int or value["nexus_mcp_result_version"] != 1
+            or not isinstance(native, dict)
+            or set(native) - {"content", "isError", "structuredContent", "_meta"}
+            or not isinstance(native.get("content"), list) or len(native["content"]) > 256
+            or ("isError" in native and type(native["isError"]) is not bool)
+            or any(k in native and not isinstance(native[k], dict) for k in ("structuredContent", "_meta"))):
+        raise ValueError("Invalid native MCP result")
+    for block in native["content"]:
+        if not isinstance(block, dict):
+            raise ValueError("Invalid MCP content block")
+        kind = block.get("type")
+        if not isinstance(kind, str):
+            raise ValueError("Invalid MCP content type")
+        fields = {"text": ("text",), "image": ("data", "mimeType"),
+                  "audio": ("data", "mimeType"), "resource_link": ("uri", "name"), "resource": ()}.get(kind)
+        if fields is None or any(not isinstance(block.get(k), str) for k in fields):
+            raise ValueError("Invalid MCP content block")
+        if kind == "resource":
+            resource = block.get("resource")
+            if (not isinstance(resource, dict) or not isinstance(resource.get("uri"), str)
+                    or not any(isinstance(resource.get(k), str) for k in ("text", "blob"))):
+                raise ValueError("Invalid MCP resource")
+        if "annotations" in block and not isinstance(block["annotations"], dict):
+            raise ValueError("Invalid MCP annotations")
+    return native
 
 
 def _relay_mcp_result(request_id, result: dict[str, Any]) -> RuntimeMCPResult:
@@ -1472,6 +1595,7 @@ def _http_stream_request(
         status_code=response.status,
         headers={key: value for key, value in response.headers.items()},
         chunks=chunks(),
+        close=response.close,
     )
 
 

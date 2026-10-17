@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { Dataset } from "../lib/types";
 import type { DatasetPublicationPolicy } from "../app/resourcePublishing";
 
-export type CollectionStage = "collect" | "govern" | "release" | "distribute";
+export type CollectionStage = "collect" | "training" | "govern" | "release" | "distribute";
 
 export function DataStatus({
   label,

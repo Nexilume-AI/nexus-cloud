@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 import threading
@@ -1059,6 +1060,7 @@ def start_provider_runtime(*, request, runtime_id: str) -> ProviderRuntimeAccoun
         else:
             current.status = ProviderRuntimeAccount.STATUS_FAILED
         current.save(update_fields=["status", "last_error", "updated_at"])
+        _sync_provider_runtime_endpoint(runtime=current)
         runtime = current
     log_runtime_write(request=request, runtime=runtime, action="providers.runtime.start")
     if runtime.status == ProviderRuntimeAccount.STATUS_ACTIVE:
@@ -1101,12 +1103,33 @@ def restore_provider_runtime_processes() -> dict[str, int]:
 
 
 def _sync_provider_runtime_endpoint(*, runtime: ProviderRuntimeAccount) -> None:
-    runtime.sources.exclude(status=SoftDeleteModel.STATUS_DELETED).update(endpoint=runtime.internal_api_url)
+    # Only a managed process owns these addresses. Never copy a Direct API URL
+    # into unrelated accounts or relax outbound HTTPS/private-address policy.
+    if (runtime.runtime_type not in {ProviderRuntimeAccount.RUNTIME_CODEX_PROXY, ProviderRuntimeAccount.RUNTIME_CLIPROXYAPI}
+            or not runtime.internal_api_url
+            or runtime.status in {ProviderRuntimeAccount.STATUS_STOPPED, ProviderRuntimeAccount.STATUS_STOPPING, SoftDeleteModel.STATUS_DELETED}):
+        return
+    sources = runtime.sources.exclude(status=SoftDeleteModel.STATUS_DELETED)
+    changed_ids = list(sources.exclude(endpoint=runtime.internal_api_url).values_list("id", flat=True))
+    if changed_ids:
+        sources.filter(id__in=changed_ids).update(endpoint=runtime.internal_api_url)
     provider_account = runtime.provider_account
     if provider_account is not None and provider_account.account_id == f"runtime_{runtime.id}":
-        provider_account.url = runtime.internal_api_url
-        provider_account.encrypted_key = runtime.encrypted_proxy_api_key
-        provider_account.save(update_fields=["url", "encrypted_key", "updated_at"])
+        if provider_account.url != runtime.internal_api_url or provider_account.encrypted_key != runtime.encrypted_proxy_api_key:
+            provider_account.url = runtime.internal_api_url
+            provider_account.encrypted_key = runtime.encrypted_proxy_api_key
+            provider_account.save(update_fields=["url", "encrypted_key", "updated_at"])
+    if changed_ids:
+        logging.getLogger(__name__).info("Repaired Provider source endpoints runtime_id=%s sources=%s", runtime.id, len(changed_ids))
+        def recheck():
+            from apps.deployments.tasks import check_one_deployment_health
+            try:
+                for source_id in sources.filter(id__in=changed_ids, status=SoftDeleteModel.STATUS_ACTIVE).values_list("id", flat=True):
+                    check_one_deployment_health.delay(str(source_id))
+            except Exception:
+                # The periodic source health sweep is the durable fallback.
+                logging.getLogger(__name__).warning("Provider endpoint recheck dispatch deferred runtime_id=%s", runtime.id)
+        transaction.on_commit(recheck)
 
 
 def _provider_process_recovery_recommended(health) -> bool:
@@ -1484,6 +1507,10 @@ def _reconcile_provider_runtime(*, runtime_id, startup=False) -> _ProviderRecove
             source.last_login_error = reason
             source.save(update_fields=["login_status", "last_login_error", "updated_at"])
         locked.save(update_fields=["status", "last_error", "last_health_check_at", "updated_at"])
+        if next_status == ProviderRuntimeAccount.STATUS_ACTIVE:
+            # Also repair drift on already-running processes, not only restore.
+            # The runtime lock and observation fence above serialize Start/Stop.
+            _sync_provider_runtime_endpoint(runtime=locked)
         if next_status != ProviderRuntimeAccount.STATUS_ACTIVE and result is not None and not getattr(result, "inconclusive", False):
             locked.model_offers.exclude(status=SoftDeleteModel.STATUS_DELETED).update(
                 health_status=ProviderRuntimeModelOffer.HEALTH_UNHEALTHY,

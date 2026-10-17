@@ -318,7 +318,8 @@ def relay_runtime_status() -> dict[str, Any]:
     router_endpoint = _endpoint_descriptor(str(config.get("assignment_endpoint") or ""), scope="router")
     cloud_endpoint = _endpoint_descriptor(str(config.get("invoke_endpoint") or ""), scope="cloud_internal")
     probe_enabled = bool(getattr(settings, "NEXUS_RELAY_RUNTIME_PROBE", False))
-    router_healthy = not probe_enabled or _endpoint_accepting_connections(str(config.get("assignment_endpoint") or ""))
+    router_probe_endpoint = str(config.get("runtime_probe_endpoint") or config.get("assignment_endpoint") or "")
+    router_healthy = not probe_enabled or _endpoint_accepting_connections(router_probe_endpoint)
     cloud_healthy = not probe_enabled or _endpoint_accepting_connections(str(config.get("invoke_endpoint") or ""))
     return {
         "relay_id": relay_id,
@@ -443,7 +444,7 @@ def issue_forwarding_assertion(*, source_router_id: str, target_router_id: str, 
     return f"{signing_text}.{_b64(signature)}"
 
 
-def relay_invoke(*, relay_id: str, target_router_id: str, target_agent: str, tenant: str, intent: str, task_id: str, body: bytes, timeout: float) -> tuple[int, dict[str, str], bytes]:
+def relay_invoke(*, relay_id: str, target_router_id: str, target_agent: str, tenant: str, intent: str, task_id: str, body: bytes, timeout: float, streaming: bool = False):
     config = _relay_config(relay_id)
     source_router = str(getattr(settings, "NEXUS_RELAY_SOURCE_ROUTER_ID", "nexus-cloud"))
     source_agent = "service://nexus-server"
@@ -472,7 +473,7 @@ def relay_invoke(*, relay_id: str, target_router_id: str, target_agent: str, ten
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/vnd.nexus.agent-envelope+json",
-            "Accept": "application/json",
+            "Accept": "text/event-stream" if streaming else "application/json",
             "X-Nexus-Source-Router": source_router,
             "X-Nexus-Target-Router": target_router_id,
             "X-Nexus-Target-Agent": target_agent,
@@ -492,9 +493,14 @@ def relay_invoke(*, relay_id: str, target_router_id: str, target_agent: str, ten
     context.load_cert_chain(certfile=cert_file, keyfile=key_file)
     context.minimum_version = ssl.TLSVersion.TLSv1_3
     try:
-        with urlopen(request, timeout=timeout, context=context) as response:
+        response = urlopen(request, timeout=timeout, context=context)
+        if streaming:
+            return response  # Caller owns reads and close, including disconnect.
+        with response:
             return response.status, dict(response.headers.items()), response.read()
     except HTTPError as exc:
+        if streaming:
+            return exc
         return exc.code, dict(exc.headers.items()), exc.read()
     except (URLError, OSError, TimeoutError) as exc:
         raise exceptions.APIException(f"Nexus Relay request failed: {exc}") from exc

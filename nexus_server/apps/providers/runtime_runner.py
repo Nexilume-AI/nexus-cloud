@@ -564,6 +564,41 @@ class _NoHealthRedirect(HTTPRedirectHandler):
         return None
 
 
+def _cliproxy_auth_row_available(row: dict) -> bool:
+    if row.get("disabled") or row.get("unavailable"):
+        return False
+    if row.get("status") == "active":
+        return True
+    # CLIProxyAPI keeps the last per-request error in status/status_message,
+    # independently of its aggregate account availability. A request-level
+    # transport error must not retire a usable account or all of its models.
+    # Require explicit availability; missing/unknown state is not evidence.
+    if row.get("status") != "error" or row.get("unavailable") is not False:
+        return False
+    quota = row.get("quota", {})
+    if not isinstance(quota, dict) or quota.get("exceeded") or row.get("next_retry_after"):
+        return False
+    message = row.get("status_message")
+    if not isinstance(message, str):
+        return False
+    # Match Go's context.Canceled or url.Error wrapping it, not arbitrary text
+    # mentioning cancellation alongside a real auth/quota failure. Never echo it.
+    canceled = re.fullmatch(
+        r'(?:[A-Za-z]+ "[^"\r\n]+": )?context cancel(?:ed|led)', message.strip(), re.IGNORECASE,
+    )
+    # These diagnostics describe a failed stream, not invalid credentials.
+    # Full matches prevent an auth/quota error merely mentioning a stream from
+    # passing the check. Keep the availability/quota/cooldown guards above.
+    stream_interrupted = re.fullmatch(
+        r'stream error: stream ID [0-9]+; INTERNAL_ERROR; received from peer', message.strip(),
+    )
+    stream_incomplete = re.fullmatch(
+        r'(?:stream error: )?stream disconnected before completion: stream closed before response\.completed',
+        message.strip(),
+    )
+    return bool(canceled or stream_interrupted or stream_incomplete)
+
+
 def probe_cliproxyapi_auth_health(*, runtime) -> ProviderRuntimeHealthResult:
     """Read safe auth status, not the image-only fallback catalog or credentials.
 
@@ -611,7 +646,7 @@ def probe_cliproxyapi_auth_health(*, runtime) -> ProviderRuntimeHealthResult:
     except (ValueError, AttributeError, OSError, RemoteDisconnected):
         return unknown
     enabled = [row for row in rows if not row.get("disabled")]
-    if any(row.get("status") == "active" and not row.get("unavailable") for row in enabled):
+    if any(_cliproxy_auth_row_available(row) for row in enabled):
         return ProviderRuntimeHealthResult(True, False, "Provider sign-in is available.")
     expired = ("expired", "invalid_grant", "revoked", "refresh_token_reused", "reauth", "token_invalidated")
     if not enabled or all(any(code in str(row.get("status_message", "")).lower() for code in expired) for row in enabled):
@@ -774,7 +809,7 @@ def http_endpoint_reachable(*, url: str) -> bool:
 
 
 def http_status(*, url: str, headers: dict[str, str] | None = None, timeout: float = 2) -> tuple[int | None, str]:
-    request = Request(url, headers=headers or {}, method="GET")
+    request = Request(url, headers={"User-Agent": "Nexus/1.0", **(headers or {})}, method="GET")
     try:
         with urlopen(request, timeout=timeout) as response:
             # Health needs only the HTTP status, not a potentially large or

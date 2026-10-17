@@ -1,5 +1,6 @@
 import { t, useLocale, getLocale } from "../localization";
 import { DataAssetsWorkspace, DataLibraryNavigation } from "../components/DataLibrary";
+import { AgentTrainingWorkbench } from "../components/AgentTrainingWorkbench";
 import { LoadingState, ErrorState, datasetOwnershipLabel, humanizeLifecycle, Detail, formatBytes, downloadApiFile } from "../components/DataAssetPresentation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -207,7 +208,7 @@ function OwnedCollectionsWorkspace() {
 
   useEffect(() => {
     if (!selectedDataset) return;
-    setCollectionStage(collectionStageForDataset(selectedDataset, publishing?.datasetPolicy));
+    setCollectionStage(current => current === "training" ? current : collectionStageForDataset(selectedDataset, publishing?.datasetPolicy));
   }, [selectedDataset?.id, selectedDataset?.lifecycle_status, publishing?.datasetPolicy]);
 
   const datasetPull = useQuery({
@@ -771,6 +772,7 @@ function OwnedCollectionsWorkspace() {
               variant="stage"
               value={collectionStage}
               options={[
+                { value: "training", label: getLocale() === "zh-CN" ? "Agent 训练" : "Agent training", eyebrow: "ML" },
                 {
                   value: "collect",
                   label: t("Collect"),
@@ -799,6 +801,7 @@ function OwnedCollectionsWorkspace() {
               aria-labelledby={`data-asset-lifecycle-tab-${collectionStage}`}
               className="data-stage-panel"
             >
+              {collectionStage === "training" && <AgentTrainingWorkbench key={`${apiContext.tenantId}:${selectedDataset.id}`} ctx={apiContext} datasetId={selectedDataset.id} isPrivate={selectedDataset.visibility === "private"} canManage={!!selectedDataset.allowed_actions?.includes("import_asset")} />}
               {collectionStage === "collect" && (
                 <>
                   <StageHeading
@@ -2675,18 +2678,18 @@ function runLabel(run: AgentDisplayRun, mode: "trace" | "output" = "trace") {
 function traceRunReady(run: AgentDisplayRun | undefined) {
   return Boolean(
     run &&
-    run.status === "completed" &&
+    ["completed", "failed"].includes(run.status) &&
     run.redaction_status === "passed" &&
     run.latest_seq > 0,
   );
 }
 
 function traceRunCanRedact(run: AgentDisplayRun | undefined) {
-  return Boolean(run && run.status === "completed" && run.latest_seq > 0);
+  return Boolean(run && ["completed", "failed"].includes(run.status) && run.latest_seq > 0);
 }
 
 function traceRunBlockReason(run: AgentDisplayRun) {
-  if (run.status !== "completed") return t("run not completed");
+  if (!["completed", "failed"].includes(run.status)) return t("run not completed");
   if (run.redaction_status !== "passed") return t("redaction not passed");
   if (run.latest_seq <= 0) return t("no events");
   return t("not ready");

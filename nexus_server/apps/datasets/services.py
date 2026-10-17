@@ -454,6 +454,7 @@ def version_file_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(metadata, dict):
         return {}
     allowed_keys = {
+        "training",
         "source_type",
         "agent_id",
         "run_id",

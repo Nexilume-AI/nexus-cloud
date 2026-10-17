@@ -21,6 +21,59 @@ from apps.providers.tasks import refresh_active_provider_runtime_models, reconci
 
 
 class ProviderLifecycleRecoveryGuards:
+    def test_cancelled_cliproxy_request_keeps_account_available_and_clears_false_alarm(self):
+        self._assert_request_error_recovers_account("context canceled")
+
+    def test_incomplete_cliproxy_stream_recovers_account_and_schedules_model_verification(self):
+        self._assert_request_error_recovers_account(
+            "stream error: stream disconnected before completion: stream closed before response.completed"
+        )
+
+    def _assert_request_error_recovers_account(self, message):
+        import json
+        from io import BytesIO
+        from apps.providers import runtime_runner
+
+        account = ProviderAccount.objects.get(id=self.create_connection(engine="cliproxyapi", upstream="openai")["id"])
+        runtime = account.source_runtime_accounts.get()
+        runtime.internal_api_url = "http://127.0.0.1:31115/v1"
+        runtime.encrypted_proxy_api_key = encrypt_secret("fixture-managed-key")
+        offer = ProviderRuntimeModelOffer.objects.create(
+            runtime_account=runtime, upstream_model_id="known-model", health_status="healthy",
+            health_reason="Previously verified.",
+        )
+        payload = json.dumps({"files": [{"status": "error", "disabled": False,
+            "unavailable": False, "status_message": message}]}).encode()
+        with patch("apps.providers.runtime_services.get_provider_runtime_runner") as factory, \
+             patch.object(runtime_runner, "build_opener") as opener, \
+             patch("apps.providers.runtime_services.refresh_runtime_model_offers") as refresh:
+            runner = factory.return_value
+            runner.health_check.side_effect = runtime_runner.probe_cliproxyapi_auth_health
+            for previous in ("active", "unhealthy"):
+                with self.subTest(previous=previous):
+                    expected_health = "healthy" if previous == "active" else "unhealthy"
+                    offer.health_status = expected_health
+                    offer.save(update_fields=["health_status"])
+                    runtime.status = previous
+                    runtime.last_error = "PROVIDER_ACCOUNT_UNAVAILABLE" if previous == "unhealthy" else ""
+                    runtime.save()
+                    opener.return_value.open.return_value = BytesIO(payload)
+                    recovered = reconcile_provider_runtime_health(runtime_id=runtime.pk)
+                    self.assertEqual(recovered.status, "active")
+                    self.assertEqual(recovered.last_error, "")
+                    account.refresh_from_db()
+                    self.assertEqual(account.login_status, ProviderAccount.LOGIN_ACTIVE)
+                    self.assertEqual(account.last_login_error, "")
+                    self.assertEqual(decrypt_secret(recovered.encrypted_proxy_api_key), "fixture-managed-key")
+                    offer.refresh_from_db()
+                    self.assertEqual(offer.health_status, expected_health)
+                    self.assertEqual(offer.health_reason, "Previously verified.")
+            runner.restore.assert_not_called()
+            refresh.assert_not_called()
+        # Recovery schedules normal model verification, never a replay of the
+        # cancelled inference. A truly unhealthy model is not promoted here.
+        self.assertEqual(cache.get(f"nexus:providers:catalog:{runtime.pk}")["next_at"], 0)
+
     def test_verified_release_daemon_outage_at_initial_start_is_automatically_adopted_after_recovery(self):
         import json
         from types import SimpleNamespace

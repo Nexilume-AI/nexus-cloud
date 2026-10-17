@@ -3438,6 +3438,23 @@ def call_runtime_mcp_stream(
     api_key = getattr(request, "api_key", None)
     enforce_api_key_agent_policy(api_key=api_key, agent=agent)
     runtime = get_runtime_deployment(agent=agent, env="prod")
+    # Metadata requests can select JSON when the client accepts both formats.
+    # Tool calls continue through streaming run/billing setup exactly once.
+    if (
+        runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY
+        and method.upper() == "POST"
+        and not upstream_path
+        and _accepts_mcp_json_response(headers)
+        and not is_mcp_tool_call(body)
+    ):
+        result = call_runtime_mcp(
+            request=request, agent_id=agent_id, method=method, body=body,
+            headers=headers,
+        )
+        return RuntimeMCPStreamResult(
+            status_code=result.status_code, headers=result.headers,
+            chunks=iter((result.body,)),
+        )
     if upstream_path == "/messages/":
         upstream_path = prepare_legacy_sse_message_path(
             request=request,
@@ -3618,6 +3635,20 @@ def call_runtime_mcp_stream(
     )
     add_private_display_response_headers(response_headers=response_headers, run=display_run, context=display_context)
     return RuntimeMCPStreamResult(status_code=result.status_code, headers=response_headers, chunks=recording_chunks())
+
+
+def _accepts_mcp_json_response(headers: dict[str, str]) -> bool:
+    from django.http.request import MediaType
+
+    return any(
+        media.main_type == "application" and media.sub_type == "json"
+        and media.quality > 0
+        for media in (
+            MediaType(value.strip())
+            for value in _header_value(headers, "accept").split(",")
+            if value.strip()
+        )
+    )
 
 
 def pending_mcp_elicitation_chunks(

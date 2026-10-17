@@ -280,6 +280,69 @@ class ProviderCatalogReliabilityTests(SimpleTestCase):
             self.assertTrue(result.inconclusive)
             self.assertFalse(result.login_required)
 
+    @patch.object(rr, "build_opener")
+    def test_cliproxy_request_cancellation_is_not_account_unavailability(self, build):
+        self.runtime.encrypted_proxy_api_key = "encrypted"
+        for message in ("context canceled", "context cancelled",
+                        'Post "https://upstream.invalid/private-marker": context canceled'):
+            with self.subTest(message=message), patch.object(rr, "decrypt_secret", return_value="secret"):
+                rows = [{"status": "error", "disabled": False, "unavailable": False,
+                         "status_message": message}]
+                build.return_value.open.return_value = self.response(json.dumps({"files": rows}).encode())
+                result = rr.probe_cliproxyapi_auth_health(runtime=self.runtime)
+                self.assertTrue(result.healthy)
+                self.assertFalse(result.login_required)
+                self.assertFalse(result.recovery_recommended)
+                self.assertNotIn("private-marker", result.reason)
+
+    @patch.object(rr, "build_opener")
+    def test_cliproxy_interrupted_stream_recovers_only_explicitly_available_accounts(self, build):
+        self.runtime.encrypted_proxy_api_key = "encrypted"
+        messages = (
+            "stream error: stream ID 123; INTERNAL_ERROR; received from peer",
+            "stream error: stream disconnected before completion: stream closed before response.completed",
+            "stream disconnected before completion: stream closed before response.completed",
+        )
+        with patch.object(rr, "decrypt_secret", return_value="secret"):
+            for message in messages:
+                for change, expected in (
+                    ({}, True), ({"disabled": True}, False),
+                    ({"unavailable": True}, False), ({"unavailable": None}, False),
+                    ({"unavailable": "false"}, False), ({"status": "unknown"}, False),
+                    ({"quota": {"exceeded": True}}, False),
+                    ({"next_retry_after": "2099-01-01T00:00:00Z"}, False),
+                    ({"status_message": message + "; invalid_grant"}, False),
+                    ({"status_message": "quota exhausted: " + message}, False),
+                ):
+                    with self.subTest(message=message, change=change):
+                        row = {"status": "error", "disabled": False, "unavailable": False,
+                               "status_message": message, **change}
+                        build.return_value.open.return_value = self.response(json.dumps({"files": [row]}).encode())
+                        result = rr.probe_cliproxyapi_auth_health(runtime=self.runtime)
+                        self.assertEqual(result.healthy, expected)
+                        self.assertFalse(result.recovery_recommended)
+                        self.assertNotIn("response.completed", result.reason)
+
+    @patch.object(rr, "build_opener")
+    def test_cliproxy_cancellation_does_not_override_account_safety_signals(self, build):
+        self.runtime.encrypted_proxy_api_key = "encrypted"
+        changes = (
+            {"disabled": True}, {"status": "disabled"}, {"status": "unknown"},
+            {"unavailable": True}, {"unavailable": None}, {"unavailable": "false"},
+            {"quota": {"exceeded": True}}, {"next_retry_after": "2099-01-01T00:00:00Z"},
+            {"status_message": "quota exhausted"}, {"status_message": "credential expired"},
+            {"status_message": "invalid_grant: context canceled"},
+            {"status_message": "upstream connection failed"},
+        )
+        for change in changes:
+            with self.subTest(change=change), patch.object(rr, "decrypt_secret", return_value="secret"):
+                rows = [{"status": "error", "disabled": False, "unavailable": False,
+                         "status_message": "context canceled", **change}]
+                build.return_value.open.return_value = self.response(json.dumps({"files": rows}).encode())
+                result = rr.probe_cliproxyapi_auth_health(runtime=self.runtime)
+                self.assertFalse(result.healthy)
+                self.assertFalse(result.recovery_recommended)
+
     @patch("apps.providers.runtime_services.urlopen")
     def test_catalog_size_limit_retains_directory_without_retry(self, open_url):
         from apps.providers.runtime_services import discover_runtime_model_ids, ProviderRuntimeError

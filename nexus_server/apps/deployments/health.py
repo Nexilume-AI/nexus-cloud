@@ -24,6 +24,23 @@ class DeploymentHealthResult:
 
 
 def check_deployment_health(*, deployment: Deployment, actor=None, request=None, write_audit: bool = True) -> DeploymentHealthResult:
+    # A reachable process catalog does not prove a removed/failed model works.
+    # Retain the model probe's verdict until its own automatic retry succeeds.
+    runtime = deployment.provider_runtime
+    offer = deployment.runtime_model_offer
+    blocked_reason = ""
+    if runtime is not None and runtime.status != "active":
+        blocked_reason = "Provider Runtime is not active; automatic health checks will continue."
+    elif offer is not None and (offer.runtime_account_id != deployment.provider_runtime_id
+            or offer.upstream_model_id != deployment.upstream_model_id):
+        blocked_reason = "Provider Model Offer binding is inconsistent."
+    elif offer is not None and offer.status not in {"detected", "confirmed"}:
+        blocked_reason = "Provider Model Offer is unavailable or disabled; waiting for catalog recovery."
+    elif offer is not None and offer.health_status == Deployment.HEALTH_UNHEALTHY:
+        blocked_reason = offer.health_reason or "Provider Model Offer health verification failed."
+    if blocked_reason:
+        return record_deployment_health(deployment=deployment, status=Deployment.HEALTH_UNHEALTHY,
+            reason=blocked_reason, latency_ms=0, actor=actor, request=request, write_audit=write_audit, reset_failures=False)
     provider_result = OpenAICompatibleClient().check_health(deployment=deployment)
     if provider_result.healthy and provider_result.degraded:
         status = Deployment.HEALTH_DEGRADED
@@ -31,10 +48,14 @@ def check_deployment_health(*, deployment: Deployment, actor=None, request=None,
         status = Deployment.HEALTH_HEALTHY
     else:
         status = Deployment.HEALTH_UNHEALTHY
+    reason = provider_result.reason
+    if provider_result.healthy and offer is not None and offer.health_status in {Deployment.HEALTH_UNKNOWN, Deployment.HEALTH_DEGRADED}:
+        status = offer.health_status
+        reason = offer.health_reason or "Provider reachable; model verification is pending."
     return record_deployment_health(
         deployment=deployment,
         status=status,
-        reason=provider_result.reason,
+        reason=reason,
         latency_ms=provider_result.latency_ms,
         actor=actor,
         request=request,
@@ -131,4 +152,4 @@ def mark_deployment_runtime_failure(*, deployment: Deployment, reason: str) -> N
 
 
 def active_deployments_for_health_check():
-    return Deployment.objects.filter(status=SoftDeleteModel.STATUS_ACTIVE).select_related("tenant", "provider", "provider_account")
+    return Deployment.objects.filter(status=SoftDeleteModel.STATUS_ACTIVE).select_related("tenant", "provider", "provider_account", "provider_runtime", "runtime_model_offer")

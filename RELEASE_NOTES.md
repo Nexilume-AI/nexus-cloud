@@ -115,3 +115,27 @@ client-certificate and JWT rejection, credential reuse, and Relay restart.
 External router pairing and public ingress require the documented Edge mTLS and
 network setup. The Beta tag includes this previously published source;
 community-source-manifest.json still describes the initial exported release.
+
+
+## 2026-10-17 source update
+
+- Relay MCP supports JSON initialization and streamed tool progress/results,
+  preserves native MCP content and errors, and bounds larger responses. The
+  bundled Relay runtime is updated with credit-driven streaming; update external
+  OpenWrt/Relay components together.
+- Agent training Data Assets adds private trajectory ingestion, review,
+  immutable corrections and deterministic JSONL exports with authenticated
+  downloads. See `nexus_server/docs/agent-training-data.md`. Client-side capture
+  is explicit; this update does not start model training jobs.
+- Managed Provider endpoint synchronization repairs Router source port drift
+  after runtime restarts. Health checks isolate per-source failures and preserve
+  unavailable upstream model bindings for subsequent recovery checks.
+- Cancelled/incomplete client streams are distinguished from verified Provider
+  account failures.
+
+No database schema migration is required. Verified in the public Personal host:
+86 training/Provider/Router regression tests, six Relay negotiation/translation
+tests, and a production community frontend build. These SQLite tests supplement
+the deployment checks; they do not establish PostgreSQL concurrency behavior.
+`community-source-manifest.json` remains the initial export provenance; this
+incremental update is recorded by Git history.

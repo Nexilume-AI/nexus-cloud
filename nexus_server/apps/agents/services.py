@@ -1077,8 +1077,8 @@ def redact_display_run(*, request, agent_id: str, run_id: str) -> AgentDisplayRu
     run = agent.display_runs.filter(id=run_id).first()
     if run is None:
         raise exceptions.NotFound("Agent display run not found.")
-    if run.status != AgentDisplayRun.STATUS_COMPLETED:
-        raise exceptions.ValidationError("Agent display run must be completed before redaction.")
+    if run.status not in {AgentDisplayRun.STATUS_COMPLETED, AgentDisplayRun.STATUS_FAILED}:
+        raise exceptions.ValidationError("Agent display run must be terminal before redaction.")
     events = run.events.order_by("seq")
     if not events.exists():
         raise exceptions.ValidationError("Agent display run has no events to redact.")

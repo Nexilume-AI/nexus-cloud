@@ -49,8 +49,8 @@ def export_agent_trace_to_dataset(
     if run is None:
         raise exceptions.NotFound("Agent display run not found.")
     check_export_source(request=request, agent=agent, run=run)
-    if run.status != AgentDisplayRun.STATUS_COMPLETED:
-        raise exceptions.ValidationError("Agent display run must be completed before trace export.")
+    if run.status not in {AgentDisplayRun.STATUS_COMPLETED, AgentDisplayRun.STATUS_FAILED}:
+        raise exceptions.ValidationError("Agent display run must be terminal before trace export.")
     if run.redaction_status != AgentDisplayRun.REDACTION_PASSED:
         raise exceptions.ValidationError("Agent display run must pass system redaction before export.")
     events = run.events.order_by("seq")
@@ -82,6 +82,7 @@ def export_agent_trace_to_dataset(
             "run_id": str(run.id),
             "runtime_id": str(run.runtime_id or ""),
             "event_count": events.count(),
+            "execution_status": run.status,
             "export_format": "jsonl",
             "redaction_status": run.redaction_status,
             "redaction_metadata": run.redaction_metadata,
