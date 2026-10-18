@@ -1557,6 +1557,22 @@ class AgentRunInteraction(models.Model):
         ]
 
 
+class AgentCredentialAuthorization(models.Model):
+    """Caller-scoped provider secret. Never serialize encrypted_secret to Run traces."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    run = models.ForeignKey(AgentDisplayRun, on_delete=models.CASCADE, related_name="credential_authorizations")
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    provider = models.CharField(max_length=32)
+    status = models.CharField(max_length=16, default="pending")
+    encrypted_secret = models.TextField(blank=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["run", "provider"], name="agent_credential_run_provider")]
+
+
 class AgentRunCheckpoint(models.Model):
     run = models.OneToOneField(AgentDisplayRun, on_delete=models.CASCADE, related_name="checkpoint")
     stage = models.CharField(max_length=128)
