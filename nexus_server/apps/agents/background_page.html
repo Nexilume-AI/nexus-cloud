@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Agent task — Nexus Cloud</title>
+<style nonce="__NONCE__">
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#202938;background:#f7f8fa;color-scheme:light;font-synthesis:none}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;padding:0 28px}button,a{-webkit-tap-highlight-color:transparent}button,a.button{font:inherit;font-size:13px;font-weight:550;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:9px 14px;background:#fff;border:1px solid #dce1e8;border-radius:9px;color:#465163;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s}button:hover,a.button:hover{background:#f5f7fa;border-color:#bfc8d5}button:disabled{opacity:.5;cursor:default}:focus-visible{outline:3px solid #93b3f7;outline-offset:3px}svg{flex-shrink:0}main{max-width:1100px;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:25px 0;border-bottom:1px solid #e5e8ee}.brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:650;letter-spacing:-.02em}.brand-mark{display:grid;place-items:center;width:25px;height:25px;color:#fff;background:#283a58;border-radius:7px}.private{display:flex;align-items:center;gap:6px;color:#6a7688;font-size:12px}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:36px 0 25px}.eyebrow{font-size:11px;letter-spacing:.12em;font-weight:600;color:#6b778a;text-transform:uppercase}h1{font-size:30px;line-height:1.25;font-weight:650;letter-spacing:-.04em;margin:8px 0}.subtitle{font-size:14px;color:#687587;margin:0;line-height:1.6}#cancel:not(:disabled):hover{border-color:#e3b7b5;background:#fff5f4;color:#a33d36}.summary{display:grid;grid-template-columns:1.25fr 1fr 1fr;background:white;border:1px solid #e1e5ec;border-radius:13px;margin-bottom:24px;padding:20px 0}.metric{padding:0 24px;min-width:0}.metric+.metric{border-left:1px solid #e9ecf1}.label{display:block;font-size:12px;color:#687587;margin-bottom:9px}.metric strong{font-size:23px;font-weight:550;line-height:1.4;letter-spacing:-.035em;font-variant-numeric:tabular-nums}.status{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;line-height:1.5;padding:5px 10px;border-radius:6px;background:#f0f2f6;color:#586579}.status:before,.connection:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}.status[data-tone=active]{background:#edf3ff;color:#3864bd}.status[data-tone=success]{background:#eaf6ef;color:#28734e}.status[data-tone=error]{background:#fff0ee;color:#ad433b}.status[data-tone=warning]{background:#fff5e4;color:#95651b}.grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;margin-bottom:20px}.card{background:#fff;border:1px solid #e1e5ec;border-radius:13px;overflow:hidden;min-width:0}.card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:19px 22px;border-bottom:1px solid #edf0f4;min-height:63px}h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.015em}.connection{display:flex;align-items:center;gap:6px;font-size:11px;color:#6b778a}.connection[data-tone=live]{color:#28734e}.connection[data-tone=error]{color:#a66b24}.output{display:flex;flex-direction:column}.console{position:relative;flex:1;background:#172131;padding:20px 22px;min-height:330px}.log-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:25px;color:#9cabbf;font-size:12px;text-align:center;pointer-events:none}.log-empty svg{color:#687d98;margin-bottom:3px}.log-empty strong{font-weight:500;font-size:13px;color:#c5d0df}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.85 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;margin:0;height:290px;overflow:auto;color:#d2dce9;tab-size:2;scrollbar-color:#506078 transparent}pre:focus-visible{outline-offset:6px}.output-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 22px;font-size:11px;color:#6b778a;min-height:48px}.text-button{padding:4px 8px;min-height:28px;font-size:11px;border-color:transparent;color:#3864bd}
+#timeline{list-style:none;padding:22px;margin:0;height:378px;overflow:auto;scrollbar-color:#d2dae5 transparent}#timeline li{position:relative;border-left:1px solid #e2e7ee;padding:0 0 23px 18px;margin-left:4px;overflow-wrap:anywhere;font-size:12px;line-height:1.6;color:#465163}#timeline li:before{content:"";position:absolute;width:7px;height:7px;top:6px;left:-4px;border-radius:50%;background:#b6c3d6;box-shadow:0 0 0 4px #fff}#timeline li:last-child{border-color:transparent;padding-bottom:0}#timeline li:last-child:before{background:#5179ba}#timeline #empty{border:0;padding:0;margin:0;color:#758195}#timeline #empty:before{display:none}time{display:block;font-size:10px;color:#778497;font-variant-numeric:tabular-nums;margin-top:3px}.count{font-size:11px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;background:#f1f4f8;color:#687587;border-radius:5px;padding:0 6px;margin-left:7px}.artifacts .card-heading{border-bottom:0}.artifact-hint{margin:0;padding:0 22px 20px;color:#6b778a;font-size:12px;line-height:1.6}#files{list-style:none;margin:0;padding:0 22px}#files li{display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid #edf0f4;padding:15px 0}.file-info{display:flex;align-items:center;gap:12px;min-width:0}.file-icon{display:grid;place-items:center;flex-shrink:0;width:35px;height:39px;border:1px solid #e4e9ef;border-radius:7px;color:#71829a;background:#f8fafc;font-size:10px;font-weight:600}.file-name{display:block;font-size:12px;color:#344155;overflow-wrap:anywhere;line-height:1.6}.file-size{font-size:11px;color:#778497}.download{font-size:12px;color:#3864bd;text-decoration:none;min-height:40px;display:inline-flex;align-items:center;gap:7px;flex-shrink:0}.download:hover{text-decoration:underline}.muted{color:#6b778a;font-size:12px}#error{font-size:13px;line-height:1.6;color:#a33d36;background:#fff2f0;border:1px solid #f0d5d1;border-radius:10px;padding:12px 16px;margin:0 0 20px;overflow-wrap:anywhere}#error:empty{display:none}#login{background:#fff;border:1px solid #e1e5ec;border-radius:10px;padding:16px;margin:0 0 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.footer{display:flex;justify-content:space-between;gap:16px;padding:22px 2px 30px;color:#758195;font-size:11px;line-height:1.7}
+@media(max-width:800px){.grid{grid-template-columns:minmax(0,1fr)}#timeline{height:auto;max-height:260px}.heading{padding-top:28px}.console{min-height:300px}pre{height:260px}}
+@media(max-width:480px){body{padding:0 16px}.topbar{padding:19px 0}.private{font-size:11px}.heading{gap:12px;align-items:flex-start}h1{font-size:25px}.subtitle{font-size:12px}.heading button{padding:8px 10px;font-size:12px;flex-shrink:0;margin-top:22px}.summary{padding:17px 0;grid-template-columns:1.2fr .85fr 1fr}.metric{padding:0 12px}.metric strong{font-size:21px}.label{font-size:10px}.status{font-size:10px;padding:5px 7px;gap:5px}.card-heading{padding:16px}.console{padding:16px}.output-footer{padding:10px 16px;flex-wrap:wrap}.connection{font-size:10px}#timeline{padding:19px}.artifact-hint{padding:0 16px 17px}#files{padding:0 16px}#files li{gap:12px}.file-info{gap:9px}.footer{flex-direction:column;gap:4px}}
+@media(prefers-reduced-motion:reduce){button,a.button{transition:none}}
+</style>
+</head>
+<body><main>
+<div class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V5l12 10V5"/></svg></span>Nexus Cloud</div><span class="private"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private task</span></div>
+<header class="heading"><div><div class="eyebrow">Agent workspace</div><h1>Atrex optimization</h1><p class="subtitle">Follow your task, from execution to results.</p></div><button id="cancel" disabled>Cancel task</button></header>
+<p id="error" role="alert"></p>
+<div id="login" hidden><a class="button" href="/" target="_blank" rel="noopener noreferrer">Sign in to Nexus Cloud ↗</a><button id="retry">Reconnect</button><span class="muted">Use the account that started this task.</span></div>
+<section class="summary" aria-label="Task summary"><div class="metric"><span class="label">Status</span><span id="status" class="status" role="status">Connecting</span></div><div class="metric"><span class="label">Elapsed time</span><strong id="elapsed">—</strong></div><div class="metric"><span class="label">Model requests</span><strong id="requests">0</strong></div></section>
+<div class="grid">
+<section class="card output" aria-labelledby="outputTitle"><div class="card-heading"><h2 id="outputTitle">Live output</h2><span id="connection" class="connection" role="status">Connecting</span></div><div class="console"><div id="logEmpty" class="log-empty"><svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 5 5-5 5m8 0h6"/></svg><strong>Waiting for output</strong><span>Logs will appear as the task runs.</span></div><pre id="logs" tabindex="0" aria-label="Task output"></pre></div><div class="output-footer"><span>Recent output · full log available in files</span><button id="latest" class="text-button" hidden>Jump to latest ↓</button></div></section>
+<section class="card" aria-labelledby="timelineTitle"><div class="card-heading"><h2 id="timelineTitle">Activity</h2><span class="muted">Timeline</span></div><ul id="timeline"><li id="empty">Your task’s progress will appear here.</li></ul></section>
+</div>
+<section class="card artifacts" aria-labelledby="filesTitle"><div class="card-heading"><h2 id="filesTitle">Files <span id="fileCount" class="count">0</span></h2></div><p id="artifactHint" class="artifact-hint">Results and logs will be available here when the task finishes.</p><ul id="files"></ul></section>
+<footer class="footer"><span>Only accessible to the account that started this task.</span><span>Updates appear automatically.</span></footer>
+</main>
+<script nonce="__NONCE__">
+const el=id=>document.getElementById(id),base=location.pathname.replace(/page\/$/,''),terminal=new Set(['succeeded','failed','cancelled','timed_out','authorization_expired','interrupted']);
+const labels={queued:'Queued',running:'Running',succeeded:'Completed',failed:'Failed',cancelled:'Cancelled',timed_out:'Timed out',authorization_expired:'Access expired',interrupted:'Interrupted'};
+let source=null,last=0,current={},lines=0,cancelRequested=false,followLogs=true;
+function connection(text,tone=''){el('connection').textContent=text;el('connection').dataset.tone=tone;}
+function summary(){
+ const status=current.status;el('status').textContent=labels[status]||status?.replaceAll('_',' ')||'Waiting';
+ el('status').dataset.tone=status==='succeeded'?'success':['failed','timed_out','authorization_expired','interrupted'].includes(status)?'error':status==='cancelled'?'warning':status==='running'?'active':'';
+ el('requests').textContent=String(current.model_requests||0);
+ el('cancel').disabled=!status||terminal.has(status)||cancelRequested;
+ el('cancel').hidden=terminal.has(status);el('cancel').textContent=cancelRequested?'Cancelling…':'Cancel task';elapsed();
+}
+function size(bytes){return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';}
+function apply(value){
+ current=value.state||current;cancelRequested=Boolean(value.cancel_requested);summary();
+ const ready=new Map((value.artifacts||[]).map(item=>[item.path,item]));el('files').replaceChildren();
+ el('fileCount').textContent=String((current.artifacts||[]).length);
+ for(const item of current.artifacts||[]){
+  const li=document.createElement('li'),info=document.createElement('div'),icon=document.createElement('span'),label=document.createElement('div'),name=document.createElement('span'),bytes=document.createElement('span');
+  info.className='file-info';icon.className='file-icon';icon.setAttribute('aria-hidden','true');icon.textContent='FILE';name.className='file-name';name.textContent=item.path;bytes.className='file-size';bytes.textContent=size(item.bytes);label.append(name,bytes);info.append(icon,label);li.append(info);
+  if(ready.has(item.path)){const a=document.createElement('a');a.className='download';a.href=base+'download/?path='+encodeURIComponent(item.path);a.textContent='Download ↓';a.setAttribute('aria-label','Download '+item.path);li.append(a);}else{const pending=document.createElement('span');pending.textContent='Uploading…';pending.className='muted';li.append(pending);}el('files').append(li);
+ }
+ el('artifactHint').textContent=current.delivery_complete?((current.artifacts||[]).length?'Your files are ready to download.':'This task did not produce any files.'):terminal.has(current.status)?'Preparing available files for download.':'Results and logs will be available here when the task finishes.';
+ if(current.delivery_complete){connection('Up to date');source?.close();}
+ if(terminal.has(current.status)&&!el('logs').textContent)el('logEmpty').querySelector('span').textContent='No output received for this task.';
+}
+function elapsed(){if(current.created_at){const seconds=Math.max(0,Math.floor((current.finished_at||Date.now()/1000)-current.created_at));el('elapsed').textContent=seconds>=3600?Math.floor(seconds/3600)+'h '+Math.floor(seconds%3600/60)+'m':Math.floor(seconds/60)+'m '+seconds%60+'s';}}
+function event(value){
+ if(value.seq<=last)return;last=value.seq;
+ if(value.kind==='log'){
+  const logs=el('logs');logs.textContent=(logs.textContent+value.data.text).slice(-65536);el('logEmpty').hidden=Boolean(logs.textContent);
+  if(followLogs)logs.scrollTop=logs.scrollHeight;el('latest').hidden=followLogs;
+ }
+ if(value.kind==='state'||value.kind==='stage'){
+  const d=value.data;let text=value.kind==='stage'?d.name.replaceAll('_',' '):d.status?labels[d.status]||d.status.replaceAll('_',' '):d.model_requests?'Model request '+d.model_requests:d.last_provider_http_status?'Provider HTTP '+d.last_provider_http_status:d.error||'';
+  if(text){el('empty').hidden=true;const li=document.createElement('li'),t=document.createElement('time');t.textContent=new Date(value.time*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});li.append(document.createTextNode(text.charAt(0).toUpperCase()+text.slice(1)),t);el('timeline').append(li);if(++lines>200)el('timeline').children[1]?.remove();el('timeline').scrollTop=el('timeline').scrollHeight;}
+  current={...current,...d};summary();
+ }
+}
+async function api(body){const csrf=(document.cookie.split('; ').find(v=>v.startsWith('csrftoken='))||'').split('=').slice(1).join('=');const r=await fetch(base,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRFToken':decodeURIComponent(csrf)},body:body?JSON.stringify(body):undefined});if(!r.ok){el('login').hidden=false;throw Error('Task unavailable. Sign in as its owner and reconnect.');}const value=await r.json();return value.data||value;}
+async function connect(){
+ source?.close();el('error').textContent='';connection('Connecting');
+ try{const value=await api();el('login').hidden=true;apply(value);
+  source=new EventSource(base+'events/?after='+last);source.onopen=()=>connection(current.delivery_complete?'Task history':'Live',current.delivery_complete?'':'live');
+  source.addEventListener('job',e=>event(JSON.parse(e.data)));source.addEventListener('snapshot',e=>apply(JSON.parse(e.data)));source.onerror=()=>connection('Reconnecting','error');
+ }catch(e){el('error').textContent=e.message;connection('Not connected','error');}
+}
+el('cancel').onclick=async()=>{el('cancel').disabled=true;try{apply(await api({action:'cancel'}));}catch(e){el('error').textContent=e.message;summary();}};
+el('logs').addEventListener('scroll',()=>{const logs=el('logs');followLogs=logs.scrollHeight-logs.scrollTop-logs.clientHeight<32;el('latest').hidden=followLogs;});
+el('latest').onclick=()=>{followLogs=true;el('logs').scrollTop=el('logs').scrollHeight;el('latest').hidden=true;};
+el('retry').onclick=connect;setInterval(elapsed,1000);addEventListener('pagehide',()=>source?.close());void connect();
+</script>
+</body>
+</html>

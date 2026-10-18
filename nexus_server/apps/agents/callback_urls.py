@@ -1,4 +1,5 @@
 from django.urls import path
+from .background_views import RegisterJobView, IngestView, CommandView, UploadView
 from .credential_views import InternalCredentialRequestView, InternalCredentialDetailView
 from .callback_views import (
     InternalAgentRunContextExchangeView,
@@ -29,6 +30,10 @@ from .callback_views import (
 )
 
 urlpatterns = [
+    path("internal/agent-runs/<uuid:run_id>/interactions/background-jobs/", RegisterJobView.as_view()),
+    path("agent-background-jobs/<uuid:job_id>/ingest/", IngestView.as_view()),
+    path("agent-background-jobs/<uuid:job_id>/commands/", CommandView.as_view()),
+    path("agent-background-jobs/<uuid:job_id>/artifacts/", UploadView.as_view()),
     path("internal/agent-runs/<uuid:run_id>/interactions/credentials/", InternalCredentialRequestView.as_view()),
     path("internal/agent-runs/<uuid:run_id>/interactions/credentials/<uuid:authorization_id>/", InternalCredentialDetailView.as_view()),
     path(
