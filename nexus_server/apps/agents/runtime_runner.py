@@ -898,7 +898,10 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
                 "exchange_url": exchange_url,
                 "exchange_token": exchange_token,
             }
-        envelope_body = _json_dumps(envelope)
+        # Some deployed Router JSON parsers reject raw non-ASCII string bytes
+        # during signed target validation. JSON escapes preserve tool arguments
+        # while keeping the signed wire representation compatible with them.
+        envelope_body = json.dumps(envelope, separators=(",", ":"), ensure_ascii=True).encode("ascii")
         from .relay_services import relay_invoke
 
         timeout = float(getattr(settings, "NEXUS_EDGE_REQUEST_TIMEOUT_SECONDS", 30))

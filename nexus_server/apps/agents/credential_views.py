@@ -39,7 +39,7 @@ class InternalCredentialRequestView(NoStoreView):
     permission_classes = [AllowAny]
     authentication_classes = []
     def post(self, request, run_id):
-        return Response(credentials.request_authorization(run_id, interaction_token(request), request.data.get('provider')))
+        return Response(credentials.request_authorization(run_id, interaction_token(request), request.data.get('provider'), request.data.get('base_url'), request.data.get('model'), request.data.get('force_new',False)))
 
 
 class InternalCredentialDetailView(NoStoreView):
@@ -54,6 +54,6 @@ class InternalCredentialDetailView(NoStoreView):
 @method_decorator(sensitive_post_parameters('secret'), name='dispatch')
 class CredentialAuthorizationView(NoStoreView):
     def get(self, request, authorization_id):
-        return Response(credentials.public(credentials.browser_row(request, authorization_id)))
+        return Response(credentials.browser_details(credentials.browser_row(request, authorization_id)))
     def post(self, request, authorization_id):
         return Response(credentials.decide(request, authorization_id))

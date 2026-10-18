@@ -1563,6 +1563,11 @@ class AgentCredentialAuthorization(models.Model):
     run = models.ForeignKey(AgentDisplayRun, on_delete=models.CASCADE, related_name="credential_authorizations")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     provider = models.CharField(max_length=32)
+    base_url = models.CharField(max_length=2048, blank=True)
+    model_name = models.CharField(max_length=128, blank=True)
+    source_grant = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='derived_grants')
+    router_id = models.UUIDField(null=True, blank=True)
+    issued_key_id = models.UUIDField(null=True, blank=True, unique=True)
     status = models.CharField(max_length=16, default="pending")
     encrypted_secret = models.TextField(blank=True)
     expires_at = models.DateTimeField()
@@ -1838,6 +1843,34 @@ class AgentModelUsage(models.Model):
         indexes = [
             models.Index(fields=["run", "turn_index", "created_at"], name="agent_usage_run_turn_idx"),
         ]
+
+
+class AgentBackgroundJob(models.Model):
+    """Caller-bound background telemetry; its token cannot invoke models or read files."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    authorization = models.ForeignKey(AgentCredentialAuthorization, on_delete=models.CASCADE)
+    request_id = models.UUIDField()
+    push_secret = models.TextField()
+    expires_at = models.DateTimeField()
+    last_seq = models.PositiveIntegerField(default=0)
+    byte_count = models.PositiveIntegerField(default=0)
+    state = models.JSONField(default=dict)
+    artifacts = models.JSONField(default=dict)
+    cancel_requested = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['authorization', 'request_id'], name='agent_bg_request_unique')]
+
+
+class AgentBackgroundEvent(models.Model):
+    job = models.ForeignKey(AgentBackgroundJob, on_delete=models.CASCADE, related_name='events')
+    seq = models.PositiveIntegerField()
+    payload = models.JSONField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['job', 'seq'], name='agent_bg_event_unique')]
+        ordering = ['seq']
 
 
 def __getattr__(name):

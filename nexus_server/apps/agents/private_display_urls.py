@@ -1,5 +1,6 @@
 """Shared caller-only Run presentation URLs."""
 from django.urls import path
+from .background_views import job_page, JobView, EventsView, DownloadView
 from .credential_views import CredentialAuthorizationView, authorization_page
 from .private_display_views import (
     PrivateAgentRunDisplayView,
@@ -14,6 +15,10 @@ from .display_token_views import PrivateAgentRunDisplayTokenView
 from .run_history import PrivateRunReadView
 
 urlpatterns = [
+    path("agent-background-jobs/<uuid:job_id>/page/", job_page),
+    path("agent-background-jobs/<uuid:job_id>/", JobView.as_view()),
+    path("agent-background-jobs/<uuid:job_id>/events/", EventsView.as_view()),
+    path("agent-background-jobs/<uuid:job_id>/download/", DownloadView.as_view()),
     path("agent-authorizations/<uuid:authorization_id>/page/", authorization_page),
     path("agent-authorizations/<uuid:authorization_id>/", CredentialAuthorizationView.as_view()),
     path("agent-runs/<uuid:run_id>/read/", PrivateRunReadView.as_view(), name="private-agent-run-read"),

@@ -3665,10 +3665,18 @@ def pending_mcp_elicitation_chunks(
     if run is None or not isinstance(capabilities, dict) or not capabilities.get("elicitation"):
         return
     subject = request_subject(request)
+    # Credential elicitation shares this stream but uses namespaced string keys.
+    # Only interaction UUIDs may enter the ORM UUID lookup below.
+    interaction_seen = []
+    for value in seen:
+        try:
+            interaction_seen.append(uuid.UUID(str(value)))
+        except (ValueError, TypeError, AttributeError):
+            continue
     interactions = run.interactions.filter(
         status=AgentRunInteraction.STATUS_PENDING,
         expires_at__gt=timezone.now(),
-    ).exclude(id__in=seen).order_by("created_at")
+    ).exclude(id__in=interaction_seen).order_by("created_at")
     for interaction in interactions:
         interaction_id = str(interaction.id)
         seen.add(interaction_id)

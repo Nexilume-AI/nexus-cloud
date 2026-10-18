@@ -8,6 +8,26 @@ from apps.agents.runtime_runner import OpenWrtRelayRuntimeRunner, _relay_tool_re
 
 
 class MCPNativeResultsTests(SimpleTestCase):
+    def test_relay_unicode_arguments_use_ascii_json_without_data_loss(self):
+        runner = OpenWrtRelayRuntimeRunner()
+        registration = SimpleNamespace(mcp_tools=[{'name':'upload','intent':'test.upload'}],
+            origin='agent://test/a', relay_id='r', relay_router_id='router')
+        content = '# 中文数据 😀\n' + ('数' * 1024)
+        payload = {'jsonrpc':'2.0','id':1,'method':'tools/call',
+                   'params':{'name':'upload','arguments':{'content':content}}}
+        def invoke(**kwargs):
+            body = kwargs['body']
+            self.assertTrue(body.isascii())
+            decoded = json.loads(body)
+            self.assertEqual(decoded['payload']['request'], payload)
+            self.assertEqual(decoded['target_agent'], registration.origin)
+            return 200, {}, b'{"uploaded":true}'
+        with patch.object(runner, '_registration', return_value=registration), \
+             patch('apps.agents.relay_services.relay_invoke', side_effect=invoke):
+            result = runner.call_mcp(deployment=SimpleNamespace(tenant_id='tenant'),
+                method='POST', headers={}, body=json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+        self.assertEqual(result.status_code, 200)
+
     def test_same_rpc_id_cannot_replay_another_invocations_result(self):
         runner = OpenWrtRelayRuntimeRunner()
         registration = SimpleNamespace(mcp_tools=[{'name':'authorize','intent':'credential.authorize'}], origin='agent://test/a', relay_id='r',relay_router_id='router')

@@ -1,8 +1,9 @@
 import json
 from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from rest_framework import exceptions
 from apps.agents.models import Agent, AgentDisplayRun, AgentCredentialAuthorization, AgentDisplayEvent
@@ -12,8 +13,56 @@ from apps.tenancy.models import Tenant, Project
 from apps.common.subjects import request_subject, hash_token
 
 
+class ProviderEndpointTests(SimpleTestCase):
+    def test_endpoint_configuration_rejects_unsafe_destinations(self):
+        from apps.agents.credential_config import configuration
+        for url in ('http://example.com/v1','https://user:key@example.com/v1','https://127.0.0.1/v1','https://[::1]/v1','https://api.example/v1?q=key','https://api.example/../admin','https://localhost/v1'):
+            with self.subTest(url=url),self.assertRaises(exceptions.ValidationError):configuration('custom_openai',url,'gpt-6-sol')
+        self.assertEqual(configuration('custom_openai','https://API.EXAMPLE:443/v1/','gpt-6-sol')[1],'https://api.example/v1')
+        with self.assertRaises(exceptions.ValidationError):configuration('openai','https://another.example/v1','gpt-6-sol')
+
 @override_settings(NEXUS_PUBLIC_BASE_URL='https://cloud.example.test', ROOT_URLCONF='tests.provider_credential_urls')
 class CredentialsTests(TestCase):
+    def test_endpoint_and_model_scope_are_bound_to_approval(self):
+        value=c.request_authorization(self.run.id,'test-callback','custom_openai','https://api.example/v1','gpt-6-sol')
+        self.req.data={'action':'authorize','model':'gpt-6-sol','secret':self.secret,'consent':True}
+        with patch('apps.gateway.provider_http.resolve_provider_endpoint') as resolver:
+            result=c.decide(self.req,value['authorization_id'])
+            resolver.assert_called_once_with('https://api.example/v1',public_https_only=True)
+        self.assertEqual((result['base_url'],result['model']),('https://api.example/v1','gpt-6-sol'))
+        grant=c.internal_status(self.run.id,'test-callback',value['authorization_id'],True)
+        self.assertEqual((grant['base_url'],grant['model'],grant['protocol']),('https://api.example/v1','gpt-6-sol','openai'))
+        another=self.new_run()
+        self.assertEqual(c.request_authorization(another.id,'test-callback','custom_openai','https://api.example/v1','gpt-6-sol')['status'],'authorized')
+        for url,model in [('https://another.example/v1','gpt-6-sol'),('https://api.example/v1','other-model')]:
+            pending=c.request_authorization(self.new_run().id,'test-callback','custom_openai',url,model)
+            self.assertEqual(pending['status'],'pending')
+        self.req.data={'action':'authorize','secret':self.secret,'consent':True,'base_url':'https://another.example/v1'}
+        with self.assertRaises(exceptions.ValidationError):c.decide(self.req,value['authorization_id'])
+
+    def test_saved_credentials_are_same_caller_same_endpoint_and_revocable(self):
+        root=self.begin()['authorization_id'];self.approve(root)
+        run=self.new_run()
+        child=c.request_authorization(run.id,'test-callback','anthropic',model='another-model')['authorization_id']
+        detail=c.browser_details(c.browser_row(self.req,child))
+        self.assertEqual([x['authorization_id'] for x in detail['saved_credentials']],[root])
+        self.assertNotIn(self.secret,json.dumps(detail))
+        self.req.data={'action':'authorize','saved_authorization_id':root,'consent':True,'model':'another-model','ttl_seconds':86400}
+        result=c.decide(self.req,child)
+        self.assertLessEqual(result['expires_at'],c.public(AgentCredentialAuthorization.objects.get(pk=root))['expires_at'])
+        self.assertEqual(AgentCredentialAuthorization.objects.get(pk=child).encrypted_secret,'')
+        self.assertEqual(c.internal_status(run.id,'test-callback',child,True)['secret'],self.secret)
+        self.req.data={'action':'revoke'};c.decide(self.req,root)
+        self.assertEqual(c.internal_status(run.id,'test-callback',child)['status'],'revoked')
+        with self.assertRaises(exceptions.PermissionDenied):c.internal_status(run.id,'test-callback',child,True)
+
+    def test_saved_credential_cannot_be_retargeted(self):
+        root=self.begin()['authorization_id'];self.approve(root)
+        child=c.request_authorization(self.new_run().id,'test-callback','openai',model='gpt-6-sol')['authorization_id']
+        self.req.data={'action':'authorize','saved_authorization_id':root,'model':'gpt-6-sol','consent':True}
+        with self.assertRaises(exceptions.ValidationError):c.decide(self.req,child)
+        self.assertEqual(AgentCredentialAuthorization.objects.get(pk=child).status,'pending')
+
     def setUp(self):
         from nexus_personal.services import provision_owner
         installation = provision_owner(email='credential-owner@example.test', password='Provider-Test-Passphrase-2026!')
@@ -37,7 +86,7 @@ class CredentialsTests(TestCase):
         return c.request_authorization(self.run.id,'test-callback','anthropic')
 
     def approve(self, aid):
-        self.req.data={'action':'authorize','secret':self.secret,'consent':True,'ttl_seconds':300}
+        self.req.data={'action':'authorize','secret':self.secret,'consent':True,'ttl_seconds':300,'model':'test-model'}
         return c.decide(self.req,aid)
 
     def test_encrypted_private_and_revoke(self):
@@ -140,7 +189,7 @@ class CredentialsTests(TestCase):
         self.assertIn(client.get(path,secure=True).status_code,(401,403))
         client.force_login(self.user)
         self.assertEqual(client.get(path,secure=True).status_code,200)
-        body={'action':'authorize','secret':self.secret,'consent':True}
+        body={'action':'authorize','secret':self.secret,'consent':True,'model':'test-model'}
         self.assertEqual(client.post(path,body,content_type='application/json',secure=True).status_code,403)
         response=client.post(path,body,content_type='application/json',secure=True,
             HTTP_X_CSRFTOKEN=client.cookies['csrftoken'].value,HTTP_ORIGIN='https://testserver')
@@ -161,3 +210,18 @@ class CredentialsTests(TestCase):
         self.assertTrue(session.client_capabilities_json['elicitation_url'])
         self.assertEqual(session.caller_subject_hash,self.run.caller_subject_hash)
         self.assertTrue(response_headers['Mcp-Session-Id'])
+
+    def test_personal_nexus_uses_explicit_credential_not_installation_key(self):
+        value=c.request_authorization(self.run.id,'test-callback','nexus',model='test-model')
+        detail=c.browser_details(c.browser_row(self.req,value['authorization_id']))
+        self.assertFalse(detail['nexus_router_delegation'])
+        self.assertEqual(detail['nexus_routers'],[])
+        self.req.data={'action':'authorize','model':'test-model','consent':True}
+        with self.assertRaises(exceptions.ValidationError):c.decide(self.req,value['authorization_id'])
+        self.req.data['secret']=self.secret
+        c.decide(self.req,value['authorization_id'])
+        self.assertEqual(c.internal_status(self.run.id,'test-callback',value['authorization_id'],True)['secret'],self.secret)
+
+    def test_personal_router_delegation_fails_closed(self):
+        from apps.agents.credential_router import issue
+        with self.assertRaises(exceptions.PermissionDenied):issue(None,'router','model')
