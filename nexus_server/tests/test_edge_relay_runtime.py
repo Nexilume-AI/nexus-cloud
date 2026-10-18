@@ -406,7 +406,7 @@ class RelayRuntimeTests(TestCase):
 
         def fake_relay_invoke(**kwargs):
             envelope = json.loads(kwargs["body"])
-            self.assertEqual(envelope["task_id"], "mcp:call-1")
+            self.assertRegex(envelope["task_id"], r"^mcp:[0-9a-f]{32}$")
             self.assertEqual(envelope["payload"]["request"]["params"]["arguments"]["nonce"], "nonce-1")
             self.assertEqual(kwargs["target_router_id"], "router-nat-a")
             return 200, {"Content-Type": "application/json"}, json.dumps({

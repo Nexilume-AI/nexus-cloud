@@ -16,6 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-nexus-secret-key")
 NEXUS_SECRET_ENCRYPTION_KEYS = os.environ.get("NEXUS_SECRET_ENCRYPTION_KEYS", "")
+NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS = tuple(item.strip() for item in os.environ.get("NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS", "").split(",") if item.strip())
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 NEXUS_ENVIRONMENT = os.environ.get("NEXUS_ENVIRONMENT", "development").strip().lower()
 NEXUS_PRODUCTION = NEXUS_ENVIRONMENT in {"prod", "production"} or not DEBUG

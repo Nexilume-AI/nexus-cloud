@@ -818,10 +818,12 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
         rpc_method = payload.get("method")
         registration = self._registration(deployment)
         if rpc_method == "initialize":
+            initialize_params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+            requested_version = initialize_params.get("protocolVersion") or headers.get("MCP-Protocol-Version") or headers.get("mcp-protocol-version")
             return _relay_mcp_result(
                 request_id,
                 {
-                    "protocolVersion": headers.get("MCP-Protocol-Version") or headers.get("mcp-protocol-version") or "2025-06-18",
+                    "protocolVersion": requested_version if isinstance(requested_version, str) and requested_version in {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"} else "2025-11-25",
                     "serverInfo": {"name": deployment.agent.name, "version": deployment.agent.current_version or ""},
                     "capabilities": {"tools": {}},
                 },
@@ -858,6 +860,10 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
         task_id = f"mcp:{request_id}"
         if len(task_id.encode("ascii", "ignore")) != len(task_id) or len(task_id) >= 65:
             return _relay_mcp_error(request_id, -32600, "JSON-RPC id exceeds the Relay task bound")
+        # JSON-RPC IDs are client-local and commonly restart at 1. Never use
+        # them as a shared Router replay-cache key across callers or sessions.
+        # This envelope explicitly disables retries/idempotency.
+        task_id = "mcp:" + uuid.uuid4().hex
         envelope = {
             "version": "1.0",
             "intent": mapping["intent"],

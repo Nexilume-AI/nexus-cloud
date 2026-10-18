@@ -1,4 +1,5 @@
 from django.urls import path
+from .credential_views import InternalCredentialRequestView, InternalCredentialDetailView
 from .callback_views import (
     InternalAgentRunContextExchangeView,
     InternalInvocationUsageView,
@@ -28,6 +29,8 @@ from .callback_views import (
 )
 
 urlpatterns = [
+    path("internal/agent-runs/<uuid:run_id>/interactions/credentials/", InternalCredentialRequestView.as_view()),
+    path("internal/agent-runs/<uuid:run_id>/interactions/credentials/<uuid:authorization_id>/", InternalCredentialDetailView.as_view()),
     path(
         "internal/agent-run-contexts/<uuid:grant_id>/exchange/",
         InternalAgentRunContextExchangeView.as_view(),

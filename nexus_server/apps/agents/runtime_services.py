@@ -1319,6 +1319,10 @@ def maybe_handle_mcp_task(
         return None
     if not isinstance(payload, dict):
         return None
+    from .credential_services import handle_response as handle_credential_response
+    credential_response = handle_credential_response(request, agent_id, payload, headers)
+    if credential_response is not None:
+        return credential_response
     elicitation_response = maybe_handle_mcp_elicitation_response(
         request=request,
         agent_id=agent_id,
@@ -3655,6 +3659,8 @@ def pending_mcp_elicitation_chunks(
     *, request, run: AgentDisplayRun | None,
     session: AgentMCPSession | None, seen: set[str],
 ):
+    from .credential_services import chunks as credential_chunks
+    yield from credential_chunks(request, run, session, seen)
     capabilities = session.client_capabilities_json if session is not None else {}
     if run is None or not isinstance(capabilities, dict) or not capabilities.get("elicitation"):
         return
@@ -3779,7 +3785,8 @@ def _mcp_client_capabilities(body: bytes) -> dict[str, bool]:
     capabilities = params.get("capabilities") if isinstance(params.get("capabilities"), dict) else {}
     extensions = capabilities.get("extensions") if isinstance(capabilities.get("extensions"), dict) else {}
     return {
-        "elicitation": isinstance(capabilities.get("elicitation"), dict),
+        "elicitation": isinstance(capabilities.get("elicitation"), dict) and (not capabilities["elicitation"] or "form" in capabilities["elicitation"]),
+        "elicitation_url": isinstance(capabilities.get("elicitation"), dict) and isinstance(capabilities["elicitation"].get("url"), dict),
         "tasks": isinstance(extensions.get("io.modelcontextprotocol/tasks"), dict),
     }
 
@@ -3915,6 +3922,11 @@ def finalize_mcp_session_response(
 ) -> AgentMCPSession | None:
     client_capabilities = _mcp_client_capabilities(request_body)
     internal_session_id = _header_value(response_headers, "Mcp-Session-Id")
+    if (not internal_session_id and status_code < 300 and client_capabilities
+            and runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY):
+        # Relay is stateless upstream, but reverse MCP requests need a caller-bound
+        # Cloud session to retain capabilities and authenticate elicitation replies.
+        internal_session_id = "relay-" + secrets.token_urlsafe(24)
     if method.upper() == "DELETE":
         if session is not None and status_code < 400:
             session.delete()

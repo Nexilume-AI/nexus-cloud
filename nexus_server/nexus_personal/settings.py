@@ -9,6 +9,7 @@ _host = load_config(os.environ)
 BASE_DIR = Path(__file__).resolve().parents[1]
 SECRET_KEY = _host["secret_key"]
 NEXUS_SECRET_ENCRYPTION_KEYS = _host["encryption_key"]
+NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS = tuple(item.strip() for item in os.environ.get("NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS", "").split(",") if item.strip())
 DEBUG = False
 NEXUS_PRODUCTION = True
 NEXUS_ENVIRONMENT = "production"
