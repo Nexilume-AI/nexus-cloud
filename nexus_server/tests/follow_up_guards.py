@@ -108,6 +108,46 @@ class FollowUpStateGuards:
         self.assertEqual(AgentRunFollowUp.objects.count(), 1)
         self.assertEqual(self.client.patch(self.path + identity + "/", {"content": "stale", "expected_revision": revision}, format="json", **self.headers).status_code, 409)
 
+    def test_pending_steer_edit_and_withdraw_are_not_new_submissions(self):
+        worker.claim()
+        self.assertEqual(self.inbox("configure", mode="steer_and_queue").status_code, 200)
+        row = self.follow_payload(self.send(mode="steer"))
+        self.assertTrue(row["editable"])
+        body = {"content": "edited steer", "expected_revision": row["edit_revision"]}
+        response = self.client.patch(self.path + row["id"] + "/", body, format="json", **self.headers)
+        self.assertEqual(response.status_code, 200, response.content)
+        updated = next(item for item in self.follow_payload(response)["items"] if item["id"] == row["id"])
+        self.assertNotEqual(updated["edit_revision"], row["edit_revision"])
+        self.assertEqual(self.follow_payload(self.send(mode="steer"))["content"], "edited steer")
+        self.assertEqual(AgentRunFollowUp.objects.count(), 1)
+        self.assertEqual(self.client.patch(self.path + row["id"] + "/", body, format="json", **self.headers).status_code, 409)
+        self.assertEqual(self.client.delete(self.path + row["id"] + "/", **self.headers).status_code, 200)
+        self.assertEqual(self.follow_payload(self.inbox("receive"))["items"], [])
+
+    def test_received_steer_cannot_be_edited_or_withdrawn(self):
+        worker.claim()
+        self.assertEqual(self.inbox("configure", mode="steer_and_queue").status_code, 200)
+        row = self.follow_payload(self.send(mode="steer"))
+        self.assertEqual(self.inbox("receive").status_code, 200)
+        body = {"content": "too late", "expected_revision": row["edit_revision"]}
+        self.assertEqual(self.client.patch(self.path + row["id"] + "/", body, format="json", **self.headers).status_code, 409)
+        self.assertEqual(self.client.delete(self.path + row["id"] + "/", **self.headers).status_code, 409)
+        current = AgentRunFollowUp.objects.get(pk=row["id"])
+        self.assertEqual((current.content, current.status), ("next", "received"))
+        self.assertFalse(self.follow_payload(self.client.get(self.path, **self.headers))["items"][0]["editable"])
+
+    def test_steer_edit_rejects_expired_or_previous_turn_and_wrong_token(self):
+        worker.claim()
+        self.assertEqual(self.inbox("configure", mode="steer_and_queue").status_code, 200)
+        row = self.follow_payload(self.send(mode="steer"))
+        body = {"content": "new", "expected_revision": row["edit_revision"]}
+        wrong = {**self.headers, "HTTP_X_NEXUS_AGENT_DISPLAY_TOKEN": "invalid"}
+        self.assertEqual(self.client.patch(self.path + row["id"] + "/", body, format="json", **wrong).status_code, 404)
+        AgentRunFollowUp.objects.filter(pk=row["id"]).update(turn_index=9)
+        self.assertEqual(self.client.patch(self.path + row["id"] + "/", body, format="json", **self.headers).status_code, 409)
+        AgentRunFollowUp.objects.filter(pk=row["id"]).update(turn_index=1, expires_at=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(self.client.patch(self.path + row["id"] + "/", body, format="json", **self.headers).status_code, 409)
+
     def test_queue_reorder_changes_real_dispatch_order(self):
         one = self.follow_payload(self.send(content="one"))["id"]
         two = self.follow_payload(self.send(content="two", key="two"))["id"]
@@ -275,6 +315,35 @@ class FollowUpStateGuards:
 
 
 class FollowUpCommittedGuards:
+    def test_steer_edit_racing_receive_never_changes_the_received_copy(self):
+        worker.claim()
+        self.inbox("configure", mode="steer_and_queue")
+        row = self.follow_payload(self.send(mode="steer"))
+        barrier = threading.Barrier(2)
+        def edit():
+            try:
+                client = self.follow_thread_client()
+                barrier.wait(timeout=10)
+                return client.patch(self.path + row["id"] + "/", {"content": "edited before receive",
+                    "expected_revision": row["edit_revision"]}, format="json", **self.headers).status_code
+            finally:
+                connections.close_all()
+        def receive():
+            try:
+                barrier.wait(timeout=10)
+                return follow_ups.inbox(run_id=self.run_id, token=self.token, data={"action": "receive", "turn_index": 1})
+            finally:
+                connections.close_all()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            edit_future, receive_future = pool.submit(edit), pool.submit(receive)
+            status, delivered = edit_future.result(), receive_future.result()
+        self.assertIn(status, (200, 409))
+        content = "edited before receive" if status == 200 else "next"
+        self.assertEqual(delivered["items"][0]["content"], content)
+        current = AgentRunFollowUp.objects.get(pk=row["id"])
+        self.assertEqual((current.content, current.status), (content, "received"))
+        self.assertEqual(self.task.run.messages.filter(source_message_id=f"follow-up-{row['id']}", content=content).count(), 1)
+
     def test_queue_edit_racing_dispatch_never_changes_dispatched_content(self):
         identity = self.follow_payload(self.send())["id"]
         revision = self.follow_payload(self.client.get(self.path, **self.headers))["queue_revision"]

@@ -1,6 +1,36 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAgentDisplayShellCommands, buildAgentDisplayShellTranscript, type AgentDisplayShellLine } from "./agentDisplayEvents";
+import { buildAgentDisplayShellCommands, buildAgentDisplayShellTranscript, deriveCurrentTurnDisplayMessages, type AgentDisplayShellLine } from "./agentDisplayEvents";
+import type { DisplayStreamEvent } from "./types";
+
+describe("current-turn stream supplementation", () => {
+  const event = (seq: number, type: string, extra = {}): DisplayStreamEvent =>
+    ({ id: `${seq}`, agent_id: "agent", run_id: "run", seq, type, created_at: "", ...extra });
+
+  it("does not replay an interrupted old-turn message after a follow-up starts", () => {
+    const events = [
+      event(1, "RUN_STARTED"),
+      event(2, "TEXT_MESSAGE_START", { messageId: "old", role: "assistant" }),
+      event(3, "TEXT_MESSAGE_CONTENT", { messageId: "old", delta: "Old unfinished step" }),
+      event(4, "RUN_ERROR"),
+      event(5, "RUN_STARTED"),
+      event(6, "TEXT_MESSAGE_START", { messageId: "new", role: "assistant" }),
+      event(7, "TEXT_MESSAGE_CONTENT", { messageId: "new", delta: "New guided step" }),
+    ];
+    expect(deriveCurrentTurnDisplayMessages(events).map(message => message.content)).toEqual(["New guided step"]);
+  });
+
+  it("keeps same-turn messages around Steer receipt and accepts cursor-only event pages", () => {
+    const events = [
+      event(5, "TEXT_MESSAGE_START", { messageId: "before", role: "assistant" }),
+      event(6, "TEXT_MESSAGE_CONTENT", { messageId: "before", delta: "Before guidance" }),
+      event(7, "TEXT_MESSAGE_END", { messageId: "before" }),
+      event(8, "TEXT_MESSAGE_START", { messageId: "after", role: "assistant" }),
+      event(9, "TEXT_MESSAGE_CONTENT", { messageId: "after", delta: "After guidance" }),
+    ];
+    expect(deriveCurrentTurnDisplayMessages(events).map(message => message.content)).toEqual(["Before guidance", "After guidance"]);
+  });
+});
 
 const sdkLine = (seq: number, text: string): AgentDisplayShellLine => ({
   id: `sdk-${seq}`,

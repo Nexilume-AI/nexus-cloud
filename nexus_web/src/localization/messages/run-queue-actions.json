@@ -1,4 +1,11 @@
 {
+  "Already received. Editing or removing cannot undo it.": "Agent 已接收，编辑或删除无法撤销其执行。",
+  "Draft a correction": "起草纠正指令",
+  "Actions for current-turn instruction: {{0}}": "本轮补充指令的操作：{{0}}",
+  "Edit current-turn instruction": "编辑本轮补充指令",
+  "Only instructions not yet received by the Agent can be changed. This does not start a new turn.": "只能修改 Agent 尚未接收的指令，不会启动新一轮。",
+  "Current-turn instruction": "本轮补充指令",
+  "Correction to: {{0}}": "针对以下指令补充纠正：{{0}}",
   "Edit message": "编辑消息",
   "Move earlier": "提前移动",
   "Move later": "稍后移动",

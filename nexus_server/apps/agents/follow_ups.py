@@ -51,7 +51,15 @@ def serialize(row):
         "position": row.position,
         "attachments": (row.attachment_manifest or {}).get("attachments", []),
         "files": (row.attachment_manifest or {}).get("files", []),
-        "editable": row.mode == "queue" and row.status == "pending" and row.expires_at > timezone.now()}
+        "edit_revision": edit_revision(row),
+        "editable": row.mode in {"queue", "steer"} and row.status == "pending" and row.expires_at > timezone.now()}
+
+
+def edit_revision(row):
+    # Optimistic edit guard for one instruction, independent of queue ordering.
+    values = [str(row.id), row.mode, row.turn_index, row.status, row.content,
+              row.expires_at.isoformat(), row.received_at.isoformat() if row.received_at else None]
+    return hashlib.sha256(json.dumps(values, ensure_ascii=False).encode()).hexdigest()
 
 
 def queue_revision(rows):
@@ -69,9 +77,14 @@ def payload(run):
     items = sorted(pending + recent, key=lambda row: (row.created_at, row.id))
     queued = sorted((row for row in pending if row.mode == "queue"), key=lambda row: (row.position, row.created_at, row.id))
     items = [row for row in items if row not in queued] + queued
+    serialized = [serialize(row) for row in items]
+    for item in serialized:
+        if item["mode"] == "steer":
+            item["editable"] = bool(item["editable"] and task and task.status in ACTIVE
+                and run.status == "running" and item["turn_index"] == turn(task) and mode == "steer_and_queue")
     return {"mode": mode, "turn_index": turn(task) if task else 1,
         "attachment_protocol": {"queue": 1, "steer": run.follow_up_attachment_protocol},
-        "queue_revision": queue_revision(pending), "items": [serialize(row) for row in items]}
+        "queue_revision": queue_revision(pending), "items": serialized}
 
 
 def _authority(request, run, task):
@@ -168,6 +181,27 @@ def edit_queue(*, request, run_id, data, message_id=None):
     allowed = {"content", "expected_revision"} if message_id else {"ids", "expected_revision"}
     if not isinstance(data, dict) or set(data) != allowed:
         raise exceptions.ValidationError("Supply the change and expected_revision.")
+    if message_id:
+        instruction = run.follow_ups.filter(pk=message_id, mode="steer").first()
+        if instruction is not None:
+            # inbox.receive holds the same execution/Run locks. Once received,
+            # neither an edit nor a cancellation can undo the Agent's copy.
+            if instruction.status in {"received", "applied", "rejected", "not_applied"}:
+                conflict("FOLLOW_UP_ALREADY_RECEIVED")
+            task = AgentExecutionTask.objects.filter(run=run).first()
+            if (instruction.status != "pending" or instruction.expires_at <= timezone.now()
+                    or not task or task.status not in ACTIVE or run.status != "running"
+                    or instruction.turn_index != turn(task) or run.follow_up_mode != "steer_and_queue"):
+                conflict("FOLLOW_UP_NOT_EDITABLE")
+            if data["expected_revision"] != edit_revision(instruction):
+                conflict("FOLLOW_UP_MESSAGE_CHANGED")
+            content = data["content"]
+            if not isinstance(content, str) or not 1 <= len(content.strip()) <= 8000:
+                raise exceptions.ValidationError("Provide 1..8000 characters.")
+            instruction.content = content.strip()
+            # Keep original submission fingerprint and attachment references.
+            instruction.save(update_fields=["content"])
+            return payload(run)
     rows = list(run.follow_ups.filter(mode="queue", status="pending").order_by("position", "created_at", "id"))
     if not isinstance(data["expected_revision"], str) or data["expected_revision"] != queue_revision(rows):
         conflict("FOLLOW_UP_QUEUE_CHANGED")

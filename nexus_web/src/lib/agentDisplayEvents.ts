@@ -107,6 +107,15 @@ export function deriveAgentDisplayMessages(events: DisplayStreamEvent[]): AgentD
   return [...messages.values()];
 }
 
+/** Supplement persisted Run history only with the current turn's stream.
+ * An interrupted message may have no END/persisted counterpart. Replaying the
+ * entire Run stream would append that orphan to every subsequent assistant turn.
+ */
+export function deriveCurrentTurnDisplayMessages(events: DisplayStreamEvent[]): AgentDisplayMessage[] {
+  const start = events.reduce((seq, event) => event.type === "RUN_STARTED" ? Math.max(seq, event.seq) : seq, -1);
+  return deriveAgentDisplayMessages(events.filter(event => event.seq >= start));
+}
+
 export function deriveAgentDisplayShell(events: DisplayStreamEvent[]): AgentDisplayShellLine[] {
   return events
     .filter((event) => event.type === "CUSTOM" && event.name === "nexus.computer.log")

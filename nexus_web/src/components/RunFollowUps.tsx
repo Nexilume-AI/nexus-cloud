@@ -106,6 +106,7 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
   const remove = useMutation({
     mutationFn: (id: string) => api.cancelAgentRunFollowUp(apiContext, run!.id, displayToken, id),
     onSuccess: refresh,
+    onError: () => { void refresh(); },
   });
   useEffect(() => {
     setMode("queue"); setCommandError("");
@@ -199,7 +200,7 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
           {reason(item.code) ? <p className="mt-1 text-xs text-amber-800">{reason(item.code)}</p> : null}</div> : null}
         {/* Retain the keyed editor if dispatch wins a race with an open edit.
             Its draft stays reviewable, without keeping the receipt row visible. */}
-        {item.mode === "queue" ? <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} /> : ["pending", "blocked"].includes(item.status) ? <button type="button" className="min-h-11 shrink-0 px-2 text-xs underline" disabled={remove.isPending && remove.variables === item.id} onClick={() => remove.mutate(item.id)} aria-label={t("Remove follow-up: {{0}}", { 0: item.content })}>{t("Remove")}</button> : null}
+        <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} onCorrect={() => controller.setText([controller.text, t("Correction to: {{0}}", { 0: item.content })].filter(Boolean).join("\n\n"))} />
       </div>)}
     </div> : null}
     {remove.isError ? <p role="alert" className="text-xs text-red-800">{t("Unable to remove this message. It may already have been received; refresh and try again.")}</p> : null}

@@ -35,7 +35,7 @@ import { PRIVATE_DISPLAY_BUILT_IN_SLASH_COMMANDS, PrivateDisplayComposerTools, t
 import { api, ApiError } from "../lib/api";
 import { runDisplayPolling } from "../lib/runDisplayPolling";
 import { privateDisplayAttachmentUrl, privateDisplayReturnTo } from "../lib/agentDisplayNavigation";
-import { agentDisplayBrowserFrames, buildAgentDisplayShellCommands, buildAgentDisplayShellTranscript, deriveAgentDisplayMessages, deriveAgentDisplayShell } from "../lib/agentDisplayEvents";
+import { agentDisplayBrowserFrames, buildAgentDisplayShellCommands, buildAgentDisplayShellTranscript, deriveCurrentTurnDisplayMessages, deriveAgentDisplayShell } from "../lib/agentDisplayEvents";
 import type { AgentDisplayBrowserFrame, AgentDisplayShellLine } from "../lib/agentDisplayEvents";
 import { usePrivateAgentTerminal, type PrivateAgentTerminalConnection } from "../lib/usePrivateAgentTerminal";
 import type { RunHistoryFilter, AgentInteractionTool, AgentChatContentBlock, AgentOutputArtifact, AgentPrivateRun, AgentRunInteraction, AgentRunMessage, AgentRunTerminal, DisplayStreamEvent, PrivateAgentRunDisplay } from "../lib/types";
@@ -1159,7 +1159,7 @@ function mergeRunMessages(persisted: AgentRunMessage[], events: DisplayStreamEve
       created_at: "",
     });
   }
-  for (const streamed of deriveAgentDisplayMessages(events).filter((item) => item.content)) {
+  for (const streamed of deriveCurrentTurnDisplayMessages(events).filter((item) => item.content)) {
     const materialized = result.some((message) =>
       message.role === streamed.role && (
         message.content === streamed.content

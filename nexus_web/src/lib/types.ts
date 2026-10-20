@@ -576,6 +576,7 @@ export type AgentRunFollowUp = {
   code: string;
   position?: number;
   editable?: boolean;
+  edit_revision?: string;
 };
 
 export type RunFailure = {
