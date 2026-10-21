@@ -10,6 +10,8 @@ import { Field } from "./Form";
 import { NexilumeBrand } from "./NexilumeBrand";
 import { GitHubSignInButton, GoogleSignInButton, SignInDivider } from "./GoogleSignInButton";
 
+import { EmailAccountForm, type EmailAccountMode } from "./EmailAccountForm";
+
 export function AuthDialog() {
   useLocale();
   const auth = useAuth();
@@ -17,6 +19,29 @@ export function AuthDialog() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailMode, setEmailMode] = useState<EmailAccountMode | null>(null);
+  const [emailToken, setEmailToken] = useState("");
+
+  useEffect(() => {
+    function consumeEmailLink() {
+      if (window.location.pathname !== "/login") return;
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const action = fragment.get("email-action");
+      if (action !== "signup" && action !== "reset") return;
+      const token = fragment.get("token") ?? "";
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+        toast.error(t("This link is invalid or expired. Request a new email."));
+        return;
+      }
+      setEmailToken(token);
+      setEmailMode(action === "signup" ? "verify" : "reset-confirm");
+      auth.requestLogin(undefined, true);
+    }
+    consumeEmailLink();
+    window.addEventListener("hashchange", consumeEmailLink);
+    return () => window.removeEventListener("hashchange", consumeEmailLink);
+  }, [auth.requestLogin]);
   const emailRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const loadingRef = useRef(false);
@@ -64,7 +89,7 @@ export function AuthDialog() {
     };
   }, [auth.closeLogin, auth.isLoginOpen]);
 
-  if (!auth.isLoginOpen || auth.isAuthenticated) return null;
+  if (!auth.isLoginOpen || (auth.isAuthenticated && !emailMode)) return null;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -88,7 +113,7 @@ export function AuthDialog() {
     >
       <section
         ref={dialogRef}
-        className="relative grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/60 bg-white shadow-overlay md:grid-cols-[0.9fr_1.1fr]"
+        className="relative grid max-h-[calc(100dvh-2rem)] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/60 bg-white shadow-overlay md:grid-cols-[0.9fr_1.1fr]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-dialog-title"
@@ -116,7 +141,7 @@ export function AuthDialog() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">{t("Sign in when needed")}</div>
-              <h1 id="auth-dialog-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">{t("Access your workspace")}</h1>
+              <h1 id="auth-dialog-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">{t(emailMode === "register" || emailMode === "verify" ? "Create your Nexus Cloud account" : emailMode ? "Reset your password" : "Access your workspace")}</h1>
               <p id="auth-dialog-description" className="mt-2 text-sm leading-6 text-muted">{copy.reason(auth.loginReason)}</p>
             </div>
             <button className="rounded-lg p-2 text-muted transition hover:bg-slate-100 hover:text-ink" onClick={auth.closeLogin} disabled={loading} aria-label={t("Close sign in")} type="button">
@@ -124,6 +149,13 @@ export function AuthDialog() {
             </button>
           </div>
 
+          {emailMode ? <EmailAccountForm key={emailMode} mode={emailMode} token={emailToken}
+            onBack={() => { setEmailMode(null); setEmailToken(""); }}
+            onComplete={verifiedEmail => {
+              setEmail(verifiedEmail); setPassword(""); setEmailMode(null); setEmailToken("");
+              toast.success(t("Your account is ready. Sign in with your email and password."));
+              if (auth.isAuthenticated) window.location.assign("/login");
+            }} /> : <>
           {auth.googleLoginEnabled || auth.githubLoginEnabled ? (
             <div className="mt-7">
               <div className="grid gap-3">
@@ -164,6 +196,11 @@ export function AuthDialog() {
               {loading ? t("Signing in…") : t("Sign in securely")}
             </button>
           </form>
+          <div className="mt-4 flex flex-wrap justify-between gap-3 text-sm font-semibold text-brand">
+            {auth.emailSignupEnabled ? <button type="button" disabled={loading} onClick={() => setEmailMode("register")}>{t("Create account with email")}</button> : null}
+            {auth.emailPasswordResetEnabled ? <button type="button" disabled={loading} onClick={() => setEmailMode("reset")}>{t("Forgot password?")}</button> : null}
+          </div>
+          </>}
 
           <button className="mt-5 w-full text-center text-sm font-semibold text-muted transition hover:text-ink" onClick={auth.closeLogin} disabled={loading} type="button">
             {copy.dismissLabel}

@@ -30,11 +30,13 @@ type AuthContextValue = AuthState & {
   loginReason: string;
   googleLoginEnabled: boolean;
   githubLoginEnabled: boolean;
+  emailSignupEnabled: boolean;
+  emailPasswordResetEnabled: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (next?: string) => void;
   loginWithGitHub: (next?: string) => void;
   logout: () => Promise<void>;
-  requestLogin: (reason?: string) => void;
+  requestLogin: (reason?: string, force?: boolean) => void;
   closeLogin: () => void;
   setTenantId: (tenantId: string) => void;
   setProjectId: (projectId: string | null) => void;
@@ -188,8 +190,8 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
     toast.success(t("Signed out"));
   }, [baseCtx, queryClient, status, updateState, userQuery.data?.user_id, getLocale()]);
 
-  const requestLogin = useCallback((reason = t("Sign in to access your Nexilume AI workspace.")) => {
-    if (status === "authenticated") return;
+  const requestLogin = useCallback((reason = t("Sign in to access your Nexilume AI workspace."), force = false) => {
+    if (status === "authenticated" && !force) return;
     setLoginReason(reason);
     setLoginOpen(true);
   }, [status]);
@@ -234,6 +236,8 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
       loginReason,
       googleLoginEnabled: Boolean(bootstrapQuery.data?.authentication?.google?.enabled),
       githubLoginEnabled: Boolean(bootstrapQuery.data?.authentication?.github?.enabled),
+      emailSignupEnabled: Boolean(bootstrapQuery.data?.authentication?.email?.signup_enabled),
+      emailPasswordResetEnabled: Boolean(bootstrapQuery.data?.authentication?.email?.password_reset_enabled),
       login,
       loginWithGoogle,
       loginWithGitHub,
@@ -243,7 +247,7 @@ export function AuthProvider({ children, contextDirectory }: { children: ReactNo
       setTenantId,
       setProjectId
     }),
-    [baseCtx, closeLogin, isLoginOpen, login, loginWithGoogle, loginWithGitHub, loginReason, logout, projects, requestLogin, setProjectId, setTenantId, state, status, tenants, userQuery.data]
+    [baseCtx, bootstrapQuery.data, closeLogin, isLoginOpen, login, loginWithGoogle, loginWithGitHub, loginReason, logout, projects, requestLogin, setProjectId, setTenantId, state, status, tenants, userQuery.data]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -105,6 +105,7 @@ export type PublicBootstrap = {
   authentication_mode: "on_demand";
   session_authenticated: boolean;
   authentication: {
+    email?: { signup_enabled: boolean; password_reset_enabled: boolean; username_is_email: boolean };
     google: {
       enabled: boolean;
       signup_enabled: boolean;
@@ -353,6 +354,15 @@ export const api = {
 
 
   publicBootstrap: () => request<PublicBootstrap>("/api/v1/public/bootstrap/"),
+
+  requestEmailAccount: (purpose: "register" | "reset", email: string) =>
+    request<{ status: string }>(`/api/v1/auth/email/${purpose === "register" ? "register" : "password-reset"}/`, {
+      method: "POST", body: JSON.stringify({ email }),
+    }),
+  confirmEmailAccount: (purpose: "register" | "reset", token: string, password: string, passwordConfirm: string) =>
+    request<{ status: string; email: string }>(`/api/v1/auth/email/${purpose === "register" ? "verify" : "password-reset/confirm"}/`, {
+      method: "POST", body: JSON.stringify({ token, password, password_confirm: passwordConfirm }),
+    }),
 
   login: (email: string, password: string) =>
     request<WebLoginResponse>("/api/v1/auth/login/", {

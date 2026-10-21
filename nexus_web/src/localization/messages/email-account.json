@@ -1,0 +1,21 @@
+{
+  "Create your Nexus Cloud account": "创建 Nexus Cloud 账号",
+  "Create account with email": "使用邮箱注册",
+  "Email (your username)": "邮箱（即用户名）",
+  "Forgot password?": "忘记密码？",
+  "Reset your password": "重置密码",
+  "Your email is your username. We will email you a one-time link, valid for 30 minutes.": "邮箱就是您的用户名。我们将发送一封包含一次性链接的邮件，有效期为 30 分钟。",
+  "Choose a strong password with at least 8 characters. Your email is your username.": "请设置至少 8 个字符的强密码。邮箱就是您的用户名。",
+  "If this address is eligible, an email will arrive shortly. Check your inbox and spam folder.": "如果该邮箱可以进行此操作，您将很快收到邮件。请检查收件箱和垃圾邮件。",
+  "Already registered? Sign in or use Forgot password.": "已经注册？请登录或使用“忘记密码”。",
+  "Send verification email": "发送验证邮件",
+  "Verify email and create account": "验证邮箱并创建账号",
+  "Save new password": "保存新密码",
+  "Back to sign in": "返回登录",
+  "Your account is ready. Sign in with your email and password.": "账号已就绪，请使用邮箱和密码登录。",
+  "Passwords do not match.": "两次输入的密码不一致。",
+  "Email request failed. Please try again.": "邮件请求失败，请重试。",
+  "This link is invalid or expired. Request a new email.": "链接无效或已过期，请重新申请邮件。",
+  "This account already exists. Sign in or reset your password.": "账号已存在，请登录或重置密码。",
+  "Email registration is temporarily unavailable. Please try again later or use Google or GitHub.": "邮箱注册暂时不可用，请稍后重试或使用 Google、GitHub。"
+}
