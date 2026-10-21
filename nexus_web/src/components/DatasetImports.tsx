@@ -11,13 +11,15 @@ const errors: Record<string, string> = {
   IMPORT_FAILED: "Import failed. Check storage and Worker health, then retry. No file was committed by this attempt.",
 };
 
-export function DatasetPageControls({ total, next, loading, previous, onFirst, onNext }: {
+export function DatasetPageControls({ total, next, loading, previous, onFirst, onNext, compact = false }: {
   total: number; next?: string | null; loading: boolean; previous: boolean;
   onFirst: () => void; onNext: (cursor: string) => void;
+  compact?: boolean;
 }) {
   useLocale();
+  if (compact && !previous && !next) return null;
   return <nav aria-label={t("Results pagination")} className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-    <span className="mr-auto text-sm text-muted">{total.toLocaleString(getLocale())}{" "}{t("records · server paginated")}</span>
+    <span className="mr-auto text-sm text-muted">{compact ? t("{{0}} records", { 0: total.toLocaleString(getLocale()) }) : <>{total.toLocaleString(getLocale())}{" "}{t("records · server paginated")}</>}</span>
     <button className="btn min-h-11" disabled={!previous || loading} onClick={onFirst}>{t("First page")}</button>
     <button className="btn min-h-11" disabled={!next || loading} onClick={() => next && onNext(next)}>{t("Next page")}</button>
   </nav>;
@@ -49,6 +51,7 @@ export function DatasetImports({ ctx, datasetId }: { ctx: ApiContext; datasetId:
     mutationFn: ({ id, type }: { id: string; type: "cancel" | "retry" }) => api.changeDatasetImport(ctx, datasetId, id, type),
     onSuccess: () => client.invalidateQueries({ queryKey: ["dataset-imports"] }),
   });
+  if (jobs.isSuccess && !jobs.data?.items.length && !cursor) return null;
   return <section aria-label={t("Import activity")} className="grid gap-3 border-y border-line py-4">
     <div><h3 className="font-semibold text-ink">{t("Import activity")}</h3>
       <p className="text-sm text-muted">{t("Imports continue in the background. Refreshing this page does not cancel them.")}</p></div>
