@@ -1,11 +1,10 @@
 """Personal file/data routes; Marketplace and acquisition routes are not installed."""
 from django.urls import path
-from .training_urls import urlpatterns as training_urls
 from .job_views import DatasetImportJobsView, DatasetImportJobView, DatasetRetentionView
 from .manifest_views import DatasetVersionFilesView
 from .views import (DatasetListCreateView, DatasetCapabilitiesView, DatasetSearchView, DatasetContentSearchView, DatasetDetailView, DatasetRenameView, DatasetVisibilityView, DatasetPullView, DatasetPushView, DatasetAgentTraceExportView, DatasetAgentMemoryExportView, DatasetAgentArtifactCaptureView, DatasetFileDownloadView, DatasetVersionListCreateView, DatasetVersionFileDownloadView, DatasetQuotaView, MediaAssetListCreateView, MediaAssetDetailView, MediaAssetSignedURLView, MediaAssetContentView)
 
-urlpatterns = training_urls + [
+urlpatterns = [
     path("datasets/<uuid:dataset_id>/versions/<uuid:version_id>/files/", DatasetVersionFilesView.as_view()),
     path("datasets/<uuid:dataset_id>/retention/", DatasetRetentionView.as_view()),
     path("datasets/<uuid:dataset_id>/imports/", DatasetImportJobsView.as_view()),
