@@ -1,5 +1,6 @@
+import "./NexilumeTopology.css";
 import { t, useLocale } from "../localization";
-import { useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Boxes, CircleDot, Cpu, GitBranch, Layers3, Server, Tag, Waypoints } from "lucide-react";
 
 import type {
@@ -109,12 +110,21 @@ export function NexilumeTopology({
       .filter((offer) => visibleOfferIds.has(offer.id))
       .map((offer) => ({ offer, runtimeId: runtime.id, runtimeName: runtime.name, runtimeOwnership: runtime.resource_ownership })),
   );
-  const wireLayout = isAggregation
-    ? { runtimeEnd: 125, offerStart: 145, offerEnd: 250, sourceStart: 270, sourceEnd: 390, poolStart: 410, poolEnd: 605, poolMid: 615, routerBend: 620, routerStart: 635 }
-    : { runtimeEnd: 145, offerStart: 190, offerEnd: 320, sourceStart: 355, sourceEnd: 500, poolStart: 540, poolEnd: 810, poolMid: 835, routerBend: 860, routerStart: 885 };
+  const links: TopologyLink[] = [];
+  visiblePools.forEach(pool => links.push({ from: `pool:${pool.id}`, to: "execution", active: pool.id === selectedPool?.id }));
+  visibleSources.forEach(source => {
+    const active = source.id === selectedSourceId;
+    if (source.model_offer_id) links.push({ from: `offer:${source.model_offer_id}`, to: `source:${source.id}`, active });
+    if (selectedPool) links.push({ from: `source:${source.id}`, to: `pool:${selectedPool.id}`, active });
+  });
+  visibleOffers.forEach(({ offer, runtimeId }) => links.push({ from: `runtime:${runtimeId}`, to: `offer:${offer.id}`, active: visibleSources.some(source => source.id === selectedSourceId && source.model_offer_id === offer.id) }));
+  if (isAggregation && selectedApiModel) {
+    links.push({ from: "execution", to: "api-model", active: selectedApiModel.available });
+    links.push({ from: "api-model", to: "aggregation", active: selectedApiModel.available });
+  }
 
   return (
-    <section className="topology-frame" aria-label={title}>
+    <section className="topology-frame topology-layout" aria-label={title}>
       <header className="topology-header">
         <div>
           <div className="tech-label">{t("NEXILUME / CONTROL FABRIC")}</div>
@@ -135,59 +145,26 @@ export function NexilumeTopology({
       </header>
 
       <div className={`topology-workspace ${isAggregation ? "is-aggregation" : ""}`}>
-        <div className={`topology-canvas ${isAggregation ? "is-aggregation" : ""}`} data-flow={isAggregation ? "RUNTIME → MODEL OFFER → SOURCE → POOL → EXECUTION ROUTER → API MODEL → AGGREGATION API" : "RUNTIME → MODEL OFFER → SOURCE → POOL → ROUTER"} role="group" aria-label={isAggregation ? t("Runtime to Model Offer to Source to Pool to Execution Router to API Model to Aggregation Router capability lineage") : t("Runtime to Model Offer to Source to Pool to Router capability lineage")}>
-          <svg className="topology-wires" viewBox="0 0 1040 500" preserveAspectRatio="none" aria-hidden="true">
-            {visiblePools.map((pool, index) => {
-              const y = poolY(index, visiblePools.length);
-              const selected = pool.id === selectedPool?.id;
-              return <path key={`router-${pool.id}`} className={selected ? "topology-wire is-active" : "topology-wire"} d={`M ${wireLayout.poolEnd} ${y} L ${wireLayout.poolMid} ${y} L ${wireLayout.routerBend} 250 L ${wireLayout.routerStart} 250`} />;
-            })}
-            {visibleSources.map((source, index) => {
-              if (!source.model_offer_id) return null;
-              const sourceY = sourceYPosition(index, visibleSources.length);
-              const offerIndex = Math.max(visibleOffers.findIndex(({ offer }) => offer.id === source.model_offer_id), 0);
-              const offerY = sourceYPosition(offerIndex, Math.max(visibleOffers.length, 1));
-              const selectedPoolIndex = Math.max(visiblePools.findIndex((pool) => pool.id === selectedPool?.id), 0);
-              const selectedPoolY = poolY(selectedPoolIndex, Math.max(visiblePools.length, 1));
-              const selected = source.id === selectedSourceId;
-              const wireClass = selected ? "topology-wire is-active" : "topology-wire";
-              return (
-                <g key={`source-${source.id}`}>
-                  <path className={wireClass} d={`M ${wireLayout.offerEnd} ${offerY} L ${wireLayout.offerEnd + 8} ${offerY} L ${wireLayout.sourceStart - 8} ${sourceY} L ${wireLayout.sourceStart} ${sourceY}`} />
-                  <path className={wireClass} d={`M ${wireLayout.sourceEnd} ${sourceY} L ${wireLayout.sourceEnd + 8} ${sourceY} L ${wireLayout.poolStart - 8} ${selectedPoolY} L ${wireLayout.poolStart} ${selectedPoolY}`} />
-                </g>
-              );
-            })}
-            {visibleOffers.map(({ offer, runtimeId }, index) => {
-              const offerY = sourceYPosition(index, visibleOffers.length);
-              const runtimeIndex = Math.max(visibleRuntimes.findIndex((runtime) => runtime.id === runtimeId), 0);
-              const runtimeY = sourceYPosition(runtimeIndex, Math.max(visibleRuntimes.length, 1));
-              const selected = visibleSources.some((source) => source.id === selectedSourceId && source.model_offer_id === offer.id);
-              return <path key={`offer-${offer.id}`} className={selected ? "topology-wire is-active" : "topology-wire"} d={`M ${wireLayout.runtimeEnd} ${runtimeY} L ${wireLayout.runtimeEnd + 7} ${runtimeY} L ${wireLayout.offerStart - 7} ${offerY} L ${wireLayout.offerStart} ${offerY}`} />;
-            })}
-            {isAggregation && selectedApiModel && <>
-              <path className={selectedApiModel.available ? "topology-wire is-active" : "topology-wire"} d="M 780 250 L 800 250" />
-              <path className={selectedApiModel.available ? "topology-wire is-active" : "topology-wire"} d="M 905 250 L 925 250" />
-            </>}
-          </svg>
+        <div className="topology-viewport" tabIndex={0} role="region" aria-label={t("Capability network canvas")}><div className={`topology-canvas ${isAggregation ? "is-aggregation" : ""}`} data-flow={isAggregation ? "RUNTIME → MODEL OFFER → SOURCE → POOL → EXECUTION ROUTER → API MODEL → AGGREGATION API" : "RUNTIME → MODEL OFFER → SOURCE → POOL → ROUTER"} role="group" aria-label={isAggregation ? t("Runtime to Model Offer to Source to Pool to Execution Router to API Model to Aggregation Router capability lineage") : t("Runtime to Model Offer to Source to Pool to Router capability lineage")}>
+          <MeasuredTopologyWires links={links} />
 
           {isAggregation ? <>
-            <button className="topology-node topology-router-node topology-execution-router-node" title={t("Execution Router: {{0}}", { 0: selectedApiModel?.execution_router_name || "Unavailable" })} onClick={() => setInspected(executionRouter ? inspectRouter(executionRouter) : inspectRestrictedExecution(selectedApiModel))}>
+            <button data-topology-node="execution" className="topology-node topology-router-node topology-execution-router-node" title={t("Execution Router: {{0}}", { 0: selectedApiModel?.execution_router_name || "Unavailable" })} onClick={() => setInspected(executionRouter ? inspectRouter(executionRouter) : inspectRestrictedExecution(selectedApiModel))}>
               <GitBranch size={18} />
               <span><small>{t("EXECUTION ROUTER")}</small><strong>{selectedApiModel?.execution_router_name || t("No mapping")}</strong><em>{selectedApiModel?.execution_model_name || t("Unavailable")}</em>{executionRouter && <ResourceOwnershipBadge ownership={executionRouter.resource_ownership} />}</span>
               <StatusDot status={selectedApiModel?.execution_router_status || "unavailable"} />
             </button>
-            <button className="topology-node topology-api-model-node" title={t("API Model: {{0}}", { 0: selectedApiModel?.model_name || "Unavailable" })} onClick={() => selectedApiModel && setInspected(inspectApiModel(selectedApiModel))}>
+            <button data-topology-node="api-model" className="topology-node topology-api-model-node" title={t("API Model: {{0}}", { 0: selectedApiModel?.model_name || "Unavailable" })} onClick={() => selectedApiModel && setInspected(inspectApiModel(selectedApiModel))}>
               <Tag size={17} />
               <span><small>{t("API MODEL")}</small><strong>{selectedApiModel?.model_name || t("No model")}</strong><em>{t("1:1 mapping")}</em></span>
               <StatusDot status={selectedApiModel?.available ? "healthy" : "unavailable"} />
             </button>
-            <button className="topology-node topology-router-node topology-aggregation-router-node" title={t("Aggregation Router: {{0}}", { 0: router.name })} onClick={() => setInspected(inspectRouter(router))}>
+            <button data-topology-node="aggregation" className="topology-node topology-router-node topology-aggregation-router-node" title={t("Aggregation Router: {{0}}", { 0: router.name })} onClick={() => setInspected(inspectRouter(router))}>
               <GitBranch size={18} />
               <span><small>{t("AGGREGATION API")}</small><strong>{router.name}</strong><em>{router.api_models.length}{" "}{t("models")}</em><ResourceOwnershipBadge ownership={router.resource_ownership} /></span>
               <StatusDot status={router.status} />
             </button>
-          </> : <button className="topology-node topology-router-node" title={t("Router: {{0}}", { 0: router.name })} onClick={() => setInspected(inspectRouter(router))}>
+          </> : <button data-topology-node="execution" className="topology-node topology-router-node" title={t("Router: {{0}}", { 0: router.name })} onClick={() => setInspected(inspectRouter(router))}>
             <GitBranch size={19} />
             <span><small>{t("ROUTER")}</small><strong>{router.name}</strong><em>{router.strategy.replaceAll("_", " ")}</em><ResourceOwnershipBadge ownership={router.resource_ownership} /></span>
             <StatusDot status={router.status} />
@@ -200,6 +177,7 @@ export function NexilumeTopology({
               return (
                 <button
                   key={pool.id}
+                  data-topology-node={`pool:${pool.id}`}
                   title={t("Model Pool: {{0}}", { 0: pool.display_name })}
                   className={`topology-pool-node ${isSelected ? "is-selected" : ""} ${poolTrace?.exclusion_reason ? "is-excluded" : ""}`}
                   onClick={() => setInspected(inspectPool(pool))}
@@ -227,7 +205,7 @@ export function NexilumeTopology({
 
           <div className="topology-source-stack" role="list" aria-label={t("Sources in selected Pool")}>
             {visibleSources.map((source) => (
-              <button key={source.id} title={t("Source: {{0}}", { 0: source.name })} className={`topology-source-node ${source.id === selectedSourceId ? "is-selected" : ""}`} onClick={() => setInspected(inspectSource(source))} role="listitem">
+              <button key={source.id} data-topology-node={`source:${source.id}`} title={t("Source: {{0}}", { 0: source.name })} className={`topology-source-node ${source.id === selectedSourceId ? "is-selected" : ""}`} onClick={() => setInspected(inspectSource(source))} role="listitem">
                 <CircleDot size={15} />
                 <span><small>{t("SOURCE")}</small><strong>{source.name}</strong><em>{source.provider} · {source.latency_ms || "–"}{" "}{t("ms")}</em><ResourceOwnershipBadge ownership={source.resource_ownership} /></span>
                 <StatusDot status={source.health_status} />
@@ -239,6 +217,7 @@ export function NexilumeTopology({
             {visibleOffers.map(({ offer, runtimeName, runtimeOwnership }) => (
               <button
                 key={offer.id}
+                data-topology-node={`offer:${offer.id}`}
                 title={t("Model Offer: {{0}}", { 0: offer.canonical_model_key || offer.upstream_model_id })}
                 className={`topology-offer-node ${visibleSources.some((source) => source.id === selectedSourceId && source.model_offer_id === offer.id) ? "is-selected" : ""}`}
                 onClick={() => setInspected(inspectOffer(offer, runtimeName, publication))}
@@ -253,7 +232,7 @@ export function NexilumeTopology({
 
           <div className="topology-runtime-stack" role="list" aria-label={t("Provider Runtimes")}>
             {visibleRuntimes.map((runtime) => (
-              <button key={runtime.id} title={t("Provider Runtime: {{0}}", { 0: runtime.name })} className="topology-runtime-node" onClick={() => setInspected(inspectRuntime(runtime, publication))} role="listitem">
+              <button key={runtime.id} data-topology-node={`runtime:${runtime.id}`} title={t("Provider Runtime: {{0}}", { 0: runtime.name })} className="topology-runtime-node" onClick={() => setInspected(inspectRuntime(runtime, publication))} role="listitem">
                 <Cpu size={16} />
                 <span><small>{t("PROVIDER RUNTIME")}</small><strong>{runtime.name}</strong><em>{runtime.publisher}</em><ResourceOwnershipBadge ownership={runtime.resource_ownership} /></span>
                 <StatusDot status={runtime.status} />
@@ -262,6 +241,7 @@ export function NexilumeTopology({
           </div>
         </div>
 
+        </div>
         <TopologyInspector item={inspected} />
       </div>
 
@@ -355,5 +335,40 @@ export function inspectRuntime(runtime: TopologyRuntime, publication?: TopologyP
   return { id: runtime.id, type: "runtime", name: runtime.name, status: runtime.status, eyebrow: t("Provider Runtime"), fields: [["Runtime", runtime.runtime_type], [t("Model offers"), runtime.model_offers.length], ["Publisher", runtime.publisher], ["Ownership", runtime.ownership], ...(publication?.runtimeFields(runtime) ?? [])] };
 }
 
-function poolY(index: number, count: number) { return 80 + ((index + 0.5) * 340) / Math.max(count, 1); }
-function sourceYPosition(index: number, count: number) { return 70 + ((index + 0.5) * 360) / Math.max(count, 1); }
+type TopologyLink = { from: string; to: string; active: boolean };
+
+function MeasuredTopologyWires({ links }: { links: TopologyLink[] }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [layout, setLayout] = useState<{ width: number; height: number; paths: (TopologyLink & { d: string })[] }>({ width: 1, height: 1, paths: [] });
+  const signature = JSON.stringify(links);
+  useLayoutEffect(() => {
+    const canvas = svg.current?.parentElement;
+    if (!canvas) return;
+    const connections = JSON.parse(signature) as TopologyLink[];
+    let frame = 0;
+    function measure() {
+      if (!canvas) return;
+      const bounds = canvas.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const nodes = new Map(Array.from(canvas.querySelectorAll<HTMLElement>("[data-topology-node]")).map(node => [node.dataset.topologyNode, node.getBoundingClientRect()]));
+      const paths = connections.flatMap(link => {
+        const from = nodes.get(link.from), to = nodes.get(link.to);
+        if (!from || !to) return [];
+        const x1 = from.right - bounds.left, y1 = from.top + from.height / 2 - bounds.top;
+        const x2 = to.left - bounds.left, y2 = to.top + to.height / 2 - bounds.top;
+        const mid = (x1 + x2) / 2;
+        return [{ ...link, d: `M ${x1} ${y1} L ${mid} ${y1} L ${mid} ${y2} L ${x2} ${y2}` }];
+      });
+      const next = { width: bounds.width, height: bounds.height, paths };
+      setLayout(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+    }
+    const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); });
+    observer.observe(canvas);
+    canvas.querySelectorAll("[data-topology-node]").forEach(node => observer.observe(node));
+    measure();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [signature]);
+  return <svg ref={svg} className="topology-wires" viewBox={`0 0 ${layout.width} ${layout.height}`} preserveAspectRatio="none" aria-hidden="true">
+    {layout.paths.map(link => <path key={`${link.from}-${link.to}`} data-from={link.from} data-to={link.to} className={link.active ? "topology-wire is-active" : "topology-wire"} d={link.d} />)}
+  </svg>;
+}
