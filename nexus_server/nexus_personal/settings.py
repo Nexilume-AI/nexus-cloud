@@ -40,6 +40,7 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MIDDLEWARE = [
+    "apps.agents.credential_preauthorization.UpstreamPreauthorizationMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "nexus_personal.middleware.PersonalRequestIDMiddleware",
     "nexus_personal.frontend.PersonalFrontendMiddleware",

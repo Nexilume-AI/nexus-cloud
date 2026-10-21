@@ -163,3 +163,79 @@ configured without login using a valid five-minute, one-time authorization link;
 the user still supplies their own key and explicitly confirms. Approval or
 cancellation consumes the link. These hosted capabilities are separate from the
 Personal host's credential-entry flow.
+
+
+## Optional preauthorization in MCP client configuration
+
+Both the hosted service and Personal host accept explicit upstream configuration
+on Agent MCP requests. This is a Nexus HTTP-header extension, not a standard MCP
+tool argument. Existing web authorization remains available when these headers
+are omitted. Use a personal, owner-bound MCP connection credential and an Agent
+enabled for model authorization by the host administrator.
+
+```toml
+# Optional upstream model preauthorization for this MCP Agent.
+# Environment variables contain keys; never put them in tool arguments.
+[mcp_servers.my_agent]
+url = "https://cloud.nexilume.com/api/v1/agents/<agent-id>/mcp/"
+bearer_token_env_var = "NEXUS_MCP_API_KEY"
+
+[mcp_servers.my_agent.http_headers]
+X-Nexus-Tenant = "<tenant-id>"
+X-Nexus-Upstream-Preauthorize = "true"
+X-Nexus-Upstream-Provider = "custom_openai"
+X-Nexus-Upstream-Endpoint = "https://api.example.com/v1"
+X-Nexus-Upstream-Model = "<model-id>"
+X-Nexus-Upstream-TTL-Seconds = "3600"
+
+[mcp_servers.my_agent.env_http_headers]
+X-Nexus-Upstream-Key = "NEXUS_UPSTREAM_API_KEY"
+```
+
+Codex supports static `http_headers` and environment-sourced `env_http_headers`
+([official configuration reference](https://developers.openai.com/codex/config-reference/)).
+Set `NEXUS_MCP_API_KEY` and `NEXUS_UPSTREAM_API_KEY` in the environment of the
+process running the MCP client. The first authenticates to Nexus; the second is
+the upstream model credential. They serve different purposes. Other HTTP MCP
+clients can send the same headers. A client without environment-backed headers
+can supply `X-Nexus-Upstream-Key` directly in its private header configuration;
+do not commit or share a configuration containing a real key. Arbitrary top-level
+`endpoint`, `model`, or `key` fields are not read by the Nexus MCP endpoint.
+
+| Header | Requirement |
+| --- | --- |
+| `X-Nexus-Upstream-Preauthorize` | Must be the string `true`; explicitly permits this Agent to use the supplied model credential and incur model charges. |
+| `X-Nexus-Upstream-Endpoint` | Required public HTTPS API base; no credentials, query, fragment, or private DNS/IP destinations. |
+| `X-Nexus-Upstream-Model` | Required exact model identifier. |
+| `X-Nexus-Upstream-Key` | Required upstream API key, separate from MCP `Authorization`. |
+| `X-Nexus-Upstream-Provider` | Optional; defaults to `custom_openai`. Also supports `custom_anthropic`, `openai`, `anthropic`, and `nexus`. Preset providers require their fixed endpoint. |
+| `X-Nexus-Upstream-TTL-Seconds` | Optional; defaults to `3600`, allowed `300`–`86400`. |
+
+Incomplete configuration, missing explicit consent, unknown upstream headers,
+and invalid endpoints fail closed with HTTP 400 rather than silently enabling
+access. `Preauthorize: false` alone is equivalent to no configuration; remove
+all other upstream headers when disabling it.
+
+The gateway strips these headers before forwarding or queueing a request. It
+creates an encrypted, caller/Agent/tenant/project-scoped grant when a tool
+invocation is admitted. Initialization and discovery do not create grants.
+Each new invocation carrying the complete explicit configuration creates a new
+grant with the selected lifetime; this is standing client consent, not an
+additional web confirmation on each call. A running job keeps its original
+authorization and cannot extend it by polling. Removing configuration prevents
+new invocations from using a previous configured grant, but does not cancel
+already running jobs; revoke the grant or cancel the job to stop existing use.
+
+`ProviderCredentials.authorize()` returns `authorized` with `preauthorized: true`
+and the selected non-secret configuration. The configured provider, endpoint,
+and model take priority over tool defaults, including `force_new`. Always use
+the returned configuration to start work. Changing any of these values or the
+key requires obtaining a fresh authorization reference; old references fail
+against a different invocation configuration. No configured grant is offered as
+a saved web credential. Calls without configuration continue the existing web
+approval flow. To return to web approval, remove the upstream headers.
+
+Keys are kept out of MCP arguments/results, Agent-forwarded headers, Run events,
+and training exports. Only the trusted execution callback resolves the encrypted
+credential after scope and lifetime checks. Reverse proxies and operator-added
+HTTP instrumentation must also exclude `X-Nexus-Upstream-Key` from header logs.

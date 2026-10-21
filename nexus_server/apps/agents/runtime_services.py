@@ -681,6 +681,8 @@ def create_invocation_display_context(
         **context_extension.model_values,
         mobile_delegate_token_expires_at=mobile_delegate_expires_at,
     )
+    from .credential_preauthorization import attach as attach_model_preauthorization
+    attach_model_preauthorization(request, run)
     release_capability_reservation(
         tenant=runtime.tenant,
         code="agents.concurrent_runs",

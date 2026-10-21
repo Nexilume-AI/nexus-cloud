@@ -62,7 +62,7 @@ def public(row):
             "caller_type": row.run.caller_principal_type,
             "expires_at": row.expires_at.isoformat(),
             "authorization_url": base + "/api/v1/agent-authorizations/" + str(row.id) + "/page/",
-            "credential_supplied": state == "authorized"}
+            "credential_supplied": state == "authorized", "preauthorized": row.preauthorized}
 
 
 def internal_run(run_id, token):
@@ -79,6 +79,15 @@ def request_authorization(run_id, token, provider, base_url=None, model=None, fo
     run = internal_run(run_id, token)
     if run.status != AgentDisplayRun.STATUS_RUNNING:
         raise exceptions.PermissionDenied("Authorization requests require a running invocation.")
+    from .credential_preauthorization import current
+    configured = current(run)
+    if configured is not None:
+        if str(configured.owner_id) != str(owner_id(run)):
+            raise exceptions.PermissionDenied('Invocation credential owner is no longer valid.')
+        if grant_state(configured) != 'authorized':
+            raise exceptions.PermissionDenied('Invocation preauthorization is no longer active.')
+        # The caller's explicit MCP configuration takes priority over tool defaults.
+        return public(configured)
     provider,base_url,model = configuration(provider,base_url,model)
     if type(force_new) is not bool:
         raise exceptions.ValidationError('force_new must be a boolean.')
@@ -86,7 +95,7 @@ def request_authorization(run_id, token, provider, base_url=None, model=None, fo
     if not owner:
         raise exceptions.PermissionDenied("Use your personal Agent MCP credential or sign in; shared caller keys cannot authorize provider secrets.")
     existing = AgentCredentialAuthorization.objects.filter(
-        **scope(run), owner_id=owner, provider=provider, base_url=base_url, status="authorized", expires_at__gt=timezone.now(),
+        **scope(run), owner_id=owner, preauthorized=False, provider=provider, base_url=base_url, status="authorized", expires_at__gt=timezone.now(),
     ).order_by("-created_at")
     if model:existing=existing.filter(model_name=model)
     for candidate in ([] if force_new else existing):
@@ -105,13 +114,17 @@ def internal_status(run_id, token, authorization_id, resolve=False):
     row = AgentCredentialAuthorization.objects.filter(id=authorization_id, **scope(run)).select_related("run__agent").first()
     if not row or str(row.owner_id) != str(owner_id(run)):
         raise exceptions.NotFound()
+    from .credential_preauthorization import enforce_resolution
+    effective_expiry = enforce_resolution(run, row)
     result = public(row)
+    if effective_expiry is not None:
+        result["expires_at"] = effective_expiry.isoformat()
     if resolve:
         if result["status"] != "authorized" or run.status != AgentDisplayRun.STATUS_RUNNING:
             raise exceptions.PermissionDenied("Authorization is not active for this running invocation.")
         # This response goes only to the authenticated runtime callback, never MCP.
         result = {"secret": decrypt_secret((row.source_grant or row).encrypted_secret), "provider": row.provider,
-                  "base_url": row.base_url, "model":row.model_name, "protocol":PROVIDERS[row.provider]["protocol"], "expires_at": row.expires_at.isoformat()}
+                  "base_url": row.base_url, "model":row.model_name, "protocol":PROVIDERS[row.provider]["protocol"], "expires_at": result["expires_at"]}
     return result
 
 
@@ -129,7 +142,7 @@ def browser_row(request, authorization_id, lock=False):
 
 def saved_grants(row):
     return AgentCredentialAuthorization.objects.filter(**scope(row.run),owner_id=row.owner_id,
-        status='authorized',expires_at__gt=timezone.now(),source_grant__isnull=True,
+        status='authorized',preauthorized=False,expires_at__gt=timezone.now(),source_grant__isnull=True,
         issued_key_id__isnull=True).exclude(encrypted_secret='')
 
 

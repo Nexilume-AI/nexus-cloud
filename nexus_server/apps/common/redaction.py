@@ -17,6 +17,8 @@ REDACTION_PHONE_RE = re.compile(r"(?<!\d)(?:\+?\d[\d\s().-]{7,}\d)(?!\d)")
 
 
 REDACTION_SENSITIVE_KEYS = {
+    "x_nexus_upstream_key",
+    "http_x_nexus_upstream_key",
     "api_key",
     "apikey",
     "authorization",

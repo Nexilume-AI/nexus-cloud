@@ -1568,6 +1568,7 @@ class AgentCredentialAuthorization(models.Model):
     source_grant = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='derived_grants')
     router_id = models.UUIDField(null=True, blank=True)
     issued_key_id = models.UUIDField(null=True, blank=True, unique=True)
+    preauthorized = models.BooleanField(default=False, db_default=False)
     status = models.CharField(max_length=16, default="pending")
     encrypted_secret = models.TextField(blank=True)
     expires_at = models.DateTimeField()

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.agents.credential_preauthorization.UpstreamPreauthorizationMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "apps.common.middleware.RequestIDMiddleware",
     "apps.common.middleware.TenantContextMiddleware",
