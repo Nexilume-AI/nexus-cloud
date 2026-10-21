@@ -141,3 +141,25 @@ SDK examples and tests are in `examples/atrex_mcp_agent` and `tests/test_credent
 ## Personal distribution boundary
 
 This open-source host supports owner-bound secure credential entry, custom public HTTPS endpoints, saved grant confirmation, and background task events. Hosted Nexus Router credential issuance is not included: the Personal page uses a caller-supplied Nexus key or another provider. It never falls back to an installation credential. The Atrex execution example currently pins its authorization and telemetry callbacks to hosted `https://cloud.nexilume.com`; using a different Cloud host requires explicitly adapting and reviewing both callback allowlists.
+
+
+## Provider selection in the authorization page
+
+**Model provider** is the single entry point for choosing a connection; there is
+no separate “Use my Nexus Router” button. The page uses a compact card layout,
+responsive inputs, and an explicit consent checkbox, without expandable sections.
+
+The Personal host uses caller-supplied credentials, including when Nexus Cloud is
+selected. It does not expose the hosted `/account/` or short-lived `/link/` flow.
+Router controls appear only when the backend explicitly advertises Router
+delegation support. Switching providers clears the key and confirmation; the
+selector is disabled while an approval is being submitted.
+
+On hosted **cloud.nexilume.com**, choosing **Nexus Cloud** in **Model provider**
+requests a real browser login and lists only that signed-in user's permitted
+Routers, with their billing Organization/project. A pending authorization link
+does not grant access to the publisher's account. Other providers can be
+configured without login using a valid five-minute, one-time authorization link;
+the user still supplies their own key and explicitly confirms. Approval or
+cancellation consumes the link. These hosted capabilities are separate from the
+Personal host's credential-entry flow.
