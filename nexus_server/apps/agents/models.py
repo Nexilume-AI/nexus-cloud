@@ -17,6 +17,21 @@ def agent_display_asset_upload_to(instance, filename: str) -> str:
     return f"agent-display/{instance.run_id}/{instance.id}/{suffix}"
 
 
+class AgentWaveView(BaseModel):
+    """A file-scoped browser capability, independent of Nexus account cookies."""
+    run = models.ForeignKey('AgentDisplayRun', on_delete=models.CASCADE)
+    owner_scope = models.CharField(max_length=64, db_index=True)
+    file_ids = models.JSONField(default=list)
+    snapshot = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=1)
+    browser_state = models.JSONField(default=dict)
+    ticket_hash = models.CharField(max_length=64, blank=True)
+    ticket_expires_at = models.DateTimeField(null=True)
+    browser_hash = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField(db_index=True)
+    closed = models.BooleanField(default=False)
+
+
 class AgentFileTransfer(BaseModel):
     """Private, resumable file transfer; bytes live in the shared storage backend."""
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)

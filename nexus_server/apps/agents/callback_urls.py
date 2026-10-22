@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .background_views import RegisterJobView, IngestView, CommandView, UploadView
 from .credential_views import InternalCredentialRequestView, InternalCredentialDetailView
 from .callback_views import (
@@ -30,6 +30,7 @@ from .callback_views import (
 )
 
 urlpatterns = [
+    path('', include('apps.agents.wave_urls')),
     path("internal/agent-runs/<uuid:run_id>/interactions/background-jobs/", RegisterJobView.as_view()),
     path("agent-background-jobs/<uuid:job_id>/ingest/", IngestView.as_view()),
     path("agent-background-jobs/<uuid:job_id>/commands/", CommandView.as_view()),

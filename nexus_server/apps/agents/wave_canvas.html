@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Waveform</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#171b22}canvas{width:100%;height:100%;display:block}</style></head><body><canvas id="the_canvas_id"></canvas><script type="module" nonce="__NONCE__">
+import init,{waves_loaded} from '../assets/surfer.js';
+window.on_surfer_error=()=>parent.postMessage({type:'wave-error'},location.origin);
+try{await init({module_or_path:'../assets/surfer_bg.wasm'});const until=Date.now()+120000;while(Date.now()<until){if(await waves_loaded()){parent.postMessage({type:'wave-ready'},location.origin);break}await new Promise(resolve=>setTimeout(resolve,300))}}catch{parent.postMessage({type:'wave-error'},location.origin)}
+</script></body></html>
