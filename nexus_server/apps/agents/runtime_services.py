@@ -4204,7 +4204,9 @@ def get_run_context(*, run_id: str, token: str, limit: int = 200) -> dict[str, A
     task = getattr(run, "execution_task", None)
     turn_index = max(int((task.request_json or {}).get("turn_index") or 1), 1) if task else 1
     snapshot = dict(run.project_context_snapshot or {})
+    from .caller_identity import runtime_identity
     return {
+        "caller_identity": runtime_identity(run),
         "run": {
             "id": str(run.id),
             "turn_index": turn_index,

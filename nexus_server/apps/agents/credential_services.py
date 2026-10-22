@@ -29,9 +29,13 @@ def owner_id(run):
 
 
 def scope(run):
+    from .caller_identity import principal_filter
+    identity = principal_filter(run.caller_principal_type, run.caller_principal_id)
+    if run.caller_principal_type not in ("api_key", "api_key_external"):
+        identity["run__caller_subject_hash"] = run.caller_subject_hash
     return dict(run__agent_id=run.agent_id, run__consumer_tenant_id=run.consumer_tenant_id,
                 run__consumer_project_id=run.consumer_project_id,
-                run__caller_subject_hash=run.caller_subject_hash)
+                **identity)
 
 
 def grant_state(row):

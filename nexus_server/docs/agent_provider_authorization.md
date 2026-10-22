@@ -239,3 +239,30 @@ Keys are kept out of MCP arguments/results, Agent-forwarded headers, Run events,
 and training exports. Only the trusted execution callback resolves the encrypted
 credential after scope and lifetime checks. Reverse proxies and operator-added
 HTTP instrumentation must also exclude `X-Nexus-Upstream-Key` from header logs.
+
+## Caller identity and shared API Keys
+
+One Nexus API Key represents one caller across MCP sessions. Clients sharing that
+Key intentionally share eligible, unexpired model authorizations and caller
+quotas. For independent users, provision independent Keys. `X-Nexus-End-User`
+is a tracing label, not a verified user identity or a new authorization boundary.
+Authorizations remain scoped to the authenticated principal, consumer tenant,
+project and Agent; a different Key cannot resolve or reuse them, even with a
+copied authorization ID. Expiry, consent, revocation and explicit per-request
+preauthorization checks still apply.
+
+Agent runtimes can call `current_run().caller_identity()` in the Python SDK.
+Cloud returns `version: 1`, `principal_type`, `owner_scope` and `quota_scope`
+through the authenticated Run context callback. The opaque owner scope binds the
+verified caller, tenant, project and Agent; the quota scope binds caller and
+tenant so changing sessions or projects cannot reset a per-caller limit. Never
+accept these fields as tool arguments or unverified caller headers. Older Cloud
+deployments fail closed in this SDK API. Preserve Python context variables when
+dispatching work to another thread.
+
+The Wave MCP integration uses caller-bound workspaces and bounded fair queuing:
+two workspaces per caller, four total; FIFO per caller and round-robin between
+callers; two active calls globally and one per caller. The queue holds eight
+pending calls per caller and 32 total, with a ten-second wait deadline. Clients
+should back off on queue errors. These limits apply to the single Wave bridge
+process, not to every Agent hosted through Cloud.
