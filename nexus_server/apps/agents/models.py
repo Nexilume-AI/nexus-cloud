@@ -17,6 +17,36 @@ def agent_display_asset_upload_to(instance, filename: str) -> str:
     return f"agent-display/{instance.run_id}/{instance.id}/{suffix}"
 
 
+class AgentInteractiveView(BaseModel):
+    """Caller-bound UI with separate browser and runtime capabilities."""
+    run = models.ForeignKey('AgentDisplayRun', on_delete=models.CASCADE)
+    owner_scope = models.CharField(max_length=64, db_index=True)
+    definition = models.JSONField(default=dict)
+    state = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=1)
+    ticket_hash = models.CharField(max_length=64, blank=True)
+    ticket_expires_at = models.DateTimeField(null=True)
+    browser_hash = models.CharField(max_length=64, blank=True)
+    producer_hash = models.CharField(max_length=64)
+    producer_seen_at = models.DateTimeField(null=True)
+    expires_at = models.DateTimeField(db_index=True)
+    closed = models.BooleanField(default=False)
+
+
+class AgentViewAction(BaseModel):
+    view = models.ForeignKey(AgentInteractiveView, on_delete=models.CASCADE, related_name='actions')
+    request_id = models.UUIDField()
+    name = models.CharField(max_length=64)
+    arguments = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, default='pending')
+    lease_hash = models.CharField(max_length=64, blank=True)
+    deadline = models.DateTimeField()
+    result = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['view', 'request_id'], name='unique_view_action_request')]
+
+
 class AgentWaveView(BaseModel):
     """A file-scoped browser capability, independent of Nexus account cookies."""
     run = models.ForeignKey('AgentDisplayRun', on_delete=models.CASCADE)

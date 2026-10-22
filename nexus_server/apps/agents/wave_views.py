@@ -25,16 +25,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .caller_identity import runtime_identity
+from .view_security import digest, live
 from .models import Agent, AgentFileTransfer, AgentWaveView
 
 COOKIE = '__Secure-nexus-wave'
 TICKET_SECONDS = 600
 VIEW_SECONDS = 3600
 COMMANDS = re.compile(r'(?:variable_add [\w.$\[\]:/\\-]{1,512}|divider_add "[\w -]{1,80}"|item_set_color [\w#]{1,32}|item_set_format (?:Hexadecimal|Bits|Unsigned|Signed|ASCII)|zoom_fit|zoom_to -?\d{1,30} -?\d{1,30}|(?:cursor_set|goto_time) -?\d{1,30}|marker_set_at -?\d{1,30} \d{1,3})\Z')
-
-
-def digest(value):
-    return hashlib.sha256(str(value).encode()).hexdigest()
 
 
 def base_path(view_id):
@@ -49,25 +46,6 @@ def harden(response):
     return response
 
 
-def live(row):
-    if not row or row.closed or row.expires_at <= timezone.now() or row.run.agent.status != Agent.STATUS_ACTIVE:
-        raise exceptions.NotFound('Wave view is closed or expired. Open a new view through MCP.')
-    # Personal credentials authenticate as their verified owner, never Enterprise Keys.
-    from django.contrib.auth import get_user_model
-    from nexus_personal.models import PersonalInvocationUsage
-    if row.run.caller_principal_type != 'user' or not get_user_model().objects.filter(pk=row.run.caller_principal_id, is_active=True).exists():
-        raise exceptions.NotFound('The viewer owner is no longer active.')
-    credential_ids = PersonalInvocationUsage.objects.filter(run_id=row.run_id).exclude(agent_credential_id=None).values_list('agent_credential_id', flat=True)
-    from nexus_personal.agent_credentials import _current
-    from types import SimpleNamespace
-    for credential_id in set(credential_ids):
-        try:
-            credential, user = _current(SimpleNamespace(META={}, headers={}), credential_id)
-        except exceptions.APIException:
-            raise exceptions.NotFound('The viewer credential is no longer active.') from None
-        if str(user.pk) != row.run.caller_principal_id or str(row.run.agent_id) not in credential.agent_ids:
-            raise exceptions.NotFound('The viewer credential no longer permits this Agent.')
-    return row
 
 
 def browser_view(request, view_id):

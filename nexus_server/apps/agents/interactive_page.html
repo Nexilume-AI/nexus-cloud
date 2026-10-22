@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interactive View · Nexus</title>
+<style nonce="__NONCE__">
+:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#182a39;background:#f4f6f8;color-scheme:light}*{box-sizing:border-box}body{margin:0}header{height:76px;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;background:white;border-bottom:1px solid #e2e8ed}.brand{font-size:12px;letter-spacing:.16em;color:#607080;font-weight:700}h1{font-size:23px;letter-spacing:-.025em;margin:8px 0 0}main{max-width:1180px;margin:32px auto;padding:0 24px}.status{font-size:12px;border-radius:20px;background:#edf3f6;padding:8px 13px;white-space:nowrap}.online{color:#14745c;background:#e7f5ee}.top{display:flex;align-items:end;justify-content:space-between;margin-bottom:24px;gap:20px}.note{font-size:13px;color:#647583;line-height:1.6}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}.card,section{background:white;border:1px solid #e3e9ee;border-radius:16px;padding:22px;margin-bottom:18px}.metric{font-size:30px;letter-spacing:-.04em;margin-top:10px}h2{font-size:14px;margin:0 0 16px}p{line-height:1.7;white-space:pre-wrap}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;border-bottom:1px solid #edf1f4;padding:12px 8px}th{color:#687986;font-weight:500}.scroll{overflow:auto}pre{font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;margin:0}button{border:0;border-radius:9px;padding:10px 16px;background:#193f52;color:white;font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:wait}label{display:block;font-size:12px;color:#647583;margin:12px 0 5px}input,select,textarea{font:inherit;width:100%;border:1px solid #d8e1e8;border-radius:8px;padding:10px;background:white;color:#182a39}input[type=checkbox]{width:auto}textarea{min-height:80px}form button{margin-top:16px}.error{color:#a34236}.activity{display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:10px 0;border-bottom:1px solid #edf1f4}.activity span:last-child{color:#647583}iframe{width:100%;height:72vh;border:1px solid #e3e9ee;border-radius:16px;background:white}svg{width:100%;height:150px}footer{text-align:center;color:#84929d;font-size:11px;padding:24px}.hidden{display:none}@media(max-width:600px){header{padding:0 20px}.top{align-items:start}main{padding:0 16px}.card,section{padding:18px}}
+</style></head><body>
+<header><div class="brand">NEXUS / INTERACTIVE VIEW</div><span class="status" id="status">Connecting</span></header>
+<main><div class="top"><div><h1 id="title">Interactive View</h1><div class="note" id="subtitle">A private session with your Agent</div></div></div>
+<p id="error" class="error" role="alert"></p><div id="content"></div><section id="activity" class="hidden"><h2>Recent actions</h2><div id="history"></div></section></main>
+<footer>Private, time-limited access · Powered by Nexus</footer>
+<script nonce="__NONCE__">
+(() => {
+  const $ = id => document.getElementById(id), base = location.pathname;
+  let view, source, port, frame, stopped = false;
+  const requests = new Map(), forms = new Map();
+  function node(tag, text, cls) { const el = document.createElement(tag); if (text !== undefined) el.textContent = typeof text === 'object' ? JSON.stringify(text) : String(text); if (cls) el.className = cls; return el; }
+  async function api(url, data) {
+    const r = await fetch(base + url, {method:data === undefined ? 'GET':'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Nexus-View':'1'}, ...(data === undefined ? {} : {body:JSON.stringify(data)})});
+    const v = await r.json(); if (!r.ok) throw new Error(r.status === 403 ? 'This link has expired or was already used. Ask your Agent for a fresh link.' : r.status === 404 ? 'This view is closed or expired.' : 'The request could not be completed. Check the Agent connection and try again.');
+    return v.data ?? v;
+  }
+  function fail(e) { $('error').textContent = e.message; }
+  function disconnect() { stopped=true; source?.close(); $('status').textContent='Closed'; $('status').className='status'; for(const f of forms.values()) f.button.disabled=true; if(frame) frame.remove(); port?.close(); $('error').textContent='This view is closed or expired. Open a new one through your Agent.'; }
+  async function action(name, args, clientId, button) {
+    if (stopped || !view.online) throw new Error('Agent is disconnected. Reopen the view through MCP.');
+    if (!Object.hasOwn(view.definition.actions, name)) throw new Error('This action is not declared by the Agent.');
+    if (requests.size >= 16) throw new Error('Wait for pending actions to finish.');
+    const id = crypto.randomUUID();
+    requests.set(id, {clientId, button}); if(button) button.disabled=true;
+    try { await api('actions/', {request_id:id, name, arguments:args}); }
+    catch(e) { requests.delete(id); if(button) button.disabled=false; throw e; }
+  }
+  function controls(def) {
+    if (!Object.keys(def.actions).length) return;
+    const area=node('div',undefined,'grid');
+    for(const [name, actionDef] of Object.entries(def.actions)) {
+      const form=node('form',undefined,'card');form.append(node('h2',actionDef.label));const inputs={};
+      for(const [key,schema] of Object.entries(actionDef.input_schema.properties || {})) {
+        const label=node('label',schema.title || key), id='field-'+name+'-'+key;label.htmlFor=id;form.append(label);
+        let input;
+        if(schema.enum){input=node('select');for(const v of schema.enum){const o=node('option',v);o.value=JSON.stringify(v);input.append(o);}}
+        else if(schema.type==='object'||schema.type==='array'){input=node('textarea');input.value=JSON.stringify(schema.default ?? (schema.type==='array'?[]:{}));}
+        else{input=node('input');input.type=schema.type==='boolean'?'checkbox':schema.type==='number'||schema.type==='integer'?'number':'text';if(input.type==='number') input.step=schema.type==='integer'?'1':'any';if(schema.default!==undefined){if(input.type==='checkbox')input.checked=schema.default;else input.value=schema.default;}if(schema.minimum!==undefined)input.min=schema.minimum;if(schema.maximum!==undefined)input.max=schema.maximum;}
+        input.id=id;input.required=(actionDef.input_schema.required || []).includes(key)&&input.type!=='checkbox';form.append(input);inputs[key]={input,schema};
+      }
+      const button=node('button',actionDef.label);button.type='submit';form.append(button);forms.set(name,{button});
+      form.addEventListener('submit',async e=>{e.preventDefault();$('error').textContent='';const args={};try{for(const [key,{input,schema}] of Object.entries(inputs)){if(!input.required&&input.type!=='checkbox'&&!input.value)continue;args[key]=schema.enum||['object','array'].includes(schema.type)?JSON.parse(input.value):schema.type==='boolean'?input.checked:['number','integer'].includes(schema.type)?Number(input.value):input.value;}await action(name,args,null,button);}catch(e){fail(e);}});area.append(form);
+    } $('content').append(area);
+  }
+  function panel(state) {
+    let output=$('data');if(!output){output=node('div');output.id='data';$('content').prepend(output);}output.replaceChildren();
+    if(state.summary) {const s=node('section');s.append(node('p',state.summary));output.append(s);}
+    if(Array.isArray(state.metrics)){const grid=node('div',undefined,'grid');for(const m of state.metrics.slice(0,24)){const c=node('div',undefined,'card');c.append(node('div',m.label,'note'),node('div',m.value,'metric'));grid.append(c);}output.append(grid);}
+    if(state.table && Array.isArray(state.table.columns) && Array.isArray(state.table.rows)){const section=node('section',undefined,'scroll'),t=node('table'),head=node('tr');for(const c of state.table.columns.slice(0,32))head.append(node('th',c));t.append(head);for(const row of state.table.rows.slice(0,200)){const tr=node('tr');for(const cell of (Array.isArray(row)?row:[]).slice(0,32))tr.append(node('td',cell));t.append(tr);}section.append(t);output.append(section);}
+    if(state.chart && Array.isArray(state.chart.points)){const vals=state.chart.points.slice(0,500).filter(Number.isFinite);if(vals.length>1){const section=node('section'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),line=document.createElementNS(svg.namespaceURI,'polyline'),min=Math.min(...vals),span=Math.max(...vals)-min||1;svg.setAttribute('viewBox','0 0 600 150');line.setAttribute('points',vals.map((v,i)=>`${i*600/(vals.length-1)},${140-(v-min)/span*130}`).join(' '));line.setAttribute('fill','none');line.setAttribute('stroke','#23877b');line.setAttribute('stroke-width','2');svg.append(line);section.append(node('h2',state.chart.label || 'Trend'),svg);output.append(section);}}
+    if(Array.isArray(state.logs)){const section=node('section');section.append(node('h2','Activity'),node('pre',state.logs.slice(-100).map(x=>typeof x==='string'?x:JSON.stringify(x)).join('\n')));output.append(section);}
+    if(!output.childNodes.length){const section=node('section');section.append(node('pre',JSON.stringify(state,null,2)));output.append(section);}
+  }
+  function setup() {
+    $('title').textContent=view.definition.title;document.title=view.definition.title+' · Nexus';$('subtitle').textContent='Private session · Expires '+new Date(view.expires_at).toLocaleTimeString();
+    if(view.definition.template==='custom'){
+      frame=node('iframe');frame.title=view.definition.title;frame.setAttribute('sandbox','allow-scripts allow-forms');frame.referrerPolicy='no-referrer';
+      frame.onload=()=>{port?.close();const channel=new MessageChannel();port=channel.port1;
+        port.onmessage=async({data})=>{if(!data||typeof data!=='object')return;if(data.type==='ready')port.postMessage({type:'state',state:view.state});
+          if(data.type==='action'&&typeof data.id==='string'&&data.id.length<64){try{if(JSON.stringify(data).length>32768)throw new Error('Action too large.');await action(data.name,data.arguments,data.id);}catch(e){port.postMessage({type:'result',id:data.id,error:e.message});}}};
+        frame.contentWindow.postMessage({type:'nexus-connect'},'*',[channel.port2]);};
+      frame.src=base+'custom/';$('content').append(frame);
+    }else controls(view.definition);
+  }
+  function render(next) {
+    view={...view,...next};$('status').textContent=view.online?'Live':'Agent disconnected';$('status').className='status'+(view.online?' online':'');
+    if(view.definition.template==='panel')panel(view.state);else port?.postMessage({type:'state',state:view.state});
+    for(const f of forms.values())f.button.disabled=!view.online||[...requests.values()].some(r=>r.button===f.button);
+    const history=$('history');history.replaceChildren();$('activity').className=view.actions?.length?'':'hidden';
+    for(const a of view.actions || []){const line=node('div',undefined,'activity');line.append(node('span',view.definition.actions[a.name]?.label || a.name),node('span',a.status));history.append(line);
+      if(['succeeded','failed','expired'].includes(a.status)&&requests.has(a.request_id)){const r=requests.get(a.request_id);requests.delete(a.request_id);if(r.button)r.button.disabled=!view.online;if(r.clientId)port?.postMessage({type:'result',id:r.clientId,...(a.status==='succeeded'?{result:a.result}:{error:'Action '+a.status+'. Check the Agent state before retrying.'})});if(a.status!=='succeeded')fail(new Error('Action '+a.status+'. Check the Agent state before retrying.'));}}
+  }
+  async function start(){try{const token=new URLSearchParams(location.hash.slice(1)).get('ticket');history.replaceState(null,'',base);if(token)await api('redeem/',{ticket:token});view=await api('state/');setup();render(view);source=new EventSource(base+'events/');source.addEventListener('state',e=>render(JSON.parse(e.data)));source.addEventListener('closed',disconnect);source.onerror=()=>{$('status').textContent='Reconnecting';$('status').className='status';view.online=false;for(const f of forms.values())f.button.disabled=true;};}catch(e){fail(e);$('status').textContent='Unavailable';}}
+  start();
+})();
+</script></body></html>
