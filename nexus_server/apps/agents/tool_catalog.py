@@ -34,6 +34,8 @@ def tool_contract_digest(descriptor: dict[str, Any] | None) -> str:
         "recovery_protocol": int(item.get("recovery_protocol") or 0),
         **{field: bool(policy.get(field)) for field in TOOL_POLICY_FIELDS},
     }
+    if item.get("codex_hooks"):
+        payload["codex_hooks"] = item["codex_hooks"]
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
@@ -335,6 +337,12 @@ def _normalize_tool(
             default_profile_seen = default_profile_seen or raw_is_default
     if execution_profiles and not default_profile_seen:
         execution_profiles[0]["is_default"] = True
+    from .codex_hooks import normalize_codex_hooks
+    hook_error = False
+    try:
+        codex_hooks = normalize_codex_hooks(raw_tool.get("codex_hooks", version_values.get("codex_hooks", [])), schema)
+    except (ValueError, TypeError):
+        codex_hooks, hook_error = [], True
     return {
         "name": name,
         "title": title,
@@ -345,6 +353,8 @@ def _normalize_tool(
         "slash_command": slash_command,
         "slash_description": slash_description or (description if slash_command else ""),
         "execution_profiles": execution_profiles,
+        "codex_hooks": codex_hooks,
+        "codex_hooks_invalid": hook_error,
         "input_modalities": input_modalities,
         "recovery_protocol": 1 if int(raw_tool.get("recovery_protocol") or version_values.get("recovery_protocol") or 0) >= 1 else 0,
     }

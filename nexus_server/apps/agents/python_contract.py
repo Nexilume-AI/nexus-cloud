@@ -2,6 +2,7 @@
 from rest_framework import exceptions
 
 from .models import Agent
+from .codex_hooks import normalize_codex_hooks
 from .tool_catalog import TOOL_POLICY_FIELDS, _normalize_tools
 from .workspace_grants import normalize_workspace_capabilities
 from .mobile_access import normalize_mobile_capabilities
@@ -32,7 +33,7 @@ def normalize_agent_contract(value):
 def verified_python_catalog(raw_tools, *, native=False):
     from .python_builder import BuildFailure
     fields = (*TOOL_POLICY_FIELDS, "mobile_scopes", "input_modalities", "execution_profiles",
-              "slash_command", "slash_description", "recovery_protocol")
+              "slash_command", "slash_description", "recovery_protocol", "codex_hooks")
     policies, contract = {}, None
     for tool in raw_tools:
         if not isinstance(tool, dict):
@@ -42,6 +43,10 @@ def verified_python_catalog(raw_tools, *, native=False):
         if not isinstance(nexus, dict):
             nexus = {}
         policies[str(tool.get("name", ""))] = {field: nexus[field] for field in fields if field in nexus}
+        try:
+            normalize_codex_hooks(nexus.get("codex_hooks", []), tool.get("inputSchema", tool.get("input_schema", {})))
+        except (ValueError, TypeError):
+            raise BuildFailure("CODEX_HOOK_INVALID", "The SDK Codex Hook declaration is invalid.") from None
         if native:
             try:
                 declared = normalize_agent_contract(nexus.get("agent_contract"))

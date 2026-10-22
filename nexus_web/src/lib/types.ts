@@ -692,7 +692,12 @@ export type AgentMcpServerConfig = {
   headers: Record<string, string>;
 };
 
+export type CodexHookDeclaration = {
+  event: string; input: Record<string, unknown>; matcher?: string; timeout?: number;
+};
 export type AgentMcpExport = {
+  tools?: { name: string; description: string; input_schema: Record<string, unknown>;
+    codex_hooks?: CodexHookDeclaration[]; codex_hooks_invalid?: boolean }[];
   agent_id: string;
   server_name: string;
   version: string;

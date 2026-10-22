@@ -487,6 +487,11 @@ class EdgeAgentRegistrationUpsertSerializer(serializers.Serializer):
                 if len(slash_description) > 160:
                     raise serializers.ValidationError({"mcp_tools": f"Tool {index} slash_description is too long."})
                 slash_commands.add(slash_command)
+            from .codex_hooks import normalize_codex_hooks
+            try:
+                codex_hooks = normalize_codex_hooks(tool.get("codex_hooks", []), schema)
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({"mcp_tools": f"Tool {index} has an invalid Codex Hook declaration."}) from None
             raw_profiles = tool.get("execution_profiles") or []
             if not isinstance(raw_profiles, list) or len(raw_profiles) > 8:
                 raise serializers.ValidationError({"mcp_tools": f"Tool {index} execution_profiles must be a list of at most eight entries."})
@@ -588,6 +593,7 @@ class EdgeAgentRegistrationUpsertSerializer(serializers.Serializer):
                 "slash_command": slash_command,
                 "slash_description": slash_description,
                 "execution_profiles": execution_profiles,
+                "codex_hooks": codex_hooks,
                 "input_modalities": input_modalities,
             })
         attrs["mcp_tools"] = normalized_tools

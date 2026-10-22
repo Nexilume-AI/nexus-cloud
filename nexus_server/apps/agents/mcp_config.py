@@ -58,6 +58,26 @@ def build_agent_mcp_export(
         # workspace rather than the Agent publisher workspace.
         server["tenant_id"] = str(consumer_tenant_id)
 
+    # Use the same deployed catalog as invocation, never a pending build. This
+    # does not grant invocation rights or certify a tool as a trusted hook.
+    from .runtime_services import get_runtime_deployment, AgentRuntimeNotAvailable
+    from .tool_catalog import effective_mcp_tools
+
+    tools = []
+    if not template:
+        try:
+            runtime = get_runtime_deployment(agent=agent)
+        except AgentRuntimeNotAvailable:
+            runtime = None
+        if runtime is not None:
+            tools = [
+                {"name": item["name"], "description": item["description"],
+                 "input_schema": item["input_schema"],
+                 "codex_hooks": item.get("codex_hooks", []),
+                 "codex_hooks_invalid": bool(item.get("codex_hooks_invalid"))}
+                for item in effective_mcp_tools(agent=agent, runtime=runtime)
+            ]
+
     return {
         "agent_id": str(agent.id),
         "server_name": server_name,
@@ -75,5 +95,6 @@ def build_agent_mcp_export(
             "one_time_inline_supported": not template,
         },
         "template": template,
+        "tools": tools,
         "mcpServers": {server_name: server},
     }

@@ -519,6 +519,7 @@ def _provision_managed_registration(
                 "task": bool(tool.get("task")),
                 "continuable": bool(tool.get("continuable")),
                 "recovery_protocol": int(tool.get("recovery_protocol") or 0),
+                "codex_hooks": list(tool.get("codex_hooks") or []),
                 "demo": bool(tool.get("demo")),
                 "chat": bool(tool.get("chat")),
                 "interactive": bool(tool.get("interactive")),

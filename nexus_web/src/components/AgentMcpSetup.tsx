@@ -3,6 +3,9 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 import type { AgentMcpExport } from "../lib/types";
 import { mcpClients, serializeClientConfig, type McpClient } from "../lib/agentMcpConfig";
+import { CodexHookSetup } from "./CodexHookSetup";
+import { Badge } from "./Badge";
+import { hasDeclaredCodexHooks } from "../lib/codexHookConfig";
 export { serializeClientConfig } from "../lib/agentMcpConfig";
 
 const CLIENT_PREFERENCE = "nexus.mcp.client";
@@ -30,6 +33,9 @@ export function AgentMcpSetup({ config, plaintextKey = "", loading = false, erro
   useLocale();
   const id = useId();
   const [client, setClient] = useState<McpClient>(preferredClient);
+  const [usage, setUsage] = useState("tool");
+  const hasHooks = hasDeclaredCodexHooks(config);
+  useEffect(() => { setUsage("tool"); }, [config?.agent_id, hasHooks]);
   const [credentialMode, setCredentialMode] = useState("reference");
   const [copyError, setCopyError] = useState(false);
   const [copied, setCopied] = useState("");
@@ -55,7 +61,12 @@ export function AgentMcpSetup({ config, plaintextKey = "", loading = false, erro
   }
   return <section className="min-w-0 rounded-xl border border-line bg-white" aria-labelledby={id + "-title"}>
     <header className="border-b border-line px-4 py-4 sm:px-6">
-      <h2 id={id + "-title"} className="text-lg font-semibold text-ink">{t("Connect Agent")}</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id={id + "-title"} className="text-lg font-semibold text-ink">{t("Connect Agent")}</h2>
+        {hasHooks && <span title={t("This Agent declares Hooks in its SDK configuration.")} aria-label={t("SDK-declared Hooks")}>
+          <Badge tone="info">{t("Hooks")}</Badge>
+        </span>}
+      </div>
       <p className="mt-1 text-sm text-muted">{t("Use this Agent in your development tools.")}</p>
     </header>
     <div className="grid min-w-0 gap-4 p-4 sm:p-6">
@@ -65,12 +76,17 @@ export function AgentMcpSetup({ config, plaintextKey = "", loading = false, erro
           {Object.entries(mcpClients).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}
         </select>
       </label>
+      {client === "codex" && hasHooks && <label className="grid gap-2 text-sm font-medium" htmlFor={id + "-usage"}>{t("Connection usage")}
+        <select id={id + "-usage"} className="input min-h-11 w-full sm:max-w-sm" value={usage} onChange={event => setUsage(event.target.value)}>
+          <option value="tool">{t("Tool calls")}</option><option value="hook">{t("Codex Hook")}</option>
+        </select>
+      </label>}
       {loading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted" role="status">
         <Loader2 size={16} className="animate-spin" />{t("Preparing configuration…")}</div>
         : unavailable || !content ? <div className="grid min-h-48 content-center justify-items-start gap-3">
           <p role="alert" className="text-sm text-danger">{unavailable || t("Could not prepare the connection. Try again.")}</p>
           <button className="btn min-h-11" onClick={onLoad}>{t("Retry configuration")}</button>
-        </div> : <>
+        </div> : client === "codex" && hasHooks && usage === "hook" ? <CodexHookSetup key={config!.agent_id} config={config!} onReload={onLoad} /> : <>
           <div className="min-w-0 overflow-hidden rounded-lg border border-line">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-paper px-4 py-3 text-sm">
               <code className="min-w-0 break-all">{target.path}</code><span className="text-xs text-muted">{target.format}</span>
