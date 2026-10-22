@@ -1,4 +1,5 @@
 import type { Messages } from "../model";
+import publisherBadges from "./publisher-badges.json";
 import emailAccount from "./email-account.json";
 import group0 from "./agent-chat-message-content.json";
 import group1 from "./agent-computer-attach-dialog.json";
@@ -94,6 +95,7 @@ import group90 from "./tool-setup-panel.json";
 import group91 from "./tool-setup-pending-change.json";
 
 export const messages: Messages = {
+  ...publisherBadges,
   ...emailAccount,
   ...group0,
   ...group1,

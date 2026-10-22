@@ -1,0 +1,20 @@
+{
+  "Share your badge": "分享徽章",
+  "Automatically generated for every published Agent. Embed it on your website or README.": "每个已发布 Agent 都会自动生成专属徽章，可嵌入网站或 README。",
+  "Loading badges…": "正在加载徽章…",
+  "Badges are available for publicly listed Agents only.": "徽章仅适用于公开上架的 Agent。",
+  "Badge": "徽章",
+  "Product badge": "产品徽章",
+  "Publisher badge": "发布者徽章",
+  "Honor card": "荣誉卡片",
+  "Compact": "紧凑版",
+  "Embed format": "嵌入格式",
+  "Embed code": "嵌入代码",
+  "Copy embed code": "复制嵌入代码",
+  "Download SVG": "下载 SVG",
+  "View publisher page": "查看发布者主页",
+  "Badge code copied": "已复制徽章代码",
+  "Could not copy. Select the embed code below.": "无法复制，请选取下方嵌入代码。",
+  "Badge preview unavailable. Refresh to check publication status.": "徽章预览暂不可用，请刷新以检查发布状态。",
+  "Recognizes published contributions, not certification. Linked images update with publication status; third-party caches may take longer.": "徽章表示发布贡献，并非认证。链接图片会随发布状态更新；第三方缓存可能延迟。"
+}

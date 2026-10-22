@@ -1,0 +1,10 @@
+.publisher-badge-panel { min-width: 0; display: grid; gap: 1.2rem; }
+.publisher-badge-panel header h3 { font-size: 1.1rem; font-weight: 650; color: #173128; }
+.publisher-badge-panel header p, .publisher-badge-note { color: #65766b; font-size: .8rem; line-height: 1.7; margin-top: .4rem; }
+.publisher-badge-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.publisher-badge-options label { display: grid; gap: .4rem; font-size: .75rem; color: #526658; }
+.publisher-badge-preview { display: grid; place-items: center; padding: 2rem 1rem; min-height: 130px; background: #edf0eb; border: 1px solid #dbe2d9; border-radius: 12px; }
+.publisher-badge-preview img { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 10px 24px #15291c20; }
+.publisher-badge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; font-size: .8rem; }
+.publisher-badge-code { min-width: 0; width: 100%; font-family: monospace; font-size: .72rem; overflow-wrap: anywhere; }
+@media(max-width:600px) { .publisher-badge-options { grid-template-columns: minmax(0,1fr); } }
