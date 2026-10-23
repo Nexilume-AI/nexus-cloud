@@ -1,0 +1,55 @@
+diff --git a/nexus_server/apps/agents/credential_router.py b/nexus_server/apps/agents/credential_router.py
+index d2408dbc..9d5a9a63 100644
+--- a/nexus_server/apps/agents/credential_router.py
++++ b/nexus_server/apps/agents/credential_router.py
+@@ -36,14 +36,16 @@ def available(row):
+ 
+ 
+ def available_for_user(user):
+-    """Only the browser user's active memberships and Router use permissions."""
++    """Use the browser user's normal Organization visibility and Router permissions."""
+     if (user is None or not user.is_active or
+             not getattr(settings, 'NEXUS_IDENTITY_BACKEND', '').startswith('nexus_enterprise.')):
+         return []
+-    from apps.tenancy.models import Tenant, Membership
++    from apps.tenancy.services import visible_tenants
+     from apps.routers.services import visible_routers, can_use_router, router_output_model_names
+-    tenants = Tenant.objects.filter(status='active', deleted_at__isnull=True, pk__in=
+-        Membership.objects.filter(user=user, status='active', deleted_at__isnull=True).values('tenant_id'))
++    # Match the Organization selector. A superuser may administer an Organization
++    # without a collaboration Membership; membership-only enumeration hides its
++    # otherwise visible and usable Routers. Keep per-Router use checks below.
++    tenants = visible_tenants(user=user).filter(status='active', deleted_at__isnull=True)
+     result = []
+     for tenant in tenants:
+         routers = visible_routers(user=user, tenant=tenant).filter(
+diff --git a/nexus_server/tests/test_agent_account_authorization.py b/nexus_server/tests/test_agent_account_authorization.py
+index 52b218d8..d85baad5 100644
+--- a/nexus_server/tests/test_agent_account_authorization.py
++++ b/nexus_server/tests/test_agent_account_authorization.py
+@@ -70,6 +70,25 @@ class BrowserAccountTests(TestCase):
+         self.assertEqual(row.status,'pending')
+         self.assertEqual(self.client.get(self.path+'account/',secure=True).status_code,403)
+ 
++    def test_superuser_sees_usable_organization_router_without_membership(self):
++        self.consumer.is_superuser=True;self.consumer.save(update_fields=['is_superuser'])
++        Membership.objects.filter(user=self.consumer).delete()
++        self.login()
++        response=self.client.get(self.path+'account/',secure=True,**self.headers)
++        self.assertEqual(response.status_code,200,response.content)
++        data=response.json()['data']
++        self.assertEqual(data['account']['id'],str(self.consumer.pk))
++        self.assertIn(str(self.consumer_router.pk),[v['router_id'] for v in data['nexus_routers']])
++        self.assertEqual(AgentCredentialAuthorization.objects.get(pk=self.aid).status,'pending')
++        self.assertEqual(APIKey.objects.count(),0)
++
++    def test_visible_router_without_use_permission_is_still_excluded(self):
++        self.can_use.return_value=False
++        self.login()
++        response=self.client.get(self.path+'account/',secure=True,**self.headers)
++        self.assertEqual(response.status_code,200,response.content)
++        self.assertEqual(response.json()['data']['nexus_routers'],[])
++
+     def test_explicit_approval_bills_browser_router_and_runtime_remains_caller_bound(self):
+         self.login()
+         self.assertEqual(self.post(csrf=False).status_code,403)
