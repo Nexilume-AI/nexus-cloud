@@ -101,6 +101,23 @@ class InteractiveViewTests(TestCase):
         self.assertFalse(result.data['claimed']); self.assertEqual(result.data['status'], 'expired')
         self.assertEqual(self.submit(**data)[0].data['status'], 'expired')
 
+    def test_runtime_can_cancel_only_its_originating_task(self):
+        from apps.agents.models import AgentExecutionTask, AgentTaskExecution
+        def task(run):
+            item=AgentExecutionTask.objects.create(run=run,agent=self.agent,caller_subject_hash=run.caller_subject_hash,
+                tool_name='mobile',expires_at=timezone.now()+timedelta(hours=1))
+            AgentTaskExecution.objects.create(task=item,state='running')
+            return item
+        own=task(self.run);other=task(self.new_run(caller_principal_id=str(self.other.pk)))
+        self.create()
+        self.assertEqual(self.runtime({'operation':'cancel_task','task_id':str(other.pk)}).status_code,400)
+        self.assertEqual(self.req(v.RuntimeView,{'operation':'cancel_task'},view_id=self.vid,cookie=self.cookie).status_code,403)
+        self.assertEqual(self.runtime({'operation':'cancel_task'}).data['status'],'cancel_requested')
+        own.refresh_from_db();other.refresh_from_db();self.run.refresh_from_db()
+        self.assertEqual(own.status,'cancel_requested');self.assertEqual(other.status,'working')
+        self.assertLessEqual(self.run.mobile_delegate_token_expires_at,timezone.now())
+        self.assertEqual(self.runtime({'operation':'cancel_task'}).data['status'],'cancel_requested')
+
     def test_csrf_disconnect_close_and_limits(self):
         self.create()
         self.assertEqual(self.submit()[0].status_code, 500)

@@ -12,9 +12,9 @@ from django.utils import timezone
 from rest_framework import exceptions, status
 
 from apps.common.models import SoftDeleteModel
-from apps.common.subjects import hash_token, request_subject
+from apps.common.subjects import RequestSubject, hash_token, request_subject
 from apps.mobile.models import MobileCommand, MobileDevice
-from apps.mobile.policy import device_context_valid
+from apps.mobile.policy import device_context_valid, agent_binding_subject
 from apps.mobile.services import MobileNotFound, get_mobile_device, purge_expired_mobile_screenshots
 from apps.mobile.services import create_mobile_command_for_device
 from apps.mobile.serializers import MobileCommandCreateSerializer
@@ -335,7 +335,14 @@ def set_mobile_grant(*, request, agent: Agent, scopes: Iterable[str]) -> AgentMo
 def revoke_mobile_grant(*, request, agent: Agent) -> None:
     grant = _grant_queryset(request=request, agent=agent).select_for_update().first()
     if grant is None:
-        return
+        subject = request_subject(request)
+        grant = AgentMobileGrant.objects.create(
+            tenant=get_tenant_from_request(request), agent=agent,
+            project_id=getattr(request, "project_id", None) or None,
+            caller_subject_hash=subject.subject_hash,
+            caller_principal_type=subject.principal_type,
+            scopes=[], status=SoftDeleteModel.STATUS_DISABLED,
+        )
     grant.scopes = []
     grant.status = SoftDeleteModel.STATUS_DISABLED
     grant.revoked_at = timezone.now()
@@ -343,15 +350,18 @@ def revoke_mobile_grant(*, request, agent: Agent) -> None:
     MobileCommand.objects.filter(
         display_run__agent=agent,
         display_run__consumer_tenant=grant.tenant,
-        caller_subject_hash=grant.caller_subject_hash,
+        display_run__consumer_project=grant.project,
         status__in=[MobileCommand.STATUS_PENDING_APPROVAL, MobileCommand.STATUS_QUEUED, MobileCommand.STATUS_RUNNING],
+    ).filter(Q(caller_subject_hash=grant.caller_subject_hash) |
+        Q(display_run__mobile_binding__caller_subject_hash=grant.caller_subject_hash)
     ).update(status=MobileCommand.STATUS_CANCELED, completed_at=timezone.now(), updated_at=timezone.now())
     AgentMobileLease.objects.filter(
         run__agent=agent,
         run__consumer_tenant=grant.tenant,
         run__consumer_project=grant.project,
-        run__caller_subject_hash=grant.caller_subject_hash,
         status=SoftDeleteModel.STATUS_ACTIVE,
+    ).filter(Q(run__caller_subject_hash=grant.caller_subject_hash) |
+        Q(run__mobile_binding__caller_subject_hash=grant.caller_subject_hash)
     ).update(status=SoftDeleteModel.STATUS_DELETED, deleted_at=timezone.now(), updated_at=timezone.now())
 
 
@@ -365,11 +375,23 @@ def effective_mobile_capabilities(*, request, agent: Agent) -> list[str]:
 
 
 def effective_declared_mobile_capabilities(
-    *, request, agent: Agent, declared_capabilities: Iterable[str]
+    *, request, agent: Agent, declared_capabilities: Iterable[str], mcp_preapproved: bool = False
 ) -> list[str]:
     declared = set(normalize_mobile_capabilities(declared_capabilities))
     grant = get_mobile_grant(request=request, agent=agent)
     granted = set(grant.scopes or []) if grant and grant.status == SoftDeleteModel.STATUS_ACTIVE else set()
+    # Explicit restrictions/revocations win over invocation consent.
+    if grant is None and mcp_preapproved and request_subject(request).principal_type != "anonymous":
+        granted = declared
+    subject = request_subject(request)
+    owner = agent_binding_subject(subject=subject, agent_id=agent.id,
+        tenant_id=get_tenant_from_request(request).id, project_id=getattr(request, "project_id", None))
+    if owner.subject_hash != subject.subject_hash:
+        owner_grant = AgentMobileGrant.objects.filter(tenant_id=get_tenant_from_request(request).id,
+            project_id=getattr(request, "project_id", None) or None, agent=agent,
+            caller_subject_hash=owner.subject_hash).first()
+        if owner_grant is not None:
+            granted &= set(owner_grant.scopes or []) if owner_grant.status == SoftDeleteModel.STATUS_ACTIVE else set()
     return [value for value in MOBILE_CAPABILITIES if value in declared and value in granted]
 
 
@@ -391,12 +413,29 @@ def effective_mobile_capabilities_for_run(run: AgentDisplayRun) -> list[str]:
         tenant=run.consumer_tenant,
         agent=run.agent,
         caller_subject_hash=run.caller_subject_hash,
-        status=SoftDeleteModel.STATUS_ACTIVE,
     )
     queryset = queryset.filter(project=run.consumer_project) if run.consumer_project_id else queryset.filter(project__isnull=True)
     grant = queryset.first()
-    granted = set(grant.scopes or []) if grant else set()
+    granted = set(grant.scopes or []) if grant and grant.status == SoftDeleteModel.STATUS_ACTIVE else set()
+    if run.mobile_mcp_preapproved:
+        _, current = current_mobile_declaration(run.agent)
+        declared &= set(current)
+        if grant is None:
+            granted = declared
+    owner = mobile_subject_for_run(run)
+    if owner.subject_hash != run.caller_subject_hash:
+        owner_grant = AgentMobileGrant.objects.filter(tenant=run.consumer_tenant, project=run.consumer_project,
+            agent=run.agent, caller_subject_hash=owner.subject_hash).first()
+        if owner_grant is not None:
+            granted &= set(owner_grant.scopes or []) if owner_grant.status == SoftDeleteModel.STATUS_ACTIVE else set()
     return [value for value in MOBILE_CAPABILITIES if value in declared and value in granted]
+
+
+def mobile_subject_for_run(run):
+    return agent_binding_subject(
+        subject=RequestSubject(run.caller_principal_type, run.caller_principal_id, run.caller_subject_hash),
+        agent_id=run.agent_id, tenant_id=run.consumer_tenant_id, project_id=run.consumer_project_id,
+    )
 
 
 def resolve_invocation_mobile_binding(
@@ -411,7 +450,8 @@ def resolve_invocation_mobile_binding(
     requirement = mobile_requirement or agent.mobile_requirement
     if requirement == Agent.MOBILE_DISABLED:
         return None
-    subject = request_subject(request)
+    subject = agent_binding_subject(subject=request_subject(request), agent_id=agent.id,
+        tenant_id=tenant.id, project_id=getattr(request, "project_id", None))
     project_id = getattr(request, "project_id", None) or None
     requested_id = str(request.headers.get("X-Nexus-Agent-Mobile-Binding") or "").strip()
     queryset = AgentMobileBinding.objects.filter(
@@ -421,8 +461,9 @@ def resolve_invocation_mobile_binding(
         caller_subject_hash=subject.subject_hash,
         status=SoftDeleteModel.STATUS_ACTIVE,
         device__owner_subject_hash=subject.subject_hash,
+        device__tenant=tenant,
         device__status=SoftDeleteModel.STATUS_ACTIVE,
-    ).select_related("device")
+    ).filter(Q(device__project__isnull=True) | Q(device__project_id=project_id)).select_related("device")
     binding = queryset.filter(id=requested_id).first() if requested_id else queryset.filter(is_default=True).first()
     if requested_id and binding is None:
         raise MobileNotFound("Mobile binding not found.")
@@ -507,6 +548,7 @@ def _delegate_run(*, run_id: str, token: str, capability: str = "") -> AgentDisp
         .filter(id=run_id, run_kind=AgentDisplayRun.KIND_INVOCATION)
         .first()
     )
+    mobile_subject = mobile_subject_for_run(run) if run is not None else None
     if (
         run is None
         or run.status != AgentDisplayRun.STATUS_RUNNING
@@ -518,8 +560,13 @@ def _delegate_run(*, run_id: str, token: str, capability: str = "") -> AgentDisp
         or run.mobile_delegate_token_expires_at <= timezone.now()
         or run.mobile_binding.status != SoftDeleteModel.STATUS_ACTIVE
         or run.mobile_binding.device.status != SoftDeleteModel.STATUS_ACTIVE
-        or run.mobile_binding.caller_subject_hash != run.caller_subject_hash
-        or run.mobile_binding.device.owner_subject_hash != run.caller_subject_hash
+        or run.mobile_binding.caller_subject_hash != mobile_subject.subject_hash
+        or run.mobile_binding.device.owner_subject_hash != mobile_subject.subject_hash
+        or run.mobile_binding.tenant_id != run.consumer_tenant_id
+        or run.mobile_binding.project_id != run.consumer_project_id
+        or run.mobile_binding.agent_id != run.agent_id
+        or run.mobile_binding.device.tenant_id != run.consumer_tenant_id
+        or (run.mobile_binding.device.project_id and run.mobile_binding.device.project_id != run.consumer_project_id)
         or not device_context_valid(run.mobile_binding.device)
     ):
         raise MobileNotFound("Mobile Run not found.")

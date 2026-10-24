@@ -5,6 +5,7 @@ from .credential_views import CredentialAuthorizationView, authorization_page
 from .private_display_views import (
     PrivateAgentRunDisplayView,
     PrivateAgentRunEventsView,
+    PrivateAgentRunEventStreamView,
     PrivateAgentRunOutputsView,
     PrivateAgentRunOutputDownloadView,
     PrivateAgentRunTerminalView,
@@ -24,6 +25,7 @@ urlpatterns = [
     path("agent-runs/<uuid:run_id>/read/", PrivateRunReadView.as_view(), name="private-agent-run-read"),
     path("agent-runs/<uuid:run_id>/display/", PrivateAgentRunDisplayView.as_view(), name="private-agent-run-display"),
     path("agent-runs/<uuid:run_id>/events/", PrivateAgentRunEventsView.as_view(), name="private-agent-run-events"),
+    path("agent-runs/<uuid:run_id>/events/stream/", PrivateAgentRunEventStreamView.as_view()),
     path("agent-runs/<uuid:run_id>/outputs/", PrivateAgentRunOutputsView.as_view(), name="private-agent-run-outputs"),
     path("agent-runs/<uuid:run_id>/outputs/<uuid:artifact_id>/download/", PrivateAgentRunOutputDownloadView.as_view(), name="private-agent-run-output-download"),
     path("agent-runs/<uuid:run_id>/terminal/", PrivateAgentRunTerminalView.as_view(), name="private-agent-run-terminal"),

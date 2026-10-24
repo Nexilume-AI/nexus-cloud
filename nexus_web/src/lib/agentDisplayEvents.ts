@@ -143,8 +143,9 @@ export function buildAgentDisplayShellTranscript(
   sdkLines: AgentDisplayShellLine[],
 ): AgentDisplayShellTranscript {
   const segments: AgentDisplayShellSegment[] = [];
+  const controlStates = new Map<string, string>();
   const append = (id: string, stream: string, rawText: string, record = false) => {
-    let text = normalizeShellNewlines(cleanShellText(rawText));
+    let text = normalizeShellNewlines(cleanShellText(stripShellControls(rawText, stream, controlStates)));
     if (record) text = text.replace(/^\n+|\n+$/g, "");
     if (!text) return;
 
@@ -238,10 +239,39 @@ function normalizeShellNewlines(value: string) {
 }
 
 function cleanShellText(value: string) {
-  const text = String(value || "").replace(/\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
+  const text = String(value || "");
   if (!text.includes("#< CLIXML")) return text;
   const errors = [...text.matchAll(/<S S="Error">([\s\S]*?)<\/S>/g)].map((match) => decodePowerShellXml(match[1])).filter(Boolean);
   return errors.join("\n");
+}
+
+/** Strip terminal presentation controls, including sequences split across events. */
+function stripShellControls(value: string, stream: string, states: Map<string, string>) {
+  let state = states.get(stream) || "text";
+  let output = "";
+  for (const char of value) {
+    if (state === "text") {
+      if (char === "\x1b") state = "escape";
+      else if (char === "\x9b") state = "csi";
+      else if (char === "\x9d") state = "string";
+      else if (char >= " " || char === "\n" || char === "\r" || char === "\t") output += char;
+    } else if (state === "escape") {
+      if (char === "[") state = "csi";
+      else if ("]P^_".includes(char)) state = "string";
+      else if (char >= " " && char <= "/") state = "intermediate";
+      else state = "text";
+    } else if (state === "csi" || state === "intermediate") {
+      if (char === "\x1b") state = "escape";
+      else if (char >= (state === "csi" ? "@" : "0") && char <= "~") state = "text";
+    } else if (state === "string") {
+      if (char === "\x07" || char === "\x9c") state = "text";
+      else if (char === "\x1b") state = "stringEscape";
+    } else if (state === "stringEscape") {
+      state = char === "\\" || char === "\x07" ? "text" : "string";
+    }
+  }
+  states.set(stream, state);
+  return output;
 }
 
 function decodePowerShellXml(value: string) {

@@ -1,7 +1,7 @@
 import { LanguageSelect } from "../localization/LanguageSelect";
 import { t, useLocale, getLocale } from "../localization";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, BookOpenText, Bot, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Folder, FolderOpen, History, ListTodo, Loader2, LockKeyhole, Maximize2, MessageSquare, Minus, Monitor, Plus, Search, Terminal, WrapText, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, BookOpenText, Bot, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileText, Folder, FolderOpen, History, ListTodo, Loader2, LockKeyhole, Maximize2, MessageSquare, Minus, Monitor, Plus, Search, Square, Terminal, WrapText, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,11 +11,14 @@ import { useApplicationDistribution } from '../app/distribution';
 import { RunPresentationSummary, useRunHistoryRemovalDescription } from "../components/RunPresentation";
 import { ChatCopyButton } from "../components/ChatCopyButton";
 import { ComposerDeviceMenu } from "../components/ComposerDeviceMenu";
+import { privateChatMessages } from "../lib/privateChatPresentation";
 import { chatMessageText } from "../lib/chatMessageText";
 import { clearSubmittedDraft, quotedReply, readRunDraft, runDraftKey, useRunDraft, writeRunDraft } from "../lib/runDrafts";
 import { clearSubmittedAssets, useComposerDraft, readComposerDraft, writeComposerDraft } from "../lib/composerDrafts";
 import { RestoredComposerAttachments, useRestoredAttachments } from "../components/RestoredComposerAttachments";
+import { useRunQueueEditor } from "../components/useRunQueueEditor";
 import { useRunChatScroll } from "../lib/useRunChatScroll";
+import { usePrivateDisplayStream } from "../lib/usePrivateDisplayStream";
 import { contextRevision, runContextKey, useContextView, useContextUpdates, useContextScroll, type ContextPanel } from "../lib/runContextState";
 import { AgentChatMessageContent } from "../components/AgentChatMessageContent";
 import { AgentComputerAttachDialog } from "../components/AgentComputerAttachDialog";
@@ -194,6 +197,11 @@ export function PrivateAgentRunDisplayPage() {
     readAttempts.current.add(key);
     markReadMutate({ id, completedAt, token: displayToken });
   }, [user?.user_id, apiContext.tenantId, apiContext.projectId, displayToken, markReadMutate]);
+  const displayStreamLive = usePrivateDisplayStream(apiContext, selectedRunId, displayToken,
+    historyCursor === null && run.data?.status === "running", eventCursor, event => {
+      eventCursor.current = Math.max(eventCursor.current, event.seq);
+      setStreamEvents(current => current.some(item => item.id === event.id) ? current : [...current, event].sort((a, b) => a.seq - b.seq).slice(-1000));
+    });
   const events = useQuery({
     queryKey: ["private-agent-run-events", apiContext, selectedRunId, displayToken, historyCursor],
     queryFn: async () => {
@@ -201,7 +209,7 @@ export function PrivateAgentRunDisplayPage() {
       return { cursor, runId: selectedRunId, rows: await api.privateAgentRunEvents(apiContext, selectedRunId, displayToken, cursor) };
     },
     enabled: Boolean(displayToken),
-    refetchInterval: (query) => historyCursor !== null ? false : query.state.data?.rows.length === 100 ? 100 :
+    refetchInterval: (query) => historyCursor !== null || displayStreamLive ? false : query.state.data?.rows.length === 100 ? 100 :
       (run.data && ["completed", "failed"].includes(run.data.status) && query.state.data?.rows.length === 0 ? false : 2_000),
   });
   const appendTerminalEvent = useCallback((event: AgentRunTerminal["events"][number]) => {
@@ -426,7 +434,7 @@ export function PrivateAgentRunDisplayPage() {
     onSuccess: async (_, id) => { setDeleteTarget(null); if (id === selectedRunId) navigate(`/agents/${agentId}/private-display`, { replace: true, state: location.state }); await queryClient.invalidateQueries({ queryKey: ["agent-private-runs", apiContext, agentId] }); },
   });
 
-  const running = Boolean(run.data && ["starting", "running", "input_required"].includes(run.data.status));
+  const running = Boolean(run.data && ["starting", "running", "input_required", "cancel_requested"].includes(run.data.status));
   const plan = useMemo(() => derivePlan(streamEvents), [streamEvents]);
   const pendingMessage = optimisticMessage || (adoptingCreatedRun && !run.data ? createdConversation.content : "");
   const runMessages = useMemo(() => mergeRunMessages(run.data?.messages ?? [], streamEvents, pendingMessage, optimisticReply, optimisticBase.current), [run.data?.messages, streamEvents, pendingMessage, optimisticReply]);
@@ -636,7 +644,6 @@ export function PrivateAgentRunDisplayPage() {
           {run.data ? <div className="hidden border-l border-black/10 pl-3 text-right text-[11px] leading-4 text-[#535350] lg:block" title={t("Resolved execution snapshot for the latest turn")}><div className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#858481]">{t("Current Run")}</div><div className="font-semibold text-[#34322d]">{run.data.execution?.model || t("Managed by Agent")}{run.data.execution?.reasoning_effort ? ` · ${run.data.execution.reasoning_effort}` : ""}</div></div> : null}
           <LanguageSelect />
           <RunPresentationSummary run={run.data} />
-          {running ? <button type="button" onClick={() => cancel.mutate()} disabled={cancel.isPending || run.data?.execution_task?.status === "cancel_requested"} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-black/10 px-3 text-sm text-[#535350]"><X size={14} /> {run.data?.execution_task?.status === "cancel_requested" ? t("Stopping · awaiting Agent") : t("Cancel")}</button> : null}
         </div>
         {run.data?.execution_task?.execution_state === "queued" ? <p role="status" className="px-4 pb-2 text-sm">{t("Queued · waiting for an Agent worker.")}</p> : null}
         {streamEvents.length === 1000 || historyCursor !== null ? <div className="flex flex-wrap items-center gap-3 px-4 pb-2 text-sm"><span role="status">{historyCursor === null ? t("Live view: latest 1,000 events.") : t("Event history · live updates paused.")}</span><button className="min-h-11 underline" disabled={!streamEvents[0] || streamEvents[0].seq <= 1} onClick={() => setHistoryCursor(Math.max(0, (streamEvents[0]?.seq ?? 1) - 101))}>{t("Earlier events")}</button>{historyCursor !== null ? <button className="min-h-11 underline" onClick={() => { eventCursor.current = Math.max(0, eventCursor.current - 1000); setStreamEvents([]); setHistoryCursor(null); }}>{t("Return to live")}</button> : null}</div> : null}
@@ -654,7 +661,7 @@ export function PrivateAgentRunDisplayPage() {
       <AgentDisplayWorkspace
         activeMobilePanel={mobilePanel === "history" ? "plan" : mobilePanel === "context" ? "files" : "live"}
         plan={<PrivateAgentRunRail projects={projects} projectId={apiContext.projectId || ""} onProjectChange={switchProject} projectChangeDisabled={createRun.isPending || resumeRun.isPending || answer.isPending} runs={historyRuns} filter={historyFilter} counts={historyCounts} onFilterChange={setHistoryFilter} hasMore={runs.hasNextPage} loadingMore={runs.isFetchingNextPage} onLoadMore={() => void runs.fetchNextPage()} error={runs.isError} onRetry={() => void runs.refetch()} activeRunId={selectedRunId} loading={runs.isLoading} deletingId={remove.variables || ""} query={search} onQueryChange={setSearch} onNew={newRun} onSelect={selectRun} onRename={(item) => { setRenameTarget(item); setRenameValue(item.title); }} onDelete={setDeleteTarget} />}
-        live={runUnavailable ? <div role="alert" className="flex h-full items-center justify-center rounded-md border border-black/10 bg-white"><EmptyWorkspace icon={LockKeyhole} title={t("Run unavailable")} description={t("This Run does not exist or belongs to another caller.")} /></div> : <RunLivePanel fileReferenceHandler={fileReferenceHandler} key={liveConversationKey} onCompletionViewed={onCompletionViewed} readError={markRead.isError && markRead.variables?.id === selectedRunId && markRead.variables?.completedAt === run.data?.completed_at} onRetryRead={() => markRead.variables && markRead.mutate({ ...markRead.variables, token: displayToken })} visible={desktop || mobilePanel === "live"} onUnreadChange={setLiveUnread} draftSaved={draft.saved} onCheckStatus={() => void checkStatus()} onRecoveryAction={(action) => recoveryDecision.mutate(action)} checkingStatus={checkingStatus || recoveryDecision.isPending} run={run.data} loading={Boolean(selectedRunId && (token.isLoading || run.isLoading))} mode={workspaceMode} onModeChange={setWorkspaceMode} events={streamEvents} terminalEvents={terminalEvents} terminalInfo={terminalInfo} terminalConnection={terminalConnection} messages={runMessages} interaction={pendingInteraction} value={message} onValueChange={setMessage} onSubmit={submit} onSlashCommand={handleRunSlashCommand} submitting={createRun.isPending || resumeRun.isPending || answer.isPending || cancel.isPending} ready={ready && (Boolean(pendingInteraction) || (!uploadingImage && !uploadingFiles && !mediaBusy && !restoredAssets.blocked && !executionInvalid))} displayToken={displayToken} attachmentControls={attachmentControls} followUpAttachments={followUpAttachments} allowAttachmentOnly={Boolean(imageAttachments.length || fileIds.length || computerFiles.length || audioIds.length || restoredAssets.rows.some(row => row.ready))} onAttachFiles={files => attachmentIntake.current?.add(files)} blockedMessage={blockedMessage} running={running} activeTool={activeTool} onNewRun={newRun} computerSummary={interactor.data?.computer} onManageComputer={() => manageDevice("computer")} mobileSummary={interactor.data?.mobile} onManageMobile={() => manageDevice("mobile")} projectContextSetupRequired={projectContextSetupRequired} onReviewProjectContext={() => setProjectConsentOpen(true)} />}
+        live={runUnavailable ? <div role="alert" className="flex h-full items-center justify-center rounded-md border border-black/10 bg-white"><EmptyWorkspace icon={LockKeyhole} title={t("Run unavailable")} description={t("This Run does not exist or belongs to another caller.")} /></div> : <RunLivePanel fileReferenceHandler={fileReferenceHandler} key={liveConversationKey} onCompletionViewed={onCompletionViewed} readError={markRead.isError && markRead.variables?.id === selectedRunId && markRead.variables?.completedAt === run.data?.completed_at} onRetryRead={() => markRead.variables && markRead.mutate({ ...markRead.variables, token: displayToken })} visible={desktop || mobilePanel === "live"} onUnreadChange={setLiveUnread} draftSaved={draft.saved} onCheckStatus={() => void checkStatus()} onRecoveryAction={(action) => recoveryDecision.mutate(action)} checkingStatus={checkingStatus || recoveryDecision.isPending} run={run.data} loading={Boolean(selectedRunId && (token.isLoading || run.isLoading))} mode={workspaceMode} onModeChange={setWorkspaceMode} events={streamEvents} terminalEvents={terminalEvents} terminalInfo={terminalInfo} terminalConnection={terminalConnection} messages={runMessages} interaction={pendingInteraction} value={message} onValueChange={setMessage} onSubmit={submit} onSlashCommand={handleRunSlashCommand} submitting={createRun.isPending || resumeRun.isPending || answer.isPending || cancel.isPending} ready={ready && (Boolean(pendingInteraction) || (!uploadingImage && !uploadingFiles && !mediaBusy && !restoredAssets.blocked && !executionInvalid))} displayToken={displayToken} attachmentControls={attachmentControls} followUpAttachments={followUpAttachments} allowAttachmentOnly={Boolean(imageAttachments.length || fileIds.length || computerFiles.length || audioIds.length || restoredAssets.rows.some(row => row.ready))} onAttachFiles={files => attachmentIntake.current?.add(files)} blockedMessage={blockedMessage} running={running} onStop={() => cancel.mutate()} stopPending={cancel.isPending || run.data?.execution_task?.status === "cancel_requested" || run.data?.status === "cancel_requested"} activeTool={activeTool} onNewRun={newRun} computerSummary={interactor.data?.computer} onManageComputer={() => manageDevice("computer")} mobileSummary={interactor.data?.mobile} onManageMobile={() => manageDevice("mobile")} projectContextSetupRequired={projectContextSetupRequired} onReviewProjectContext={() => setProjectConsentOpen(true)} />}
         context={<RunContextPanel key={contextKey} contextKey={contextKey} events={streamEvents} run={run.data} displayToken={displayToken} active={contextPanel} onChange={setContextPanel} plan={plan} onReference={referenceFile} computerRequested={interactor.data?.computer.requirement !== "disabled"} />}
       />
       <NexilumeDialog open={runDetailsOpen} onClose={() => setRunDetailsOpen(false)} title={t("Run details")} eyebrow={t("Run context")} description={t("Identity, Project snapshot and attached devices for this Run.")}>
@@ -710,7 +717,7 @@ export function PrivateAgentRunDisplayPage() {
   );
 }
 
-function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onRetryRead, visible, onUnreadChange, draftSaved, onCheckStatus, onRecoveryAction, checkingStatus, run, loading, mode, onModeChange, events, terminalEvents, terminalInfo, terminalConnection, messages, interaction, value, onValueChange, onSubmit, onSlashCommand, submitting, ready, blockedMessage, running, activeTool, onNewRun, computerSummary, onManageComputer, mobileSummary, onManageMobile, projectContextSetupRequired, onReviewProjectContext, displayToken, attachmentControls, allowAttachmentOnly, onAttachFiles, followUpAttachments }: {
+function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onRetryRead, visible, onUnreadChange, draftSaved, onCheckStatus, onRecoveryAction, checkingStatus, run, loading, mode, onModeChange, events, terminalEvents, terminalInfo, terminalConnection, messages, interaction, value, onValueChange, onSubmit, onSlashCommand, submitting, ready, blockedMessage, running, onStop, stopPending, activeTool, onNewRun, computerSummary, onManageComputer, mobileSummary, onManageMobile, projectContextSetupRequired, onReviewProjectContext, displayToken, attachmentControls, allowAttachmentOnly, onAttachFiles, followUpAttachments }: {
   fileReferenceHandler: React.RefObject<((text: string, checkOnly?: boolean) => boolean) | null>;
   onCompletionViewed: (runId: string, completedAt: string) => void; readError: boolean; onRetryRead: () => void;
   visible: boolean; onUnreadChange: (count: number) => void;
@@ -724,12 +731,13 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
   terminalEvents: Array<{ seq: number; kind: string; command_id: string; data: string; exit_code: number | null; created_at: string }>;
   terminalInfo: AgentRunTerminal | null;
   terminalConnection: PrivateAgentTerminalConnection;
-  messages: AgentRunMessage[]; interaction: AgentRunInteraction | null; value: string; onValueChange: (value: string) => void; onSubmit: (value: string) => void; onSlashCommand: (command: string) => boolean; submitting: boolean; ready: boolean; blockedMessage: string; running: boolean; activeTool: AgentInteractionTool | null; onNewRun: () => void; computerSummary?: { requirement: string; attached: boolean; ready: boolean; device_name?: string; platform: string; browser_available: boolean | null; browser_name: string }; onManageComputer: () => void; mobileSummary?: { requirement: string; attached: boolean; ready: boolean; device_name: string; device_status: string }; onManageMobile: () => void;
+  messages: AgentRunMessage[]; interaction: AgentRunInteraction | null; value: string; onValueChange: (value: string) => void; onSubmit: (value: string) => void; onSlashCommand: (command: string) => boolean; submitting: boolean; ready: boolean; blockedMessage: string; running: boolean; onStop: () => void; stopPending: boolean; activeTool: AgentInteractionTool | null; onNewRun: () => void; computerSummary?: { requirement: string; attached: boolean; ready: boolean; device_name?: string; platform: string; browser_available: boolean | null; browser_name: string }; onManageComputer: () => void; mobileSummary?: { requirement: string; attached: boolean; ready: boolean; device_name: string; device_status: string }; onManageMobile: () => void;
   projectContextSetupRequired: boolean; onReviewProjectContext: () => void;
 }) {
   useLocale();
   const { apiContext } = useAuth();
-  const chatScroll = useRunChatScroll(messages, visible && mode === "chat" && !loading);
+  const visibleMessages = useMemo(() => privateChatMessages(messages), [messages]);
+  const chatScroll = useRunChatScroll(visibleMessages, visible && mode === "chat" && !loading);
   async function downloadMessageFile(block: Extract<AgentChatContentBlock, { type: "file" }>) {
     if (!run || !displayToken || !block.url.startsWith(`/api/v1/agent-runs/${run.id}/files/`)) {
       toast.error(t("This file reference is not available to the current Run.")); return;
@@ -750,6 +758,7 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
     return () => document.removeEventListener("visibilitychange", seen);
   }, [visible, mode, loading, chatScroll.atLatest, run?.id, run?.status, run?.completion_unread, run?.completed_at, onCompletionViewed]);
   const followUp = useRunFollowUps(run, onSlashCommand, followUpAttachments);
+  const queueEditor = useRunQueueEditor(run, displayToken);
   const acceptingFollowUp = Boolean(!interaction && running && run?.execution_task?.status !== "cancel_requested" && run?.follow_up && run.follow_up.mode !== "none");
   const deviceEvents = useMemo(() => events.filter(event => event.seq > (run?.computer.event_cursor ?? 0)), [events, run?.computer.event_cursor]);
   const shell = useMemo(() => deriveAgentDisplayShell(deviceEvents), [deviceEvents]);
@@ -774,7 +783,7 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
           : "";
   const composerRegion = useRef<HTMLDivElement>(null);
   const canResume = Boolean(run?.execution_task?.continuable ?? run?.tool_policy.continuable);
-  const quoteUnavailable = submitting ? t("Wait for your message to send.") : interaction ? t("Answer the current question before quoting another message.") : running && (!run?.follow_up || run.follow_up.mode === "none") ? t("This Agent cannot receive messages while working.") : run && !running && !canResume ? t("Start a new Run to reply.") : "";
+  const quoteUnavailable = queueEditor.edit ? t("Finish editing the queued message first.") : submitting ? t("Wait for your message to send.") : interaction ? t("Answer the current question before quoting another message.") : running && (!run?.follow_up || run.follow_up.mode === "none") ? t("This Agent cannot receive messages while working.") : run && !running && !canResume ? t("Start a new Run to reply.") : "";
   useEffect(() => {
     fileReferenceHandler.current = (text: string, checkOnly = false) => {
       if (quoteUnavailable || followUp.draft.pending) {
@@ -790,6 +799,7 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
     return () => { fileReferenceHandler.current = null; };
   }, [fileReferenceHandler, quoteUnavailable, followUp.draft.pending, running, followUp.text, followUp.setText, value, onValueChange, onModeChange]);
   function quote(item: AgentRunMessage) {
+    if (queueEditor.edit) return;
     const text = chatMessageText(item.content_blocks, item.content);
     if (running && run) {
       followUp.setText(quotedReply(text, item.role, followUp.text));
@@ -818,15 +828,20 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
         else if (action === "continue_chat") { onModeChange("chat"); requestAnimationFrame(() => composerRegion.current?.querySelector("textarea")?.focus()); }
       }} /> : null}
       {readError ? <p role="status" className="px-4 pt-2 text-xs text-amber-800">{t("Read status could not sync.")}{" "}<button type="button" onClick={onRetryRead} className="min-h-11 underline">{t("Retry read status")}</button></p> : null}
-      <div className="relative min-h-0 flex-1">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {chatScroll.unread > 0 ? <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center" aria-live="polite"><button type="button" className="pointer-events-auto min-h-11 rounded-full border border-black/15 bg-white px-4 text-sm shadow-sm" onClick={() => { chatScroll.toLatest(); onModeChange("chat"); }}>{t("New messages (")}{chatScroll.unread}) ↓</button></div> : null}
         {loading ? <div role="status" className="pointer-events-none absolute right-6 top-5 z-10 flex items-center gap-2 rounded-md bg-white/95 px-2 py-1 text-xs text-[#858481]"><Loader2 className="animate-spin" size={16} />{" "}{t("Loading run")}</div> : null}
         {mode === "chat" ? <div ref={chatScroll.viewport} onScroll={chatScroll.onScroll} aria-label={t("Chat history")} aria-busy={loading} style={{ overflowAnchor: "none", scrollbarGutter: "stable" }} className="h-full overflow-y-auto px-4 py-4"><div ref={chatScroll.content} className="mx-auto grid max-w-3xl gap-6">
-          {!loading && !messages.length ? <EmptyWorkspace icon={Bot} title={t("What should this Agent do?")} description={t("Your instruction starts a new caller-private Run. Follow-up questions from the Agent stay inside that Run.")} /> : null}
-          {messages.map((item) => item.role === "user" ? <div key={item.id} data-message-id={item.id} className="ml-auto min-w-0 max-w-[80%] rounded-xl bg-[#ecece8] px-4 py-3 text-sm text-[#34322d]"><AgentChatMessageContent blocks={item.content_blocks} fallback={item.content} role="user" onDownloadFile={downloadMessageFile} />{messageActions(item)}</div> : <article key={item.id} data-message-id={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 text-sm text-[#34322d]"><div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#1a1a19] text-[#bdfc73]"><Bot size={14} /></div><div className="min-w-0 pt-0.5"><div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#858481]">{t("Agent")}</div><AgentChatMessageContent blocks={item.content_blocks} fallback={item.content} role="assistant" />{messageActions(item)}</div></article>)}
-          {submitting && !interaction ? <div className="flex items-center gap-3 text-sm text-[#858481]"><Loader2 className="animate-spin" size={15} /> {run ? t("Continuing current run…") : t("Starting independent run…")}</div> : null}
-          <RunFollowUps controller={followUp} active={acceptingFollowUp}
-            restoreDisabled={interaction ? "Answer the current question first." : loading || submitting ? "Wait for the current request to finish." : running ? "The Agent is still working." : !canResume ? "This tool cannot continue this Run." : ""}
+          {!loading && !visibleMessages.length && !running ? <EmptyWorkspace icon={Bot} title={t("What should this Agent do?")} description={t("Your instruction starts a new caller-private Run. Follow-up questions from the Agent stay inside that Run.")} /> : null}
+          {visibleMessages.map((item) => item.role === "user" ? <div key={item.id} data-message-id={item.id} className="ml-auto min-w-0 max-w-[80%] rounded-xl bg-[#ecece8] px-4 py-3 text-sm text-[#34322d]"><AgentChatMessageContent blocks={item.content_blocks} fallback={item.content} role="user" onDownloadFile={downloadMessageFile} />{messageActions(item)}</div> : <article key={item.id} data-message-id={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 text-sm text-[#34322d]"><div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#1a1a19] text-[#bdfc73]"><Bot size={14} /></div><div className="min-w-0 pt-0.5"><div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#858481]">{t("Agent")}</div><AgentChatMessageContent blocks={item.content_blocks} fallback={item.content} role="assistant" />{messageActions(item)}</div></article>)}
+          {(running || submitting) && !interaction ? <div role="status" aria-label={stopPending ? t("Stopping") : t("Thinking")} className="flex items-center gap-2 text-sm text-[#858481]"><Loader2 className="animate-spin" size={14} /> {stopPending ? t("Stopping…") : t("Thinking…")}</div> : null}
+          {run?.execution_task?.status === "cancelled" ? <p role="status" className="text-sm text-[#858481]">{t("Stopped")}</p> : null}
+          <RunFollowUps controller={followUp} active={acceptingFollowUp} editing={Boolean(queueEditor.edit)} onEdit={item => {
+            if (followUp.draft.pending || submitting || interaction) return;
+            queueEditor.begin(item);
+            requestAnimationFrame(() => composerRegion.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus());
+          }}
+            restoreDisabled={queueEditor.edit ? "Finish editing the queued message first." : interaction ? "Answer the current question first." : loading || submitting ? "Wait for the current request to finish." : running ? "The Agent is still working." : !canResume ? "This tool cannot continue this Run." : ""}
             appendDraft={!interaction && Boolean(value.trim())}
             onRestoreDraft={text => {
               onValueChange(value.trim() ? `${value}\n\n${text}` : text);
@@ -837,29 +852,32 @@ function RunLivePanel({ fileReferenceHandler, onCompletionViewed, readError, onR
         {!loading && mode === "shell" ? <RunShellPanel runId={run?.id || ""} terminalEvents={terminalEvents} sdkLines={shell} terminal={terminalInfo} connection={terminalConnection} fallbackStatus={run?.computer.terminal_status || "not_started"} fallbackComputer={run?.computer.name || "Caller computer"} transcript={shellTranscript} /> : null}
         {!loading && mode === "browser" ? frames.length ? <BrowserFrameHistory frames={frames} runId={run?.id || ""} /> : <div className="h-full rounded-md border border-black/10 bg-[#f3f3f1]"><EmptyWorkspace icon={Monitor} title={t("No Browser frame")} description={t("Frames explicitly published by the Agent will appear here.")} /></div> : null}
       </div>
-      <div ref={composerRegion} onPaste={event => { const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); if (!followUp.draft.pending) onAttachFiles(files); } }}
+      <div ref={composerRegion} onPaste={event => { const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); if (!followUp.draft.pending && !queueEditor.edit) onAttachFiles(files); } }}
         onDragOver={event => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
-        onDrop={event => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); if (!followUp.draft.pending) onAttachFiles(Array.from(event.dataTransfer.files)); } }} className="max-h-[55%] shrink-0 overflow-y-auto bg-white px-3 pb-3 pt-2" style={{ scrollbarGutter: "stable" }}>
+        onDrop={event => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); if (!followUp.draft.pending && !queueEditor.edit) onAttachFiles(Array.from(event.dataTransfer.files)); } }} className="max-h-[55%] shrink-0 overflow-y-auto bg-white px-3 pb-3 pt-2" style={{ scrollbarGutter: "stable" }}>
         {!draftSaved ? <p role="status" className="mb-2 text-xs text-amber-800">{t("Draft is kept in this page only. Browser storage is unavailable or the draft is too long; copy it before leaving.")}</p> : null}
         {projectContextSetupRequired && !interaction ? <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"><span>{blockedMessage}</span><button type="button" className="btn min-h-10 bg-white" onClick={onReviewProjectContext}><BookOpenText size={15} />{" "}{t("Review instructions")}</button></div> : null}
         {interaction && mode !== "chat" ? <div role="group" aria-label={t("Agent question")} className="mb-2 max-h-32 overflow-y-auto text-sm"><p>{interaction.prompt}</p>{choices.map(choice => <button key={choice.value} type="button" disabled={submitting} onClick={() => onSubmit(choice.value)} className="min-h-11 rounded-md border px-3">{choice.label}</button>)}</div> : null}
         {!interaction && run && !running && !canResume ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-black/10 bg-white px-4 py-3"><div><div className="text-sm font-semibold text-[#34322d]">{t("This tool runs once per Run")}</div><div className="mt-1 text-xs text-[#858481]">{t("It does not support follow-up turns. Start a new Run to invoke it again.")}</div></div><button type="button" onClick={onNewRun} className="min-h-10 rounded-md bg-[#1a1a19] px-4 text-sm font-semibold text-white">{t("Start a new Run")}</button></div> : null}
+        {queueEditor.notice}
         <AgentDisplayComposer
-          deliveryActions={acceptingFollowUp ? <RunFollowUpMode controller={followUp} compact /> : undefined}
+          stopAction={running ? <button type="button" onClick={onStop} disabled={stopPending} aria-label={t("Stop response")} title={stopPending ? t("Stopping…") : t("Stop response")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a1a19] text-white hover:opacity-90 disabled:opacity-50">{stopPending ? <Loader2 size={16} className="animate-spin" /> : <Square size={14} fill="currentColor" />}</button> : undefined}
+          submitLabel={queueEditor.edit ? t("Save changes") : undefined}
+          deliveryActions={!queueEditor.edit && acceptingFollowUp ? <RunFollowUpMode controller={followUp} compact /> : undefined}
           deviceActions={<ComposerDeviceMenu computer={computerSummary} mobile={mobileSummary} onComputer={onManageComputer} onMobile={onManageMobile} />}
-          attachments={toolbar => <fieldset disabled={Boolean(followUp.draft.pending)} className="min-w-0">{attachmentControls?.(toolbar, Boolean(followUp.draft.pending))}</fieldset>}
-          attachmentActionsDisabled={Boolean(followUp.draft.pending)}
-          value={acceptingFollowUp ? followUp.text : value}
-          onChange={acceptingFollowUp ? followUp.setText : onValueChange}
-          onSubmit={acceptingFollowUp ? followUp.submit : onSubmit}
-          busy={acceptingFollowUp ? followUp.send.isPending : submitting}
-          allowEmpty={!acceptingFollowUp && !interaction && allowAttachmentOnly}
-          editable={interaction ? choices.length === 0 : Boolean(activeTool && (!run || canResume || acceptingFollowUp))}
-          maxCharacters={acceptingFollowUp ? FOLLOW_UP_MAX_CHARACTERS : undefined}
-          disabled={loading || (interaction ? choices.length > 0 : acceptingFollowUp ? Boolean(followUp.attachmentError) || !followUp.displayToken || Boolean(followUp.draft.pending) || followUp.check.isPending : disabled || !ready || Boolean(run && !canResume))}
-          placeholder={interaction ? choices.length ? t("Choose an answer in the conversation") : t("Reply to this Run") : acceptingFollowUp ? followUp.selectedMode === "steer" ? t("Add guidance for the current task") : t("What should the Agent do next?") : running ? t("Agent is working…") : run ? canResume ? t("Continue this Run · Turn {{0}}", { 0: (run.turn_index || 1) + 1 }) : t("Start a new Run to use this tool again") : t("Describe the task for this Agent")}
-          error={acceptingFollowUp ? followUp.error : !interaction && !ready ? blockedMessage : undefined}
-          label={interaction ? t("Reply to current Run") : acceptingFollowUp ? t("Follow-up message") : run ? canResume || running ? t("Continue this Run") : t("Run message") : t("Start a new Agent Run")}
+          attachments={toolbar => <fieldset disabled={Boolean(followUp.draft.pending || queueEditor.edit)} className="min-w-0">{attachmentControls?.(toolbar, Boolean(followUp.draft.pending || queueEditor.edit))}</fieldset>}
+          attachmentActionsDisabled={Boolean(followUp.draft.pending || queueEditor.edit)}
+          value={queueEditor.edit ? queueEditor.text : acceptingFollowUp ? followUp.text : value}
+          onChange={queueEditor.edit ? queueEditor.setText : acceptingFollowUp ? followUp.setText : onValueChange}
+          onSubmit={queueEditor.edit ? queueEditor.save : acceptingFollowUp ? followUp.submit : onSubmit}
+          busy={queueEditor.edit ? queueEditor.busy : acceptingFollowUp ? followUp.send.isPending : submitting}
+          allowEmpty={!queueEditor.edit && !acceptingFollowUp && !interaction && allowAttachmentOnly}
+          editable={queueEditor.edit ? !queueEditor.busy : interaction ? choices.length === 0 : Boolean(activeTool && (!run || canResume || acceptingFollowUp))}
+          maxCharacters={queueEditor.edit || acceptingFollowUp ? FOLLOW_UP_MAX_CHARACTERS : undefined}
+          disabled={queueEditor.edit ? loading || queueEditor.blocked || Boolean(interaction) : loading || (interaction ? choices.length > 0 : acceptingFollowUp ? Boolean(followUp.attachmentError) || !followUp.displayToken || Boolean(followUp.draft.pending) || followUp.check.isPending : disabled || !ready || Boolean(run && !canResume))}
+          placeholder={queueEditor.edit ? t("Edit message") : interaction ? choices.length ? t("Choose an answer in the conversation") : t("Reply to this Run") : acceptingFollowUp ? followUp.selectedMode === "steer" ? t("Add guidance for the current task") : t("What should the Agent do next?") : running ? t("Agent is working…") : run ? canResume ? t("Continue this Run · Turn {{0}}", { 0: (run.turn_index || 1) + 1 }) : t("Start a new Run to use this tool again") : t("Describe the task for this Agent")}
+          error={queueEditor.edit ? undefined : acceptingFollowUp ? followUp.error : !interaction && !ready ? blockedMessage : undefined}
+          label={queueEditor.edit ? t(queueEditor.edit.mode === "steer" ? "Current-turn instruction" : "Queued message") : interaction ? t("Reply to current Run") : acceptingFollowUp ? t("Follow-up message") : run ? canResume || running ? t("Continue this Run") : t("Run message") : t("Start a new Agent Run")}
         />
       </div>
     </AgentDisplayPanel>
@@ -890,17 +908,24 @@ function WorkspaceContextPage({ run, displayToken }: { run: PrivateAgentRunDispl
   useLocale();
   const { apiContext } = useAuth();
   const queryClient = useQueryClient();
-  const [browsePath, setBrowsePath] = useState(run.computer.workspace_cwd || ".");
-  useEffect(() => setBrowsePath(run.computer.workspace_cwd || "."), [run.id, run.computer.workspace_cwd, run.computer.revision]);
+  const device = Boolean(run.computer.directory_selection_available);
+  const currentPath = device ? [run.computer.workspace_root, run.computer.workspace_cwd !== "." ? run.computer.workspace_cwd : ""].filter(Boolean).join("/") : run.computer.workspace_cwd || ".";
+  const [browsePath, setBrowsePath] = useState(currentPath);
+  const [pathInput, setPathInput] = useState(currentPath);
+  const busy = !["completed", "failed"].includes(run.status) || ["queued", "working", "cancel_requested"].includes(run.execution_task?.status || "");
+  useEffect(() => { setBrowsePath(currentPath); setPathInput(currentPath); }, [run.id, currentPath, run.computer.revision]);
+  useEffect(() => setPathInput(browsePath), [browsePath]);
   const directories = useQuery({
-    queryKey: ["private-agent-run-computer", apiContext, run.id, displayToken, run.computer.revision, browsePath],
-    queryFn: () => api.privateAgentRunComputerDirectories(apiContext, run.id, displayToken, browsePath),
+    queryKey: ["private-agent-run-computer", apiContext, run.id, displayToken, run.computer.revision, browsePath, device],
+    queryFn: () => api.privateAgentRunComputerDirectories(apiContext, run.id, displayToken, browsePath, device),
     enabled: Boolean(run.computer.attached && displayToken),
   });
   const switchFolder = useMutation({
-    mutationFn: (path: string) => api.updatePrivateAgentRunWorkspaceCwd(apiContext, run.id, displayToken, path),
+    mutationFn: (path: string) => device
+      ? api.selectPrivateAgentRunWorkspace(apiContext, run.id, displayToken, path, run.computer.workspace_root || "", run.computer.revision || 0)
+      : api.updatePrivateAgentRunWorkspaceCwd(apiContext, run.id, displayToken, path),
     onSuccess: async (value) => {
-      setBrowsePath(value.cwd);
+      setBrowsePath(device ? value.workspace_root || value.path : value.cwd);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["private-agent-run"] }),
         queryClient.invalidateQueries({ queryKey: ["private-agent-run-computer", apiContext, run.id] }),
@@ -910,22 +935,25 @@ function WorkspaceContextPage({ run, displayToken }: { run: PrivateAgentRunDispl
     onError: (error) => toast.error(errorMessage(error) || t("Unable to change the Run working folder")),
   });
   const listing = directories.data;
-  const crumbs = browsePath === "." ? [] : browsePath.split("/").filter(Boolean);
+  const crumbs = device || browsePath === "." ? [] : browsePath.split("/").filter(Boolean);
   return <div className="grid gap-3">
     <div className="border-b border-black/10 pb-3"><div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Run workspace")}</div><div className="mt-1 text-sm font-semibold text-[#34322d]">{run.computer.name || t("Attached Computer")}</div></div>
     {(run.computer.revision ?? 0) > 0 ? <p className="text-sm leading-6 text-[#535350]">{t("Computer changed for the next turn. Earlier Trace and Outputs keep their original device; files and browser sessions were not moved.")}</p> : null}
     <section className="rounded-md border border-black/10 bg-[#fbfbfa] p-3" aria-labelledby="run-working-folder-title">
-      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div id="run-working-folder-title" className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Working folder")}</div><div className="mt-1 truncate text-sm font-semibold text-[#34322d]">{formatWorkspacePath(run.computer.workspace_cwd)}</div></div><button type="button" onClick={() => switchFolder.mutate(browsePath)} disabled={switchFolder.isPending || browsePath === (run.computer.workspace_cwd || ".")} className="min-h-10 shrink-0 rounded-md bg-[#1a1a19] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{t("Use folder")}</button></div>
-      <p className="mt-2 text-xs leading-5 text-[#858481]">{t("Relative SDK file paths and terminal")}{" "}<code>cwd=&quot;.&quot;</code>{" "}{t("use this folder immediately. A command already running remains in its original folder.")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div id="run-working-folder-title" className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#858481]">{t("Working folder")}</div><div className="mt-1 break-all text-sm font-semibold text-[#34322d]">{device ? currentPath : formatWorkspacePath(run.computer.workspace_cwd)}</div></div><button type="button" onClick={() => switchFolder.mutate(listing?.path || browsePath)} disabled={switchFolder.isPending || directories.isFetching || directories.isError || (device && busy) || browsePath === currentPath} className="min-h-10 shrink-0 rounded-md bg-[#1a1a19] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{t("Use folder")}</button></div>
+      <p className="mt-2 text-xs leading-5 text-[#858481]">{device ? "Choose a folder, then use it for this Run. Pi can access its files using your granted permissions." : t("Relative SDK file paths and terminal use this folder.")}</p>
+      {device && busy ? <p role="status" className="mt-2 text-xs text-amber-800">Stop the current task before changing its working folder.</p> : null}
+      {device ? <form className="mt-3 flex min-w-0 gap-2" onSubmit={event => { event.preventDefault(); if (pathInput.trim()) setBrowsePath(pathInput.trim()); }}><input aria-label="Device folder path" value={pathInput} onChange={event => setPathInput(event.target.value)} placeholder="C:\\Projects or /home/user/project" className="min-h-10 min-w-0 flex-1 rounded-md border border-black/15 bg-white px-2 text-xs" /><button className="min-h-10 rounded-md border border-black/15 px-3 text-xs" type="submit">Open</button></form> : null}
       <div className="mt-3 flex min-h-10 flex-wrap items-center gap-1 border-y border-black/10 py-2 text-xs">
-        <button type="button" onClick={() => setBrowsePath(".")} className="rounded px-1.5 py-1 font-semibold hover:bg-black/5">{t("Workspace")}</button>
+        <button type="button" onClick={() => setBrowsePath(currentPath)} className="rounded px-1.5 py-1 font-semibold hover:bg-black/5">{t("Workspace")}</button>
+        {device ? listing?.roots?.map(root => <button key={root.path} type="button" onClick={() => setBrowsePath(root.path)} className="rounded px-1.5 py-1 hover:bg-black/5">{root.name}</button>) : null}
         {crumbs.map((crumb, index) => { const path = crumbs.slice(0, index + 1).join("/"); return <span key={path} className="contents"><ChevronRight size={12} className="text-[#aaa9a4]" /><button type="button" onClick={() => setBrowsePath(path)} className="rounded px-1.5 py-1 hover:bg-black/5">{crumb}</button></span>; })}
       </div>
       <div className="mt-2 grid gap-1">
         {listing?.parent !== null && listing?.parent !== undefined ? <button type="button" onClick={() => setBrowsePath(listing.parent || ".")} className="flex min-h-10 items-center gap-2 rounded-md px-2 text-left text-sm text-[#535350] hover:bg-black/5"><FolderOpen size={15} /> ..</button> : null}
         {listing?.directories.map((item) => <button type="button" key={item.path} onClick={() => setBrowsePath(item.path)} className="flex min-h-10 items-center gap-2 rounded-md px-2 text-left text-sm text-[#535350] hover:bg-black/5"><Folder size={15} className="text-[#6fa43f]" /><span className="truncate">{item.name}</span></button>)}
         {directories.isLoading ? <div className="flex min-h-10 items-center gap-2 px-2 text-xs text-[#858481]"><Loader2 className="animate-spin" size={14} />{" "}{t("Loading folders")}</div> : null}
-        {directories.isError ? <button type="button" onClick={() => directories.refetch()} className="min-h-10 rounded-md border border-black/10 px-3 text-xs">{t("Retry folder listing")}</button> : null}
+        {directories.isError ? <div role="alert" className="text-xs text-red-700"><p>{errorMessage(directories.error) || "Folder is not accessible."}</p><button type="button" onClick={() => directories.refetch()} className="min-h-10 rounded-md border border-black/10 px-3 text-xs">{t("Retry folder listing")}</button></div> : null}
         {!directories.isLoading && !directories.isError && !listing?.directories.length ? <div className="px-2 py-3 text-xs text-[#858481]">{t("No child folders.")}</div> : null}
       </div>
     </section>
@@ -1031,9 +1059,10 @@ function RunShellPanel({ runId, terminalEvents, sdkLines, terminal, connection, 
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const restored = Number(readShellSetting(storageKey) || 0);
+    const saved = readShellSetting(storageKey);
+    const restored = saved === "" ? null : Number(saved);
     requestAnimationFrame(() => {
-      element.scrollTop = restored > 0 ? Math.min(restored, element.scrollHeight) : element.scrollHeight;
+      element.scrollTop = restored !== null && Number.isFinite(restored) && restored >= 0 ? Math.min(restored, element.scrollHeight) : element.scrollHeight;
       following.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
     });
   }, [storageKey]);
@@ -1070,7 +1099,7 @@ function RunShellPanel({ runId, terminalEvents, sdkLines, terminal, connection, 
         following.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
         if (following.current) setNewOutput(0);
         writeShellSetting(storageKey, String(Math.round(element.scrollTop)));
-      }} aria-label={t("Read-only Shell transcript")} tabIndex={0} className="relative min-h-0 flex-1 cursor-text select-text overflow-auto px-4 py-3 font-mono text-xs leading-6 text-white/80" style={{ scrollbarGutter: "stable" }}>
+      }} aria-label={t("Read-only Shell transcript")} tabIndex={0} className="relative min-h-0 min-w-0 flex-1 cursor-text select-text overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 font-mono text-xs leading-6 text-white/80" style={{ scrollbarGutter: "stable", overflowAnchor: "none" }}>
         {!commands.length ? <span className="text-white/40">{t("Shell output will appear when the Agent executes a command.")}</span> : null}
         {commands.length && !filtered.length ? <div className="py-10 text-center font-sans text-sm text-white/45">{t("No Shell output matches this search.")}</div> : null}
         <div className="grid gap-3">
@@ -1082,7 +1111,7 @@ function RunShellPanel({ runId, terminalEvents, sdkLines, terminal, connection, 
               {command.exitCode !== null ? <span className={command.exitCode === 0 ? "text-emerald-300" : "text-red-300"}>{t("Exit")}{" "}{command.exitCode}</span> : <span>{status === "active" ? t("Running") : t("No exit code")}</span>}
               <button type="button" onClick={() => copyShellTranscript(command.transcript.text)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-white/10" aria-label={t("Copy output for {{0}}", { 0: command.command })}><Copy size={13} /></button>
             </header>
-            <pre className={`min-w-0 px-3 py-2 ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>{command.transcript.segments.filter((item) => item.stream !== "command" && !item.text.startsWith(t("Process exited with code "))).map((item) => <span key={item.id} aria-label={item.stream === "stderr" ? t("Standard error") : undefined} className={item.stream === "stderr" ? "text-red-300" : item.stream === "system" ? "text-white/45" : ""}>{item.text}</span>)}</pre>
+            <pre className={`min-w-0 overflow-x-auto px-3 py-2 ${wrap ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "whitespace-pre"}`}>{command.transcript.segments.filter((item) => item.stream !== "command" && !item.text.startsWith(t("Process exited with code "))).map((item) => <span key={item.id} aria-label={item.stream === "stderr" ? t("Standard error") : undefined} className={item.stream === "stderr" ? "text-red-300" : item.stream === "system" ? "text-white/45" : ""}>{item.text}</span>)}</pre>
           </section>)}
         </div>
         {newOutput > 0 ? <div className="sticky bottom-3 flex justify-center"><button type="button" onClick={() => { const element = viewport.current; if (element) element.scrollTop = element.scrollHeight; following.current = true; setNewOutput(0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-[#262626] px-4 font-sans text-xs text-white shadow-md"><ArrowDown size={14} />{" "}{t("New Shell output")}</button></div> : null}

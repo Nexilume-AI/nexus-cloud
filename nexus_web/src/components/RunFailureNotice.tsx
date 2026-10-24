@@ -12,6 +12,7 @@ export function currentRunFailure(run?: PrivateAgentRunDisplay): RunFailure | nu
     recovery_hint: t("Check the external result first. Retry only if you accept the risk that an unconfirmed operation may run twice."),
     actions: ["check_status", "retry_operation", "cancel_turn"], outcome_unknown: true, automatic_retry: false,
   };
+  if (run?.execution_task?.status === "cancelled") return null;
   if (run?.status !== "failed") return null;
   if (run.failure) return run.failure;
   const raw = run.execution_task?.error_code || "";

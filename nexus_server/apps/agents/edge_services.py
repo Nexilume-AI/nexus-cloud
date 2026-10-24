@@ -367,6 +367,21 @@ def renew_edge_presence(*, request, data: dict[str, Any]) -> tuple[EdgeNode, int
         health_status=AgentRuntimeDeployment.HEALTH_UNKNOWN,
         last_error="",
     )
+    # Registration can finish before the connector's final presence renewal.
+    # Promote only that explicit waiting state, never user-stopped deployments.
+    waiting = AgentRuntimeDeployment.objects.filter(
+        edge_registration__node=node,
+        edge_registration__status=SoftDeleteModel.STATUS_ACTIVE,
+        edge_registration__lease_expires_at__gt=now,
+        edge_registration__binding_mode=EdgeAgentRegistration.BINDING_MANAGED,
+        status=AgentRuntimeDeployment.STATUS_DEPLOYING,
+        last_error="Waiting for OpenWrt Router presence.",
+        agent_deployment__status=AgentDeployment.STATUS_DEPLOYING,
+    )
+    deployment_ids = list(waiting.values_list("agent_deployment_id", flat=True))
+    waiting.update(status=AgentRuntimeDeployment.STATUS_ACTIVE,
+                   health_status=AgentRuntimeDeployment.HEALTH_UNKNOWN, last_error="")
+    AgentDeployment.objects.filter(id__in=deployment_ids).update(status=AgentDeployment.STATUS_ACTIVE)
     return node, EDGE_PRESENCE_LEASE_SECONDS
 
 

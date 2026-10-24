@@ -51,6 +51,32 @@ def grant_state(row):
     return state
 
 
+def can_renew(row):
+    from .credential_links import deadline
+    return (not row.preauthorized and row.status in ('pending', 'authorized')
+            and (row.expires_at <= timezone.now()
+                 or (row.status == 'pending' and deadline(row) <= timezone.now())))
+
+
+def renew_pending(row, *, reset_approver=False):
+    """Caller holds the row lock. Renew the request, never its prior approval."""
+    if not can_renew(row):
+        raise exceptions.ValidationError('Only an expired request or authorization can be renewed.')
+    if row.issued_key_id:
+        raise exceptions.PermissionDenied('Router delegation is not supported by this host.')
+    row.status = 'pending'
+    row.requested_at = timezone.now()
+    row.expires_at = row.requested_at + timedelta(minutes=10)
+    row.encrypted_secret = ''
+    row.source_grant = None
+    row.derived_grants.filter(status='authorized').update(status='revoked')
+    row.issued_key_id = None
+    row.router_id = None
+    row.save(update_fields=['status', 'requested_at', 'expires_at', 'encrypted_secret',
+                           'source_grant', 'issued_key_id', 'router_id', 'updated_at'])
+    return row
+
+
 def public(row):
     base = str(getattr(settings, "NEXUS_PUBLIC_BASE_URL", "")).rstrip("/")
     parsed = urlsplit(base)
@@ -79,7 +105,7 @@ def internal_run(run_id, token):
 
 
 @transaction.atomic
-def request_authorization(run_id, token, provider, base_url=None, model=None, force_new=False):
+def request_authorization(run_id, token, provider, base_url=None, model=None, force_new=False, reuse_existing=False):
     run = internal_run(run_id, token)
     if run.status != AgentDisplayRun.STATUS_RUNNING:
         raise exceptions.PermissionDenied("Authorization requests require a running invocation.")
@@ -92,22 +118,35 @@ def request_authorization(run_id, token, provider, base_url=None, model=None, fo
             raise exceptions.PermissionDenied('Invocation preauthorization is no longer active.')
         # The caller's explicit MCP configuration takes priority over tool defaults.
         return public(configured)
+    explicit_configuration = bool(base_url or model)
     provider,base_url,model = configuration(provider,base_url,model)
     if type(force_new) is not bool:
         raise exceptions.ValidationError('force_new must be a boolean.')
+    if type(reuse_existing) is not bool:
+        raise exceptions.ValidationError('reuse_existing must be a boolean.')
     owner = owner_id(run)
     if not owner:
         raise exceptions.PermissionDenied("Use your personal Agent MCP credential or sign in; shared caller keys cannot authorize provider secrets.")
     existing = AgentCredentialAuthorization.objects.filter(
-        **scope(run), owner_id=owner, preauthorized=False, provider=provider, base_url=base_url, status="authorized", expires_at__gt=timezone.now(),
+        **scope(run), owner_id=owner, preauthorized=False, status="authorized", expires_at__gt=timezone.now(),
     ).order_by("-created_at")
+    if reuse_existing and not explicit_configuration:
+        existing = existing.filter(provider__in=[p for p, cfg in PROVIDERS.items() if cfg['protocol'] == PROVIDERS[provider]['protocol']])
+    else:
+        existing = existing.filter(provider=provider, base_url=base_url)
     if model:existing=existing.filter(model_name=model)
     for candidate in ([] if force_new else existing):
         if grant_state(candidate)=="authorized":return public(candidate)
-    row, created = AgentCredentialAuthorization.objects.get_or_create(run=run, provider=provider, defaults={
+    # Serialize both creation and renewal for this invocation/provider.
+    AgentDisplayRun.objects.select_for_update().get(pk=run.pk)
+    row, created = AgentCredentialAuthorization.objects.select_for_update().get_or_create(run=run, provider=provider, defaults={
         "owner_id": owner, "base_url":base_url, "model_name":model, "expires_at": timezone.now() + timedelta(minutes=10),
     })
-    if row.base_url!=base_url or row.model_name!=model:
+    if not created and can_renew(row):
+        renew_pending(row, reset_approver=True)
+        row.base_url, row.model_name = base_url, model
+        row.save(update_fields=['base_url', 'model_name', 'updated_at'])
+    elif row.base_url!=base_url or row.model_name!=model:
         raise exceptions.ValidationError('Request a new authorization invocation to change endpoint or model.')
     return public(row)
 
@@ -152,7 +191,7 @@ def saved_grants(row):
 
 def browser_details(row):
     from .credential_router import available
-    return {**public(row),'providers':[{'id':key,**value} for key,value in PROVIDERS.items()],
+    return {**public(row),'can_renew':can_renew(row),'providers':[{'id':key,**value} for key,value in PROVIDERS.items()],
             'nexus_routers':available(row), 'nexus_router_delegation':False,
             'saved_credentials':[{'authorization_id':str(item.id),'provider':item.provider,'base_url':item.base_url,
                 'model':item.model_name,'expires_at':item.expires_at.isoformat()} for item in saved_grants(row)[:50]]}
@@ -163,6 +202,10 @@ def browser_details(row):
 def decide(request, authorization_id):
     row = browser_row(request, authorization_id, lock=True)
     action = request.data.get("action")
+    if action == 'renew':
+        if set(request.data) != {'action'}:
+            raise exceptions.ValidationError('Renew first, then explicitly confirm the new model access.')
+        return browser_details(renew_pending(row))
     if action in ("decline", "revoke"):
         if row.issued_key_id:
             raise exceptions.PermissionDenied('Router delegation is not supported by this host.')

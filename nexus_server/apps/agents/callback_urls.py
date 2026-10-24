@@ -32,6 +32,7 @@ from .callback_views import (
 urlpatterns = [
     path('', include('apps.agents.interactive_urls')),
     path('', include('apps.agents.wave_urls')),
+    path('', include('apps.agents.file_bridge_urls')),
     path("internal/agent-runs/<uuid:run_id>/interactions/background-jobs/", RegisterJobView.as_view()),
     path("agent-background-jobs/<uuid:job_id>/ingest/", IngestView.as_view()),
     path("agent-background-jobs/<uuid:job_id>/commands/", CommandView.as_view()),

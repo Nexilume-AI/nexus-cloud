@@ -71,6 +71,8 @@ class PersonalBearerAuthentication(TokenAuthentication):
         if token.startswith("np-agent-"):
             from .agent_credentials import authenticate
             return authenticate(request, token)
+        if token.startswith("nd-nexus-"):
+            raise exceptions.AuthenticationFailed("Desktop connections are no longer supported. Use Private Display.")
         if token.count(".") == 2:
             return self.authenticate_owner_jwt(request, token)
         user, credential = self.authenticate_credentials(token)

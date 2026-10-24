@@ -158,6 +158,9 @@ class PrivateAgentRunComputerView(APIView):
         return Response(private_display_payload(run=run))
 
     def get(self, request, run_id):
+        if request.query_params.get("device") == "1":
+            from .workspace_selection import browse
+            return Response(browse(request=request, run_id=str(run_id), path=str(request.query_params.get("path") or "")))
         return Response(
             private_run_computer_directories(
                 request=request,
@@ -167,6 +170,11 @@ class PrivateAgentRunComputerView(APIView):
         )
 
     def patch(self, request, run_id):
+        if request.data.get("device") is True:
+            from .workspace_selection import select
+            return Response(select(request=request, run_id=str(run_id), path=request.data.get("path"),
+                confirmed=request.data.get("confirmed"), expected_root=request.data.get("expected_root"),
+                expected_revision=request.data.get("expected_revision")))
         return Response(
             update_private_run_workspace_cwd(
                 request=request,

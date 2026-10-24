@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from django.utils.crypto import constant_time_compare
+
 from django.contrib.auth import get_user_model
 from rest_framework import exceptions
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
@@ -29,6 +31,8 @@ class NexusBearerAuthentication(TokenAuthentication):
             raise exceptions.AuthenticationFailed("Invalid Authorization header.")
 
         token = auth[1].decode("utf-8")
+        if token.startswith("nd-nexus-"):
+            raise exceptions.AuthenticationFailed("Desktop connections are no longer supported. Use Private Display.")
         if token.startswith("sa-nexus-"):
             return self._authenticate_service_account(request, token)
         if token.startswith("sk-nexus-"):
@@ -50,6 +54,14 @@ class NexusBearerAuthentication(TokenAuthentication):
             raise exceptions.AuthenticationFailed("User not found.") from exc
         if not user.is_active:
             raise exceptions.AuthenticationFailed("User inactive or deleted.")
+        if "pwd" in payload:
+            if not constant_time_compare(str(payload["pwd"]), user.get_session_auth_hash()):
+                raise exceptions.AuthenticationFailed("Password changed. Sign in again.")
+        else:
+            from apps.accounts.models import AccountProfile
+            profile = AccountProfile.objects.filter(user=user).only("metadata").first()
+            if profile and (profile.metadata or {}).get("password_reset_at"):
+                raise exceptions.AuthenticationFailed("Password changed. Sign in again.")
         return user, payload
 
     def _authenticate_api_key(self, request, token: str):

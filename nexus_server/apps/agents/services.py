@@ -557,6 +557,15 @@ def observability_events_queryset(queryset):
     )
 
 
+def validate_expected_device_bindings(*, request, computer_binding_id, mobile_binding_id) -> None:
+    """Optional execution precondition, never a substitute for caller authorization."""
+    for label, actual in (("Computer", computer_binding_id), ("Mobile", mobile_binding_id)):
+        expected = request.headers.get(f"X-Nexus-Expected-{label}-Binding") if request else None
+        if expected is not None and expected != (str(actual) if actual else "none"):
+            from .runtime_services import AgentRuntimeOperationConflict
+            raise AgentRuntimeOperationConflict("Attached device changed. Review the Run devices before sending again.")
+
+
 def get_private_display_run(*, request, run_id: str, require_token: bool = True) -> AgentDisplayRun:
     tenant = get_tenant_from_request(request)
     subject = request_subject(request)
@@ -597,6 +606,7 @@ def get_private_display_run(*, request, run_id: str, require_token: bool = True)
             token_valid = False
     if run is None or (require_token and not token_valid):
         raise AgentNotFound()
+    validate_expected_device_bindings(request=request, computer_binding_id=run.computer_binding_id, mobile_binding_id=run.mobile_binding_id)
     return run
 
 
@@ -712,12 +722,14 @@ def private_display_payload(*, run: AgentDisplayRun) -> dict[str, Any]:
         else None,
         "computer": {
             **computer_payload(run),
+            "binding_id": str(run.computer_binding_id) if run.computer_binding_id else "",
             "attached": bool(run.computer_binding_id),
             "terminal_status": terminal.status if terminal else "not_started",
             "viewer_mode": "read_only",
             "workspace_cwd": run.workspace_cwd or ".",
         },
         "mobile": {
+            "binding_id": str(run.mobile_binding_id) if run.mobile_binding_id else "",
             "attached": bool(run.mobile_binding_id),
             "name": run.mobile_binding.device.name if run.mobile_binding_id else "",
             "status": run.mobile_binding.device.lifecycle_status if run.mobile_binding_id else "unavailable",
@@ -753,6 +765,7 @@ def private_display_payload(*, run: AgentDisplayRun) -> dict[str, Any]:
 
 def private_run_computer_directories(*, request, run_id: str, path: str = "") -> dict[str, Any]:
     from apps.workspaces.execution import list_workspace_files, resolve_workspace_relative_path
+    from .runtime_services import invocation_runtime_command_context
 
     run = get_private_display_run(request=request, run_id=run_id)
     if run.computer_binding_id is None or not run.workspace_root:
@@ -762,6 +775,7 @@ def private_run_computer_directories(*, request, run_id: str, path: str = "") ->
         connection=run.computer_binding.connection,
         root=run.workspace_root,
         path=relative_path,
+        runtime_context=invocation_runtime_command_context(run=run),
     )
     directories = [
         {
@@ -781,6 +795,7 @@ def private_run_computer_directories(*, request, run_id: str, path: str = "") ->
 
 def update_private_run_workspace_cwd(*, request, run_id: str, path: str) -> dict[str, Any]:
     from apps.workspaces.execution import list_workspace_files, resolve_workspace_relative_path
+    from .runtime_services import invocation_runtime_command_context
 
     run = get_private_display_run(request=request, run_id=run_id)
     if run.computer_binding_id is None or not run.workspace_root:
@@ -791,6 +806,7 @@ def update_private_run_workspace_cwd(*, request, run_id: str, path: str) -> dict
         connection=run.computer_binding.connection,
         root=run.workspace_root,
         path=candidate,
+        runtime_context=invocation_runtime_command_context(run=run),
     )
     # Runtime commands are only visible/woken after enqueue commits. Never wait
     # for the Computer while holding the transaction that contains its command.
@@ -1321,6 +1337,8 @@ def append_display_event(
     if event.event_type == "CUSTOM" and event.visibility == "public" and (event.payload_json or {}).get("name") == "nexus.image.created":
         materialize_private_run_result(run=locked, value=(event.payload_json or {}).get("value", {}))
     sync_private_display_title_from_event(event=event)
+    from .display_stream import notify
+    transaction.on_commit(lambda: notify(locked.id))
     if agui_event["type"] == AgentDisplayEvent.TYPE_RUN_COMPLETED:
         locked.status = AgentDisplayRun.STATUS_COMPLETED
         locked.completed_at = timezone.now()

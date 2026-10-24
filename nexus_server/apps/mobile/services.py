@@ -336,6 +336,14 @@ def create_mobile_command_for_device(
     approval_required = command_requires_approval(device=device, risk_level=normalized_risk) or bool(requires_approval)
     if hosted_agent and normalized_risk == MobileCommand.RISK_HIGH:
         approval_required = True
+    # MCP invocation is caller consent for this bound device and declared scope.
+    # The delegate endpoint has already checked ownership, scope and revocation.
+    # This server-owned Run flag cannot be supplied in MCP tool arguments.
+    if (hosted_agent and display_run is not None and display_run.mobile_mcp_preapproved
+            and mobile_binding is not None and display_run.mobile_binding_id == mobile_binding.id
+            and caller_subject_hash == display_run.caller_subject_hash
+            and mobile_binding.caller_subject_hash == device.owner_subject_hash):
+        approval_required = False
     return MobileCommand.objects.create(
         tenant=device.tenant,
         project=device.project,

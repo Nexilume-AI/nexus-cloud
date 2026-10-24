@@ -268,7 +268,7 @@ export function AgentDisplayComputerFrame({
   useLocale();
   const dark = tone === "dark";
   return (
-    <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border shadow-sm ${dark ? "border-black/20 bg-[#111111]" : "border-black/10 bg-white"}`}>
+    <div className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border shadow-sm ${dark ? "border-black/20 bg-[#111111]" : "border-black/10 bg-white"}`}>
       <div className={`flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 ${dark ? "border-white/10" : "border-black/10 bg-[#f8f8f7]"}`}>
         <div className={`flex min-w-0 items-center gap-2 text-xs font-semibold uppercase ${dark ? "text-white/60" : "text-[#535350]"}`}>
           <span className={`h-2 w-2 rounded-full ${["active", "running", "completed"].includes(status) ? "bg-emerald-400" : status === "failed" ? "bg-red-400" : "bg-amber-400"}`} />
@@ -302,6 +302,8 @@ export function AgentDisplayComposer({
   attachmentActionsDisabled = false,
   deviceActions,
   deliveryActions,
+  submitLabel = t("Send message"),
+  stopAction,
 }: {
   prompt?: string;
   choices?: Array<{ value: string; label: string }>;
@@ -326,6 +328,8 @@ export function AgentDisplayComposer({
   deviceActions?: ReactNode;
   /** Queue/steer belongs to the message toolbar, not a separate status row. */
   deliveryActions?: ReactNode;
+  submitLabel?: string;
+  stopAction?: ReactNode;
 }) {
   useLocale();
   const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
@@ -401,9 +405,10 @@ export function AgentDisplayComposer({
         {attachments ? <fieldset disabled={attachmentActionsDisabled} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div ref={setToolbar} /></fieldset> : null}
         {deliveryActions}
         {deviceActions}
-        <button type="submit" disabled={disabled || busy || overLimit || choices.length > 0 || (!value.trim() && !allowEmpty)} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a1a19] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" aria-label={t("Send message")}>
+        {stopAction}
+        {!stopAction || value.trim() || allowEmpty ? <button type="submit" disabled={disabled || busy || overLimit || choices.length > 0 || (!value.trim() && !allowEmpty)} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a1a19] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" aria-label={submitLabel}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-        </button>
+        </button> : null}
         </div>
       </div>
       {maxCharacters !== undefined && characters >= maxCharacters * 0.9 ? <p className="px-2 pt-1 text-right text-xs text-[#535350]" aria-label={t("Message length")}>{characters.toLocaleString(getLocale())} / {maxCharacters.toLocaleString(getLocale())}</p> : null}

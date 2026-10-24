@@ -1307,12 +1307,19 @@ export const api = {
     runId: string,
     displayToken: string,
     path = "",
+    device = false,
   ) =>
     request<import("./types").AgentRunComputerDirectoryListing>(
-      `/api/v1/agent-runs/${runId}/computer/${path ? `?path=${encodeURIComponent(path)}` : ""}`,
+      `/api/v1/agent-runs/${runId}/computer/?path=${encodeURIComponent(path)}${device ? "&device=1" : ""}`,
       { headers: { "X-Nexus-Agent-Display-Token": displayToken } },
       ctx,
     ),
+
+  selectPrivateAgentRunWorkspace: (ctx: ApiContext, runId: string, displayToken: string, path: string, expectedRoot: string, expectedRevision: number) =>
+    request<import("./types").AgentRunComputerDirectoryListing>(`/api/v1/agent-runs/${runId}/computer/`, {
+      method: "PATCH", headers: { "X-Nexus-Agent-Display-Token": displayToken },
+      body: JSON.stringify({ device: true, confirmed: true, path, expected_root: expectedRoot, expected_revision: expectedRevision }),
+    }, ctx),
 
   switchPrivateAgentRunComputer: (ctx: ApiContext, runId: string, displayToken: string, connectionId: string, revision: number) =>
     request<import("./types").PrivateAgentRunDisplay>(`/api/v1/agent-runs/${runId}/computer/`, {

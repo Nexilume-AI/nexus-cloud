@@ -131,6 +131,7 @@ GATEWAY_RESERVATION_RELEASE_REF = "gateway_request_reservation_release"
 
 
 def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
+    gateway_started = time.monotonic()
     tenant = get_tenant_from_request(request)
     gateway_integration().prepare_request(request=request, tenant=tenant, payload=payload)
     api_key = getattr(request, "api_key", None)
@@ -173,6 +174,8 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         for deployment in deployments:
             try:
+                deployment._nexus_latency = {'router_preflight_ms': round((time.monotonic() - gateway_started) * 1000, 2)}
+                capacity_started = time.monotonic()
                 try:
                     capacity_reservation = reserve_provider_capacity_for_deployment(
                         request=request,
@@ -182,6 +185,7 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
                 except ProviderCapacityUnavailable:
                     capacity_unavailable = True
                     continue
+                deployment._nexus_latency['capacity_check_ms'] = round((time.monotonic() - capacity_started) * 1000, 2)
                 response = OpenAICompatibleClient().chat_completions(deployment=deployment, payload=provider_payload)
                 mark_provider_capacity_used(
                     reservation=capacity_reservation,
@@ -258,6 +262,7 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[ProviderStreamEvent]:
+    gateway_started = time.monotonic()
     tenant = get_tenant_from_request(request)
     gateway_integration().prepare_request(request=request, tenant=tenant, payload=payload)
     api_key = getattr(request, "api_key", None)
@@ -306,6 +311,8 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
             finish_reason = ""
             first_chunk_sent = False
             try:
+                deployment._nexus_latency = {'router_preflight_ms': round((time.monotonic() - gateway_started) * 1000, 2)}
+                capacity_started = time.monotonic()
                 try:
                     capacity_reservation = reserve_provider_capacity_for_deployment(
                         request=request,
@@ -315,6 +322,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                 except ProviderCapacityUnavailable:
                     capacity_unavailable = True
                     continue
+                deployment._nexus_latency['capacity_check_ms'] = round((time.monotonic() - capacity_started) * 1000, 2)
                 for event in OpenAICompatibleClient().stream_chat_completions(deployment=deployment, payload=provider_payload):
                     gateway_integration().observe_stream(request=request, event=event)
                     if event.done:
@@ -1267,8 +1275,12 @@ def routing_trace_for_deployment(deployment: Deployment | None) -> dict[str, Any
         return {}
     base = getattr(deployment, "_nexus_routing_trace", None)
     if not isinstance(base, dict):
-        return {}
+        base = {}
     trace = deepcopy(base)
+    timing = getattr(deployment, '_nexus_latency', None)
+    if isinstance(timing, dict):
+        trace['timing_ms'] = {key: value for key, value in timing.items()
+                              if isinstance(value, (int, float)) and 0 <= value < 86400000}
     pool_id = selected_model_group_id(deployment) or ""
     source_id = consumer_source_id(deployment) or str(deployment.id)
     router_stage = trace.get("router") if isinstance(trace.get("router"), dict) else {}

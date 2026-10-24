@@ -168,6 +168,9 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
 
     def chat_completions(self, *, deployment, payload: dict[str, Any]) -> ProviderResponse:
         started = time.monotonic()
+        timing = getattr(deployment, '_nexus_latency', None)
+        if timing is None:
+            timing = {}; deployment._nexus_latency = timing
         account = deployment.provider_account
         if account is None:
             raise ProviderClientError("Provider account is required.", error_code="PROVIDER_ACCOUNT_NOT_FOUND")
@@ -186,6 +189,7 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
                 headers=self.headers(account=account),
                 timeout=float(getattr(settings, "NEXUS_PROVIDER_REQUEST_TIMEOUT_SECONDS", 60)),
                 allow_private=managed_provider_endpoint(deployment=deployment, url=base_url),
+                timing=timing,
             ) as response:
                 raw = json.loads(_read_response(response).decode("utf-8"))
         except HTTPError as exc:
@@ -196,9 +200,15 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
             raise
         except Exception as exc:  # noqa: BLE001 - converted at gateway boundary.
             raise ProviderClientError("Provider returned an invalid response.") from exc
+        finally:
+            timing['provider_total_ms'] = round((time.monotonic() - started) * 1000, 2)
         return build_response(raw=raw, model=deployment.model, started=started)
 
     def stream_chat_completions(self, *, deployment, payload: dict[str, Any]) -> Iterator[ProviderStreamEvent]:
+        started = time.monotonic()
+        timing = getattr(deployment, '_nexus_latency', None)
+        if timing is None:
+            timing = {}; deployment._nexus_latency = timing
         account = deployment.provider_account
         if account is None:
             raise ProviderClientError("Provider account is required.", error_code="PROVIDER_ACCOUNT_NOT_FOUND")
@@ -225,8 +235,13 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
                 headers=self.headers(account=account, stream=True),
                 timeout=float(getattr(settings, "NEXUS_PROVIDER_REQUEST_TIMEOUT_SECONDS", 60)),
                 allow_private=managed_provider_endpoint(deployment=deployment, url=base_url),
+                timing=timing,
             ) as response:
                 for event in iter_openai_sse(response):
+                    timing.setdefault('first_event_ms', round((time.monotonic() - started) * 1000, 2))
+                    if event.text_delta:
+                        timing.setdefault('first_text_ms', round((time.monotonic() - started) * 1000, 2))
+                        timing['last_text_ms'] = round((time.monotonic() - started) * 1000, 2)
                     yield event
         except HTTPError as exc:
             raise self.error_from_http_error(exc) from exc
@@ -236,6 +251,8 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
             raise
         except Exception as exc:  # noqa: BLE001 - converted at gateway boundary.
             raise ProviderClientError("Provider returned an invalid streaming response.") from exc
+        finally:
+            timing['provider_total_ms'] = round((time.monotonic() - started) * 1000, 2)
 
     def chat_completions_url(self, base_url: str) -> str:
         url = base_url.rstrip("/")

@@ -51,6 +51,7 @@ PROTOCOL_VERSION = 1
 MAX_PAIRING_CA_BYTES = 64 * 1024
 CAPABILITY_VERSIONS = {
     "workspace.v1": 1,
+    "workspace.select.v1": 1,
     "terminal.v1": 1,
     "terminal.stream.v1": 1,
     "browser.v1": 1,
@@ -481,6 +482,8 @@ def revoke_computer(*, request, connection_id: str) -> dict[str, Any]:
 
 
 def required_runtime_capability(operation: str) -> str:
+    if operation == "workspace.browse_directories":
+        return "workspace.select.v1"
     if operation.startswith("browser."):
         return "browser.v1"
     if operation.startswith("terminal.") or operation == "command.execute":
@@ -538,6 +541,9 @@ def enqueue_runtime_command(
     caller_subject_hash: str = "",
 ) -> ComputerRuntimeCommand:
     device = ensure_runtime_connection(connection, operation=operation)
+    from .run_roots import authorize_command_roots
+    payload = authorize_command_roots(connection=connection, payload=payload,
+        display_run_id=display_run_id, caller_subject_hash=caller_subject_hash, operation=operation)
     if idempotency_key:
         existing = ComputerRuntimeCommand.objects.filter(device=device, idempotency_key=idempotency_key).first()
         if existing is not None:

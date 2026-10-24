@@ -903,7 +903,10 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
         # while keeping the signed wire representation compatible with them.
         envelope_body = json.dumps(envelope, separators=(",", ":"), ensure_ascii=True).encode("ascii")
         from .relay_services import relay_invoke
-
+        from .relay_chat import relay_chat_enabled, relay_mobile_enabled, collect_relay_task_result
+        collect_task = not streaming and (relay_mobile_enabled(deployment, policy=mapping) or relay_chat_enabled(deployment)) and any(
+            mapping.get(key) for key in ("chat", "task", "interactive")
+        )
         timeout = float(getattr(settings, "NEXUS_EDGE_REQUEST_TIMEOUT_SECONDS", 30))
         response = relay_invoke(
             relay_id=registration.relay_id,
@@ -914,8 +917,17 @@ class OpenWrtRelayRuntimeRunner(BaseAgentRuntimeRunner):
             task_id=task_id,
             body=envelope_body,
             timeout=timeout,
-            streaming=streaming,
+            streaming=streaming or collect_task,
         )
+        if collect_task:
+            result = _relay_stream_result(response, request_id)
+            try:
+                if result.status_code != 200:
+                    return RuntimeMCPResult(result.status_code, result.headers, b"".join(result.chunks))
+                body = collect_relay_task_result(result.chunks, request_id)
+                return RuntimeMCPResult(200, {"Content-Type": "application/json"}, body)
+            finally:
+                response.close()
         if streaming:
             token = (params.get("_meta") or {}).get("progressToken") if isinstance(params.get("_meta") or {}, dict) else None
             return _relay_stream_result(response, request_id, token)
@@ -969,14 +981,11 @@ def _relay_stream_result(response, request_id, progress_token=None) -> RuntimeMC
     def chunks():
         buffer = b""
         lines = []
-        event_bytes = total = 0
+        event_bytes = 0
         terminal = False
         read = getattr(response, "read1", response.read)
         try:
             while block := read(4096):
-                total += len(block)
-                if total > 1048576:
-                    raise ValueError("Relay SSE exceeds response bound")
                 buffer += block
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
@@ -1015,6 +1024,8 @@ def _relay_stream_result(response, request_id, progress_token=None) -> RuntimeMC
                         yield b": relay-event\n\n"
                         continue
                     yield b"event: message\ndata: " + _json_dumps(packet) + b"\n\n"
+                if event_bytes + len(buffer) > 1048576:
+                    raise ValueError("Relay SSE event exceeds bound")
             if buffer.strip() or lines or not terminal:
                 raise ValueError("Relay SSE ended without a complete result")
         finally:

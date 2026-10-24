@@ -266,3 +266,26 @@ callers; two active calls globally and one per caller. The queue holds eight
 pending calls per caller and 32 total, with a ten-second wait deadline. Clients
 should back off on queue errors. These limits apply to the single Wave bridge
 process, not to every Agent hosted through Cloud.
+
+
+## Expiry and authorization renewal
+
+An authorization request and its approved access have separate lifetimes. An
+anonymous, single-decision link lasts five minutes. Approved model access lasts
+for the duration the user selected; reloading a page never extends either.
+
+The signed-in credential owner (or the account that approved a Nexus Router)
+can choose **Authorize again** on an expired authorization page. This creates a
+fresh pending decision and clears the old secret, saved-grant reference and
+issued Router key. The user must select/confirm the model, duration and consent
+again before any model access resumes. Derived grants are revoked; revoked,
+cancelled and MCP-config-preauthorized grants cannot be renewed this way.
+
+An expired anonymous link cannot renew itself. Request authorization again from
+the authenticated MCP client, or explicitly choose **Continue with my Nexus
+account** and sign in as the authorization manager. This account path does not
+give the link bearer access to the publisher's Routers. A fresh authenticated
+MCP authorization request can renew an expired pending decision within the same
+running invocation. The new link has a new request timestamp; every previous
+link remains invalid, including previously consumed links. The creation/audit
+timestamp is preserved. New approval is always required.

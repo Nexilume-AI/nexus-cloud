@@ -39,7 +39,7 @@ class InternalCredentialRequestView(NoStoreView):
     permission_classes = [AllowAny]
     authentication_classes = []
     def post(self, request, run_id):
-        return Response(credentials.request_authorization(run_id, interaction_token(request), request.data.get('provider'), request.data.get('base_url'), request.data.get('model'), request.data.get('force_new',False)))
+        return Response(credentials.request_authorization(run_id, interaction_token(request), request.data.get('provider'), request.data.get('base_url'), request.data.get('model'), request.data.get('force_new',False), request.data.get('reuse_existing',False)))
 
 
 class InternalCredentialDetailView(NoStoreView):

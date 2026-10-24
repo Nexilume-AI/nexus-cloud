@@ -10,6 +10,7 @@ import secrets
 import threading
 import time
 import uuid
+from http.client import IncompleteRead
 from dataclasses import replace
 from decimal import Decimal
 from datetime import timedelta
@@ -577,6 +578,7 @@ def create_invocation_display_context(
     request=None,
     execution_profile: dict[str, Any] | None = None,
     reasoning_effort: str = "",
+    mobile_mcp_preapproved: bool = False,
 ) -> tuple[AgentDisplayRun, RuntimeDisplayContext]:
     public_base_url = request.build_absolute_uri("/") if request else str(getattr(settings, "NEXUS_PUBLIC_BASE_URL", "http://localhost:8000"))
     public_base_url = public_base_url.rstrip("/")
@@ -584,6 +586,7 @@ def create_invocation_display_context(
     title = f"{runtime.agent.name}: {tool_name or 'tools/call'}"
     consumer_tenant = get_tenant_from_request(request)
     subject = request_subject(request)
+    mobile_mcp_preapproved = bool(mobile_mcp_preapproved and subject.principal_type != "anonymous")
     workspace_capabilities = effective_workspace_capabilities(request=request, agent=runtime.agent)
     mobile_requirement, declared_mobile_capabilities = runtime_mobile_declaration(runtime)
     tool_policy = runtime_tool_policy(agent=runtime.agent, runtime=runtime, tool_name=tool_name)
@@ -597,10 +600,13 @@ def create_invocation_display_context(
         request=request,
         agent=runtime.agent,
         declared_capabilities=declared_mobile_capabilities,
+        mcp_preapproved=mobile_mcp_preapproved,
     )
     if tool_mobile_scopes:
         mobile_capabilities = [value for value in mobile_capabilities if value in set(tool_mobile_scopes)]
-    if runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY:
+    from .relay_chat import relay_mobile_enabled
+    relay_mobile_allowed = relay_mobile_enabled(runtime, policy=tool_policy)
+    if runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY and not relay_mobile_allowed:
         mobile_capabilities = []
     binding = resolve_invocation_computer_binding(
         request=request,
@@ -610,7 +616,7 @@ def create_invocation_display_context(
         workspace_capabilities=workspace_capabilities,
     )
     mobile_binding = None
-    if runtime.runtime_kind != AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY:
+    if runtime.runtime_kind != AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY or relay_mobile_allowed:
         mobile_binding = resolve_invocation_mobile_binding(
             request=request,
             agent=runtime.agent,
@@ -619,6 +625,8 @@ def create_invocation_display_context(
             mobile_requirement=mobile_requirement,
             required_capabilities=required_mobile_capabilities,
         )
+    from .services import validate_expected_device_bindings
+    validate_expected_device_bindings(request=request, computer_binding_id=binding.id if binding else None, mobile_binding_id=mobile_binding.id if mobile_binding else None)
     display_token = secrets.token_urlsafe(32)
     run_write_token = secrets.token_urlsafe(32)
     interaction_token = secrets.token_urlsafe(32)
@@ -660,6 +668,7 @@ def create_invocation_display_context(
         caller_subject_hash=subject.subject_hash,
         computer_binding=binding,
         mobile_binding=mobile_binding,
+        mobile_mcp_preapproved=bool(mobile_mcp_preapproved and mobile_binding is not None),
         status=AgentDisplayRun.STATUS_RUNNING,
         title=title,
         write_token=run_write_token,
@@ -1785,6 +1794,7 @@ def get_agent_interactor(*, request, agent_id: str) -> dict[str, Any]:
         if runtime
         else None,
         **interactor_presentation_fields(agent=agent),
+        "device_binding_preconditions": True,
         "tools": tools,
         "default_tool_name": default_tool["name"] if default_tool else "",
         "private_display": {
@@ -2233,6 +2243,7 @@ def _resume_invocation_display_context(
         request=request,
         agent=run.agent,
         declared_capabilities=declared_mobile_capabilities,
+        mcp_preapproved=run.mobile_mcp_preapproved,
     )
     if tool_mobile_scopes:
         allowed = set(tool_mobile_scopes)
@@ -2399,6 +2410,8 @@ def resume_private_run(
         )
         .get(id=visible_run.id)
     )
+    from .services import validate_expected_device_bindings
+    validate_expected_device_bindings(request=request, computer_binding_id=run.computer_binding_id, mobile_binding_id=run.mobile_binding_id)
     if run.status == AgentDisplayRun.STATUS_RUNNING:
         raise AgentRuntimeOperationConflict(
             "This Run is still active. Reply to its pending interaction or wait for completion."
@@ -3606,6 +3619,15 @@ def call_runtime_mcp_stream(
             status_value = AgentRuntimeInvocation.STATUS_FAILED
             error_code = "RUN_CANCELLED"
             raise
+        except (IncompleteRead, ConnectionError, TimeoutError):
+            status_value = AgentRuntimeInvocation.STATUS_FAILED
+            error_code = "MCP_STREAM_INTERRUPTED"
+            # HTTP status is already committed. Finish with a valid MCP error
+            # instead of leaving clients with a truncated chunked response.
+            packet = {"jsonrpc": "2.0", "id": json.loads(body).get("id"),
+                      "error": {"code": -32000, "message": "Agent stream interrupted; execution is stopping",
+                                "data": {"code": error_code, "retryable": False}}}
+            yield b"event: message\ndata: " + json.dumps(packet, separators=(",", ":")).encode() + b"\n\n"
         except Exception:
             status_value = AgentRuntimeInvocation.STATUS_FAILED
             error_code = "MCP_STREAM_FAILED"
@@ -4643,16 +4665,13 @@ def invocation_runtime_command_context(*, run: AgentDisplayRun, idempotency_key:
 
 
 def list_invocation_workspace_files(*, run_id: str, token: str, path: str = "", root_kind: str = "workspace") -> dict[str, Any]:
-    from apps.workspaces.execution import ensure_workspace_directory, list_workspace_files
+    from apps.workspaces.execution import list_workspace_files
 
     run = get_workspace_delegate_run(run_id=run_id, token=token, scope="files.list")
     if run.computer_binding is None:
         raise AgentRuntimeError("Computer is not enabled for this run.")
-    ensure_workspace_directory(
-        connection=run.computer_binding.connection,
-        path=invocation_workspace_root(run=run, root_kind=root_kind),
-        runtime_context=invocation_runtime_command_context(run=run),
-    )
+    # Listing is strictly read-only, including the first call. Provisioning a
+    # missing directory must not manufacture files.write from a files.list grant.
     return list_workspace_files(
         connection=run.computer_binding.connection,
         root=invocation_workspace_root(run=run, root_kind=root_kind),
@@ -5293,10 +5312,16 @@ def ensure_openwrt_interactive_transport(
 ) -> None:
     mobile_requirement, _ = runtime_mobile_declaration(runtime)
     mobile_required = mobile_requirement == Agent.MOBILE_REQUIRED
-    if not any(policy.get(name) for name in ("task", "chat", "interactive")) and not mobile_required:
+    if not any(policy.get(name) for name in ("task", "chat", "interactive", "mobile_scopes")) and not mobile_required:
         return
     if runtime.runtime_kind != AgentRuntimeDeployment.RUNTIME_OPENWRT_IPV6:
         if runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY:
+            from .relay_chat import relay_chat_enabled, relay_mobile_enabled
+            if relay_mobile_enabled(runtime, policy=policy):
+                return
+            if relay_chat_enabled(runtime):
+                if not mobile_required and not policy.get("mobile_scopes"):
+                    return
             raise OpenWrtIPv6Required(runtime=runtime)
         return
     registration = runtime.edge_registration

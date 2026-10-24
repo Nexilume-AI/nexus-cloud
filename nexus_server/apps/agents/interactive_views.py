@@ -303,6 +303,20 @@ class RuntimeView(ViewEndpoint):
             if request.data.get('revision') != row.revision:
                 return Response({'error': 'revision_conflict', 'revision': row.revision}, status=409)
             row.state = state
+        elif op == 'cancel_task':
+            # The producer capability is bound to exactly this view and Run.
+            # Never accept a caller-supplied task/run identifier here.
+            if set(request.data) != {'operation'}:
+                raise exceptions.ValidationError('Cancellation accepts no target identifier.')
+            from .models import AgentExecutionTask
+            from .task_execution import request_cancel
+            task = AgentExecutionTask.objects.filter(run_id=row.run_id, execution__isnull=False).first()
+            if task is None:
+                raise exceptions.ValidationError('This view has no durable task.')
+            request_cancel(task)
+            task.refresh_from_db(fields=['status'])
+            changed(row)
+            return Response({'status': task.status})
         elif op == 'close': row.closed = True
         elif op in ('claim', 'complete'):
             expire_actions(row)

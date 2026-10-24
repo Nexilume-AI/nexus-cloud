@@ -1238,6 +1238,8 @@ class AgentDisplayRun(models.Model):
     browser_delegate_token_hash = models.CharField(max_length=64, blank=True)
     browser_delegate_token_expires_at = models.DateTimeField(null=True, blank=True)
     mobile_capabilities_snapshot = models.JSONField(default=list, blank=True)
+    # Set only by the authenticated MCP invocation path, never by tool input.
+    mobile_mcp_preapproved = models.BooleanField(default=False)
     mobile_delegate_token_hash = models.CharField(max_length=64, blank=True)
     mobile_delegate_token_expires_at = models.DateTimeField(null=True, blank=True)
     interaction_token_hash = models.CharField(max_length=64, blank=True)
@@ -1617,6 +1619,7 @@ class AgentCredentialAuthorization(models.Model):
     status = models.CharField(max_length=16, default="pending")
     encrypted_secret = models.TextField(blank=True)
     expires_at = models.DateTimeField()
+    requested_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

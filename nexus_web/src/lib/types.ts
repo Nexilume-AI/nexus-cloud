@@ -632,6 +632,8 @@ export type PrivateAgentRunDisplay = {
     terminal_status: string;
     viewer_mode: "read_only";
     workspace_cwd: string;
+    workspace_root?: string;
+    directory_selection_available?: boolean;
     revision?: number;
     name?: string;
     online?: boolean;
@@ -676,6 +678,9 @@ export type PrivateAgentRunDisplay = {
 };
 
 export type AgentRunComputerDirectoryListing = {
+  workspace_root?: string;
+  device?: boolean;
+  roots?: Array<{ name: string; path: string }>;
   cwd: string;
   path: string;
   parent: string | null;

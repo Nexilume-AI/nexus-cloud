@@ -27,6 +27,53 @@ from tests.agent_task_arguments import queued_arguments
 
 
 class PrivateRunFlowGuards:
+    def test_device_binding_precondition_does_not_grant_access_or_dispatch(self):
+        from uuid import uuid4
+        self.authenticate_private_caller()
+        response = self._create("device precondition")
+        self.assertEqual(response.status_code, 202, response.content)
+        run_id = self.private_payload(response)["run_id"]
+        headers = self._display_headers(run_id)
+        display = self.client.get(f"/api/v1/agent-runs/{run_id}/display/", **headers)
+        self.assertEqual(self.private_payload(display)["computer"]["binding_id"], "")
+        self.assertEqual(self.private_payload(display)["mobile"]["binding_id"], "")
+        for kind in ("COMPUTER", "MOBILE"):
+            pin = {f"HTTP_X_NEXUS_EXPECTED_{kind}_BINDING": str(uuid4())}
+            rejected = self.client.post(f"/api/v1/agent-runs/{run_id}/resume/", {"content": "must not run"}, format="json", **headers, **pin)
+            self.assertEqual(rejected.status_code, 409, rejected.content)
+            bad_token = self.client.get(f"/api/v1/agent-runs/{run_id}/display/", **{**headers, **pin, "HTTP_X_NEXUS_AGENT_DISPLAY_TOKEN": "wrong"})
+            self.assertEqual(bad_token.status_code, 404)
+            before = AgentDisplayRun.objects.count()
+            with mock.patch("apps.agents.runtime_services.threading.Thread.start"):
+                start = self.client.post(f"/api/v1/agents/{self.agent.id}/private-runs/", {"content": "must not start"}, format="json", **self._headers(self.project_a), **pin)
+            self.assertEqual(start.status_code, 409, start.content)
+            self.assertEqual(AgentDisplayRun.objects.count(), before)
+        self.assertEqual(AgentRunMessage.objects.filter(run_id=run_id, role="user").count(), 1)
+        valid = self.client.get(f"/api/v1/agent-runs/{run_id}/display/", **headers, HTTP_X_NEXUS_EXPECTED_COMPUTER_BINDING="none", HTTP_X_NEXUS_EXPECTED_MOBILE_BINDING="none")
+        self.assertEqual(valid.status_code, 200)
+
+    def test_device_binding_precondition_is_rechecked_under_resume_lock(self):
+        from apps.agents.services import validate_expected_device_bindings
+        from apps.agents.runtime_services import AgentRuntimeOperationConflict
+        from types import SimpleNamespace
+        from uuid import uuid4
+        computer, mobile = uuid4(), uuid4()
+        request = SimpleNamespace(headers={"X-Nexus-Expected-Computer-Binding": str(computer), "X-Nexus-Expected-Mobile-Binding": str(mobile)})
+        validate_expected_device_bindings(request=request, computer_binding_id=computer, mobile_binding_id=mobile)
+        with self.assertRaises(AgentRuntimeOperationConflict):
+            validate_expected_device_bindings(request=request, computer_binding_id=computer, mobile_binding_id=uuid4())
+        self.authenticate_private_caller()
+        response = self._create("preflight")
+        run_id = self.private_payload(response)["run_id"]
+        headers = self._display_headers(run_id)
+        # Simulate a device change between the initial authorized lookup and
+        # the locked read. The second precondition must stop dispatch.
+        with mock.patch("apps.agents.services.validate_expected_device_bindings", side_effect=[None, AgentRuntimeOperationConflict("changed")]) as guard:
+            response = self.client.post(f"/api/v1/agent-runs/{run_id}/resume/", {"content": "must not dispatch"}, format="json", **headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(guard.call_count, 2)
+        self.assertFalse(AgentRunMessage.objects.filter(run_id=run_id, content="must not dispatch").exists())
+
     def _headers(self, project: Project | None = None) -> dict[str, str]:
         return {
             "HTTP_X_NEXUS_TENANT": str(self.tenant.id),

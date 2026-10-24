@@ -29,6 +29,7 @@ def issue_token_pair(*, user, tenant_id: str = "", project_id: str = "") -> dict
         "sub": subject,
         "user_id": subject,
         "email": getattr(user, "email", ""),
+        "pwd": user.get_session_auth_hash(),
         "tenant_id": tenant_id,
         "project_id": project_id,
         "iss": settings.NEXUS_JWT_ISSUER,

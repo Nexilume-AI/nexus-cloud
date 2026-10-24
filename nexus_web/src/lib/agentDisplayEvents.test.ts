@@ -91,4 +91,19 @@ describe("buildAgentDisplayShellTranscript", () => {
     expect(commands.map((item) => [item.command, item.exitCode])).toEqual([["pwd", 0], ["false", 1]]);
     expect(commands[0].transcript.text).toContain("/work");
   });
+
+  it("handles split color and hyperlink controls without leaking codes or URLs", () => {
+    const chunks = ["\x1b[3", "2m中文\x1b[", "0m\x1b]8;;https://example.test/", "hidden\x1b", "\\链接\x1b]8;;\x07\n完成"];
+    const result = buildAgentDisplayShellTranscript(chunks.map((data, seq) => ({ seq, kind: "stdout", data, exit_code: null })), []);
+    expect(result.text).toBe("中文链接\n完成");
+  });
+
+  it("keeps stdout and stderr escape states independent", () => {
+    const result = buildAgentDisplayShellTranscript([
+      { seq: 1, kind: "stdout", data: "\x1b[3", exit_code: null },
+      { seq: 2, kind: "stderr", data: "错误\n", exit_code: null },
+      { seq: 3, kind: "stdout", data: "2m成功\x1b[0m", exit_code: null },
+    ], []);
+    expect(result.text).toBe("错误\n成功");
+  });
 });

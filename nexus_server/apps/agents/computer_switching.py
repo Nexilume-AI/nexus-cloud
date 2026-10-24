@@ -25,6 +25,8 @@ def computer_payload(run):
         "name": connection.name if connection else "",
         "online": bool(device and device.online),
         "platform": device.platform if device else "",
+        "workspace_root": run.workspace_root or "",
+        "directory_selection_available": bool(device and device.online and (device.capabilities or {}).get("workspace.select.v1")),
         "browser_available": bool(device and device.online and (device.capabilities or {}).get("browser.v1")),
         "event_cursor": attachment.after_event_seq if attachment else 0,
         "history": history,

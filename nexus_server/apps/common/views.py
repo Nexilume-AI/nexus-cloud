@@ -51,6 +51,7 @@ class PublicBootstrapView(APIView):
                 "authentication_mode": "on_demand",
                 "session_authenticated": bool(django_user and django_user.is_authenticated),
                 "authentication": {
+                    "email": _email_auth_capabilities(),
                     "google": {
                         "enabled": _google_oauth_available(),
                         "signup_enabled": settings.NEXUS_GOOGLE_OAUTH_SIGNUP_MODE == "open",
@@ -83,6 +84,12 @@ class PublicBootstrapView(APIView):
         # session. Do not allow an intermediary to cache and replay Set-Cookie.
         response["Cache-Control"] = "no-store"
         return response
+
+
+def _email_auth_capabilities():
+    from apps.accounts.email_capabilities import email_auth_available
+    enabled = email_auth_available()
+    return {"signup_enabled": enabled, "password_reset_enabled": enabled, "username_is_email": True}
 
 
 def _google_oauth_available() -> bool:

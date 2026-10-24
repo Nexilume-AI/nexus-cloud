@@ -27,3 +27,11 @@ def device_context_valid(device):
 
 def scope_mobile_devices(*, request, queryset):
     return _backend().visible_devices(request=request, queryset=queryset)
+
+
+def agent_binding_subject(*, subject, agent_id, tenant_id, project_id):
+    """Optional verified personal-credential mapping, scoped only to Mobile."""
+    resolve = getattr(_backend(), "agent_binding_subject", None)
+    if resolve is None:
+        return subject
+    return resolve(subject=subject, agent_id=agent_id, tenant_id=tenant_id, project_id=project_id)

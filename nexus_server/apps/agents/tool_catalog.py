@@ -103,10 +103,14 @@ def tool_availability(
             "code": "RUNTIME_UNAVAILABLE",
             "message": "The Agent runtime is not currently available.",
         }
+    mobile_required = getattr(runtime.agent, "mobile_requirement", "disabled") == "required" or bool(policy.get("mobile_scopes"))
     if (
-        display_mode_for_policy(policy) != "tool"
+        (display_mode_for_policy(policy) != "tool" or mobile_required)
         and runtime.runtime_kind == AgentRuntimeDeployment.RUNTIME_OPENWRT_RELAY
     ):
+        from .relay_chat import relay_chat_enabled, relay_mobile_enabled
+        if relay_mobile_enabled(runtime, policy=policy) or (not mobile_required and relay_chat_enabled(runtime)):
+            return {"can_invoke": True, "code": "", "message": ""}
         return {
             "can_invoke": False,
             "code": "OPENWRT_IPV6_REQUIRED",

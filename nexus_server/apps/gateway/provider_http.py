@@ -188,9 +188,13 @@ def open_provider_url(
     allow_private: bool = False,
     public_https_only: bool = False,
     error_body_limit: int = 64 * 1024,
+    timing: dict | None = None,
 ):
     """Open one redirect-free, DNS-pinned Provider request."""
+    timing = timing if timing is not None else {}
+    began = time.monotonic()
     endpoint = resolve_provider_endpoint(url, allow_private=allow_private, public_https_only=public_https_only)
+    timing['dns_ms'] = round((time.monotonic() - began) * 1000, 2)
     connection: http.client.HTTPConnection
     if endpoint.scheme == "https":
         connection = _PinnedHTTPSConnection(endpoint, timeout)
@@ -201,7 +205,9 @@ def open_provider_url(
         if not any(name.lower() == "user-agent" for name in request_headers):
             request_headers["User-Agent"] = PROVIDER_USER_AGENT
         connection.request(method.upper(), endpoint.path, body=body, headers=request_headers)
+        timing['request_sent_ms'] = round((time.monotonic() - began) * 1000, 2)
         response = connection.getresponse()
+        timing['headers_ms'] = round((time.monotonic() - began) * 1000, 2)
         if response.status < 200 or response.status >= 300:
             encoded = response.read(error_body_limit + 1)[:error_body_limit]
             raise HTTPError(
@@ -215,4 +221,5 @@ def open_provider_url(
     except (ProviderEndpointRejected, HTTPError, URLError, TimeoutError, OSError):
         raise
     finally:
+        timing['http_total_ms'] = round((time.monotonic() - began) * 1000, 2)
         connection.close()

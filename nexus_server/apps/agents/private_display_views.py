@@ -39,6 +39,23 @@ class PrivateAgentRunEventsView(APIView):
         return Response(private_display_events(run=run, cursor=cursor, limit=limit))
 
 
+class PrivateAgentRunEventStreamView(APIView):
+    from .background_views import StreamNegotiation
+    content_negotiation_class = StreamNegotiation
+
+    def get(self, request, run_id):
+        from .background_views import sse
+        from .display_stream import stream
+        get_private_display_run(request=request, run_id=str(run_id))
+        try:
+            cursor = int(request.query_params.get('cursor', '0'))
+        except ValueError:
+            raise exceptions.ValidationError('Invalid event cursor.') from None
+        if cursor < 0:
+            raise exceptions.ValidationError('Invalid event cursor.')
+        return sse(stream(request, run_id, cursor))
+
+
 class PrivateAgentRunOutputsView(APIView):
     def get(self, request, run_id):
         run = get_private_display_run(request=request, run_id=str(run_id))

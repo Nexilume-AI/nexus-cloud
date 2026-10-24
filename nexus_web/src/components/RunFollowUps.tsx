@@ -176,9 +176,9 @@ export function useRunFollowUps(run: PrivateAgentRunDisplay | undefined, onSlash
   };
 }
 
-export function RunFollowUps({ controller, active, restoreDisabled = "", appendDraft = false, onRestoreDraft }: {
+export function RunFollowUps({ controller, active, restoreDisabled = "", appendDraft = false, onRestoreDraft, onEdit, editing = false }: {
   controller: ReturnType<typeof useRunFollowUps>; active: boolean;
-  restoreDisabled?: string; appendDraft?: boolean; onRestoreDraft: (text: string) => void;
+  restoreDisabled?: string; appendDraft?: boolean; onRestoreDraft: (text: string) => void; onEdit: (item: AgentRunFollowUp) => void; editing?: boolean;
 }) {
   useLocale();
   const { run, follow, text, send, remove, draft, check, displayToken, autoChecking, automaticStatus } = controller;
@@ -200,7 +200,7 @@ export function RunFollowUps({ controller, active, restoreDisabled = "", appendD
           {reason(item.code) ? <p className="mt-1 text-xs text-amber-800">{reason(item.code)}</p> : null}</div> : null}
         {/* Retain the keyed editor if dispatch wins a race with an open edit.
             Its draft stays reviewable, without keeping the receipt row visible. */}
-        <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} onCorrect={() => controller.setText([controller.text, t("Correction to: {{0}}", { 0: item.content })].filter(Boolean).join("\n\n"))} />
+        <RunQueueActions key={`${run.id}:${item.id}`} run={run} item={item} token={displayToken} onEdit={onEdit} editing={editing} removing={remove.isPending && remove.variables === item.id} onRemove={() => remove.mutate(item.id)} onCorrect={() => controller.setText([controller.text, t("Correction to: {{0}}", { 0: item.content })].filter(Boolean).join("\n\n"))} />
       </div>)}
     </div> : null}
     {remove.isError ? <p role="alert" className="text-xs text-red-800">{t("Unable to remove this message. It may already have been received; refresh and try again.")}</p> : null}

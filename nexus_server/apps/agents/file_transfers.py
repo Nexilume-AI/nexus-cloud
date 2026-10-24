@@ -578,6 +578,8 @@ def create_mcp_file_context(*, request, runtime, tool_name, body):
             descriptor.get("input_schema", {}).get("properties", {}).get("files", {}))
         payload["params"]["arguments"] = arguments
         body = json.dumps(payload).encode()
-    run, context = create_invocation_display_context(runtime=runtime, tool_name=tool_name, request=request)
+    run, context = create_invocation_display_context(
+        runtime=runtime, tool_name=tool_name, request=request, mobile_mcp_preapproved=True,
+    )
     bind_files(run=run, rows=rows)
     return run, context, body
