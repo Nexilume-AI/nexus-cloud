@@ -1,0 +1,256 @@
+diff --git a/nexus_web/src/enterprise/components/MarketplaceShell.tsx b/nexus_web/src/enterprise/components/MarketplaceShell.tsx
+index 541cc4d8..f9d2b50e 100644
+--- a/nexus_web/src/enterprise/components/MarketplaceShell.tsx
++++ b/nexus_web/src/enterprise/components/MarketplaceShell.tsx
+@@ -734,6 +734,8 @@ export function MarketplaceDetailHeader({
+   profileComplete = true,
+   action,
+   capabilityTags,
++  publisherAction,
++  primaryAction,
+ }: {
+   name: string;
+   publisher: string;
+@@ -746,25 +748,28 @@ export function MarketplaceDetailHeader({
+   profileComplete?: boolean;
+   action?: ReactNode;
+   capabilityTags?: string[];
++  publisherAction?: ReactNode;
++  primaryAction?: ReactNode;
+ }) {
+   useLocale();
+   return (
+     <div className="border-b border-line p-5 sm:p-6">
+       <div className="flex flex-col gap-5">
+-        <div className="flex min-w-0 gap-4">
++        <div className="flex min-w-0 flex-wrap items-start gap-4">
+           <MarketplaceProductIcon
+             name={name}
+             kind={kind}
+             size="detail"
+             logoUrl={logoUrl}
+           />
+-          <div className="min-w-0">
++          <div className="min-w-0 flex-1 basis-48">
+             <h2 className="text-xl font-semibold tracking-[-0.015em] text-ink">
+               {name}
+             </h2>
+             {kind === "agents" && <AgentCapabilityTags tags={capabilityTags} />}
+             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+               <span>{publisher}</span>
++              {publisherAction}
+               {(official || verified) && (
+                 <ShieldCheck size={15} className="text-emerald-700" />
+               )}
+@@ -788,6 +793,7 @@ export function MarketplaceDetailHeader({
+               <p className="mt-2 text-xs font-semibold text-amber-800">{t("Publisher profile pending update")}</p>
+             )}
+           </div>
++          {primaryAction && <div className="shrink-0">{primaryAction}</div>}
+         </div>
+         {action && <div className="flex flex-wrap gap-2">{action}</div>}
+       </div>
+diff --git a/nexus_web/src/enterprise/pages/AgentMarketplacePage.tsx b/nexus_web/src/enterprise/pages/AgentMarketplacePage.tsx
+index 9738ceee..d0964f52 100644
+--- a/nexus_web/src/enterprise/pages/AgentMarketplacePage.tsx
++++ b/nexus_web/src/enterprise/pages/AgentMarketplacePage.tsx
+@@ -1,4 +1,5 @@
+ import { t, useLocale, getLocale } from "../../localization";
++import { AgentMarketplaceLayout } from "../../components/AgentMarketplaceLayout";
+ import { AgentConnectPanel } from "../../components/AgentConnectPanel";
+ import { PublisherBadgePanel } from "../../components/PublisherBadgePanel";
+ import { marketplaceDetailsApi } from "../api/marketplaceDetails";
+@@ -6,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
+ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+ 
+ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+-import { AlertCircle, ChevronRight, Copy, KeyRound, LockKeyhole, Loader2, RefreshCw, ShieldCheck, Smartphone, Sparkles, Terminal } from "lucide-react";
++import { AlertCircle, Award, Plug, ChevronRight, Copy, KeyRound, LockKeyhole, Loader2, RefreshCw, ShieldCheck, Smartphone, Sparkles, Terminal } from "lucide-react";
+ import { toast } from "sonner";
+ import { useAuth } from "../../app/AuthContext";
+ import { api as sharedApi } from "../../lib/api";
+@@ -18,7 +19,7 @@ import { formatDate, formatMoney, formatNumber } from "../../lib/format";
+ 
+ import { StatusBadge } from "../../components/Badge";
+ 
+-import { MarketplaceDetailHeader, MarketplaceDetailTabs, MarketplaceInfoGrid, MarketplaceMetricStrip, MarketplaceShell, type MarketplaceListItem } from "../components/MarketplaceShell";
++import { MarketplaceDetailHeader, MarketplaceInfoGrid, MarketplaceMetricStrip, MarketplaceShell, type MarketplaceListItem } from "../components/MarketplaceShell";
+ import { NexilumeDialog } from "../../components/NexilumeControls";
+ 
+ import { MarketplaceMarkdown } from "../components/MarketplaceMarkdown";
+@@ -160,6 +161,13 @@ function MarketplaceAgentDetail({
+ }) {
+   useLocale();
+   const { isAuthenticated, requestLogin } = useAuth();
++  const [connectOpen, setConnectOpen] = useState(false);
++  const [badgeOpen, setBadgeOpen] = useState(false);
++  useEffect(() => { setConnectOpen(false); setBadgeOpen(false); }, [agent.id]);
++  const connect = () => {
++    if (!isAuthenticated) { requestLogin("Sign in to connect this Agent to your Organization."); return; }
++    setConnectOpen(true);
++  };
+   const declaredWorkspaceScopes = workspaceGrant?.declared_scopes ?? agent.workspace_capabilities ?? [];
+   const declaredMobileScopes = agent.mobile_capabilities ?? [];
+   const workspaceAuthorized =
+@@ -306,7 +314,7 @@ function MarketplaceAgentDetail({
+   }
+ 
+   return (
+-    <div>
++    <div className="agent-marketplace-detail">
+       <MarketplaceDetailHeader
+         kind="agents"
+         capabilityTags={agent.capability_tags}
+@@ -318,43 +326,13 @@ function MarketplaceAgentDetail({
+         official={agent.is_official}
+         verified={agent.is_verified}
+         status={agent.runtime_health_status || agent.availability_status}
+-        action={
+-          (agent.capability_tags?.includes("chat") || agent.computer_requirement !== "disabled" || agent.mobile_requirement !== "disabled") &&
+-          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-none sm:flex sm:items-start sm:justify-end">
+-            {agent.capability_tags?.includes("chat") && <Link
+-              className="btn btn-primary col-span-2 min-h-11 justify-center sm:col-auto"
+-              to={`/agents/${agent.id}/private-display`}
+-              state={{ returnTo: agentDisplayEntryUrl(location) }}
+-            >
+-              <LockKeyhole size={15} />{t("Private Display")}</Link>}
+-            <MarketplaceAttachmentAction
+-              kind="computer"
+-              disabled={agent.computer_requirement === "disabled"}
+-              loading={
+-                computerBindings.isLoading ||
+-                workspaceConnections.isLoading ||
+-                workspaceGrantPending
+-              }
+-              attachedName={activeComputerBinding?.connection_name}
+-              attachedStatus={
+-                activeComputerConnection?.last_test_status ||
+-                activeComputerBinding?.status
+-              }
+-              attachedDetail={activeComputerDetail}
+-              authorized={workspaceAuthorized}
+-              onClick={() => setAttachmentDialog("computer")}
+-            />
+-            <MarketplaceAttachmentAction
+-              kind="mobile"
+-              disabled={agent.mobile_requirement === "disabled"}
+-              loading={mobileBindings.isLoading || mobileGrant.isLoading}
+-              attachedName={activeMobileBinding?.device_name}
+-              attachedStatus={activeMobileBinding?.device_status}
+-              authorized={mobileAuthorized}
+-              onClick={() => setAttachmentDialog("mobile")}
+-            />
+-          </div>
+-        }
++        publisherAction={<button type="button" className="inline-flex min-h-8 items-center gap-1 text-xs text-muted hover:text-ink" onClick={() => setBadgeOpen(true)}><Award size={13} />{t("Share badge")}</button>}
++        primaryAction={<div className="flex flex-wrap gap-2">
++          <button type="button" className="btn btn-primary min-h-11 justify-center" onClick={connect} disabled={agent.can_connect === false}>
++            <Plug size={16} />{t(agent.can_connect === false ? "Connection unavailable" : "Connect Agent")}</button>
++          {agent.capability_tags?.includes("chat") && <Link className="btn min-h-11 justify-center" to={`/agents/${agent.id}/private-display`} state={{ returnTo: agentDisplayEntryUrl(location) }}>
++            <LockKeyhole size={15} />{t("Open Chat")}</Link>}
++        </div>}
+       />
+       <MarketplaceMetricStrip
+         metrics={[
+@@ -402,7 +380,46 @@ function MarketplaceAgentDetail({
+           onAttached={finishAttachmentDialog}
+         />
+       )}
+-      <MarketplaceDetailTabs
++      <NexilumeDialog open={connectOpen} title={t("Connect Agent")} description={agent.name} size="large" variant="drawer" onClose={() => setConnectOpen(false)}>
++        {connectOpen && isAuthenticated && <AgentConnectPanel agentId={agent.id} apiContext={apiContext} workspaceName={workspaceName} projectName={projectName} />}
++      </NexilumeDialog>
++      <NexilumeDialog open={badgeOpen} title={t("Share badge")} size="large" onClose={() => setBadgeOpen(false)}>
++        {badgeOpen && <PublisherBadgePanel key={agent.id} agentId={agent.id} />}
++      </NexilumeDialog>
++      <AgentMarketplaceLayout key={agent.id} price={formatMarketplacePricing(agent.pricing)} onConnect={connect} unavailable={agent.can_connect === false}
++        requirements={[
++          ...(agent.capability_tags?.includes("flow") ? [t("Authorize your own model when the Agent requests it.")] : []),
++          ...(agent.computer_requirement !== "disabled" ? [t("Computer") + ": " + humanizeToken(agent.computer_requirement)] : []),
++          ...(agent.mobile_requirement !== "disabled" ? [t("Mobile") + ": " + humanizeToken(agent.mobile_requirement)] : []),
++        ]}
++        devices={(agent.computer_requirement !== "disabled" || agent.mobile_requirement !== "disabled") ? <>
++            <MarketplaceAttachmentAction
++              kind="computer"
++              disabled={agent.computer_requirement === "disabled"}
++              loading={
++                computerBindings.isLoading ||
++                workspaceConnections.isLoading ||
++                workspaceGrantPending
++              }
++              attachedName={activeComputerBinding?.connection_name}
++              attachedStatus={
++                activeComputerConnection?.last_test_status ||
++                activeComputerBinding?.status
++              }
++              attachedDetail={activeComputerDetail}
++              authorized={workspaceAuthorized}
++              onClick={() => setAttachmentDialog("computer")}
++            />
++            <MarketplaceAttachmentAction
++              kind="mobile"
++              disabled={agent.mobile_requirement === "disabled"}
++              loading={mobileBindings.isLoading || mobileGrant.isLoading}
++              attachedName={activeMobileBinding?.device_name}
++              attachedStatus={activeMobileBinding?.device_status}
++              authorized={mobileAuthorized}
++              onClick={() => setAttachmentDialog("mobile")}
++            />
++        </> : undefined}
+         sections={[
+           {
+             id: "overview",
+@@ -424,13 +441,8 @@ function MarketplaceAgentDetail({
+             ),
+           },
+           {
+-            id: "badge",
+-            label: "Share your badge",
+-            content: <PublisherBadgePanel key={agent.id} agentId={agent.id} />,
+-          },
+-          {
+-            id: "capabilities",
+-            label: "Capabilities",
++            id: "tools",
++            label: "Tools",
+             content: (
+               <div className="grid gap-5">
+                 <MarketplaceInfoGrid
+@@ -483,9 +495,10 @@ function MarketplaceAgentDetail({
+             ),
+           },
+           {
+-            id: "trust",
+-            label: "Evidence",
++            id: "details",
++            label: "Details",
+             content: (
++              <div className="grid gap-6">
+               <MarketplaceInfoGrid
+                 items={[
+                   { label: "Publisher", value: agent.owner_display_name },
+@@ -528,12 +541,6 @@ function MarketplaceAgentDetail({
+                   },
+                 ]}
+               />
+-            ),
+-          },
+-          {
+-            id: "terms",
+-            label: "Terms & access",
+-            content: (
+               <div className="grid gap-4">
+                 <MarketplaceInfoGrid
+                   items={[
+@@ -561,9 +568,8 @@ function MarketplaceAgentDetail({
+                     ? t("Nexus reserves the public maximum before each turn and settles only the valid cost reported by the Agent. Failed or unreported turns are free.")
+                     : t("The estimate excludes free allowances and reflects the publisher's current price. Only successful usage is charged.")}
+                 </p>
+-                {isAuthenticated && <AgentConnectPanel agentId={agent.id} apiContext={apiContext}
+-                  workspaceName={workspaceName} projectName={projectName} />}
+-                {!isAuthenticated && <button className="btn min-h-11" onClick={() => requestLogin("Sign in to connect this Agent to your Organization.")}>{t("Sign in")}</button>}
++
++              </div>
+               </div>
+             ),
+           },
