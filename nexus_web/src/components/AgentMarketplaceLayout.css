@@ -1,24 +1,40 @@
-.agent-marketplace-layout{container-type:inline-size;display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding:24px;align-items:start}
+.agent-marketplace-layout{padding:0 24px 24px;min-width:0}
 .agent-marketplace-content{min-width:0}
-.agent-marketplace-connect{padding:22px;border:1px solid #d9e5e7;border-radius:16px;background:linear-gradient(150deg,#f2f8f7,#fff 70%);min-width:0}
-.agent-marketplace-connect-heading{display:flex;align-items:flex-start;gap:12px}
-.agent-marketplace-connect-icon{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid #d6e6e3;border-radius:12px;background:white;color:#285952}
-.agent-marketplace-connect h3{margin:0;font-size:17px;font-weight:650;letter-spacing:-.02em}
-.agent-marketplace-connect-heading p{margin:5px 0 0;color:#64748b;font-size:12px;line-height:1.7}
-.agent-marketplace-connect-price{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:22px 0 16px}
-.agent-marketplace-connect-price strong{font-size:18px;overflow-wrap:anywhere}
-.agent-marketplace-connect-price span{font-size:11px;color:#64748b}
-.agent-marketplace-connect-hint{margin:10px 0 0;text-align:center;color:#64748b;font-size:12px;line-height:1.6}
-.agent-marketplace-requirements{border-top:1px solid #e1e9e9;margin-top:18px;padding-top:15px}
-.agent-marketplace-requirements h4{font-size:12px;font-weight:600;margin:0 0 8px}
-.agent-marketplace-requirements ul{padding-left:16px;margin:0;font-size:12px;line-height:1.9;color:#64748b}
-.agent-marketplace-devices{display:grid;gap:8px;margin-top:14px}
-.agent-marketplace-tabs{display:flex;gap:24px;border-bottom:1px solid #e2e8f0}
-.agent-marketplace-tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:0 0 14px;color:#64748b;font-size:14px;min-height:44px;cursor:pointer}
-.agent-marketplace-tabs button[aria-selected=true]{border-bottom-color:#244d46;color:#182d29;font-weight:650}
-.agent-marketplace-tabs button:focus-visible{outline:2px solid #38796e;outline-offset:3px;border-radius:2px}
-.agent-marketplace-panel{padding-top:22px;overflow-wrap:anywhere}
-/* The detail pane can be narrow even on a desktop. Use its own width. */
-.agent-marketplace-detail{container-type:inline-size}
-@container (min-width:850px){.agent-marketplace-layout{grid-template-columns:minmax(0,1fr) 300px;gap:32px}.agent-marketplace-connect{grid-column:2;grid-row:1;position:sticky;top:20px}.agent-marketplace-content{grid-column:1;grid-row:1}}
-@media(max-width:600px){.agent-marketplace-layout{padding:18px;gap:22px}.agent-marketplace-connect{padding:18px}.agent-marketplace-tabs{gap:22px}}
+.agent-marketplace-tabs{display:flex;gap:24px;border-bottom:1px solid var(--line)}
+.agent-marketplace-tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 0;color:var(--muted);font-size:14px;min-height:48px;cursor:pointer}
+.agent-marketplace-tabs button[aria-selected=true]{border-bottom-color:var(--lume);color:var(--ink);font-weight:650}
+.agent-marketplace-tabs button:hover{color:var(--ink)}
+.agent-marketplace-tabs button:focus-visible,.agent-marketplace-panel:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.agent-marketplace-panel{padding-top:16px;overflow-wrap:anywhere}
+.agent-marketplace-setup{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line);color:var(--muted);font-size:14px;line-height:1.6}
+.agent-marketplace-setup ul{padding-left:20px;margin:0}
+.agent-marketplace-devices{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.agent-marketplace-identity{padding:16px 24px}
+.agent-marketplace-detail .marketplace-metric-strip>div{padding:12px 20px}
+.agent-marketplace-catalog{gap:16px}
+.agent-marketplace-catalog .marketplace-fabric-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 24px}
+.agent-marketplace-catalog .marketplace-fabric-header h1{margin:0;font-size:24px;line-height:32px}
+.agent-marketplace-catalog .marketplace-type-track{flex:0 1 480px;min-width:0}
+.agent-marketplace-catalog .marketplace-type-track__item{min-height:44px;padding:8px 12px}
+.agent-marketplace-catalog .marketplace-inspector-actions{padding:4px 20px;background:var(--paper)}
+.agent-marketplace-catalog .marketplace-inspector-actions .btn{min-height:44px}
+@media(max-width:1023px){
+ .agent-marketplace-catalog.has-selection .marketplace-fabric__control-band{display:none}
+}
+@media(max-width:600px){
+ .agent-marketplace-layout{padding:0 16px 16px}
+ .agent-marketplace-identity{padding:12px 16px}
+ .agent-marketplace-tabs{gap:24px}
+ .agent-marketplace-catalog .marketplace-type-track{flex-basis:100%}
+ .agent-marketplace-catalog .marketplace-fabric-header h1{font-size:20px;line-height:28px}
+ .agent-marketplace-catalog .marketplace-type-track__item{padding:8px}
+ .agent-marketplace-catalog .marketplace-inspector-actions{padding:4px 16px}
+}
+
+/* Keep status subordinate to product content, including on narrow phones. */
+.agent-marketplace-detail .marketplace-metric-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+.agent-marketplace-detail .marketplace-metric-strip>div{border-bottom:0;border-right:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
+.agent-marketplace-detail .marketplace-metric-strip>div:last-child{border-right:0}
+.agent-marketplace-catalog .marketplace-fabric__inspector-label:has(.marketplace-inspector-actions){justify-content:flex-end;padding:0 16px}
+.agent-marketplace-catalog .marketplace-fabric__inspector-label .marketplace-inspector-actions{border:0;padding:0;background:transparent;letter-spacing:normal;font-family:inherit}
+@media(max-width:600px){.agent-marketplace-detail .marketplace-metric-strip>div{padding:12px}.agent-marketplace-detail .marketplace-metric-strip>div>div:first-child{font-size:12px}}

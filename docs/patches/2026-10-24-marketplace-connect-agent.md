@@ -7,3 +7,5 @@ The layout exposes a connection card independently of Overview, Tools and Detail
 The hosted integration moves Connect Agent into the title area, opens the existing MCP client configuration in a drawer, keeps Open Chat secondary and limited to chat-capable Agents, moves device setup into the connection card, and places badge sharing beside the publisher. Only required or optional devices are shown. Price, permissions and health facts remain accessible under Details. Preparing configuration does not claim a verified client connection.
 
 Apply the companion patch to a compatible Organization-enabled source tree after installing the shared component and localization. Hosted deployment was built with TypeScript/Vite and checked in a real browser.
+
+Compact design follow-up: one header Connect Agent action; overview starts directly after the metrics and tabs. Setup requirements and device actions are in the connection drawer. Agent catalogue chrome and mobile metrics are compact.
