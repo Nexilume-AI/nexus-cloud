@@ -1,0 +1,1297 @@
+diff --git a/nexus_openwrt/sdk/nexus-agent-sdk-python/docs/model-connections.md b/nexus_openwrt/sdk/nexus-agent-sdk-python/docs/model-connections.md
+new file mode 100644
+index 00000000..463586fd
+--- /dev/null
++++ b/nexus_openwrt/sdk/nexus-agent-sdk-python/docs/model-connections.md
+@@ -0,0 +1,26 @@
++# Reuse a model connection across Agents
++
++Hosted Nexus Cloud supports account-owned model connections and explicit batch Agent permissions at `/api/v1/model-connections/page/`. The page is also linked from Connect Agent and model authorization pages.
++
++Sign in, save your own Nexus Router/model or external provider endpoint/model/key, choose expiry and total request allowance, then select Agents and explicitly confirm their per-Agent allowances. Saving a connection alone grants no Agent access. New tools and conversations for an approved Agent reuse its permission until expiry, quota exhaustion or revocation. Newly published Agents are never automatically included.
++
++```python
++grant = context.credentials.authorize("openai", wait_seconds=0, reuse_existing=True)
++if grant["status"] != "authorized":
++    return grant  # safe reference and approval URL; no secrets
++
++# Trusted runtime only; never return or log this dictionary.
++credentials = context.credentials.resolve_for_runtime(grant["authorization_id"])
++# Initialize your provider client with the returned provider, base_url, model
++# and secret. Do not hard-code the original provider URL.
++```
++
++For reusable connections, `secret` is a scoped Cloud proxy capability. The original upstream key stays in Cloud. OpenAI chat completions / responses and Anthropic messages support streaming through the proxy. Ordinary one-time browser authorization and explicit MCP-config preauthorization remain available; explicit MCP configuration takes priority.
++
++Use `reuse_existing=True` without an explicit endpoint/model to accept the user's approved compatible configuration. Explicit endpoint/model requests must match the saved connection. Reuse never changes the server-verified owner or grants access to an unselected Agent. Personal Agent keys are mapped through their verified ownership binding; sharing the same key shares one caller identity.
++
++Lifetimes are up to 30 days, bounded by the connection. Each dispatched model request consumes one total and one per-Agent request allowance, including upstream failures. Stream chunks do not consume additional requests. These limits are request counts, not monetary or token budgets. Permission edits retain usage counters. Revoke an individual Agent or the entire connection from the management page; old tokens never revive after reapproval. Already-dispatched upstream work may still incur charges.
++
++A runtime capability lasts at most 24 hours. Call `authorize` again for later operations: Cloud can issue a fresh capability under the still-valid permission without asking the user again. Do not persist resolved credentials or expose them in prompts, logs, tool results, URLs or artifacts.
++
++Connection revocation does not revoke independent older one-time grants. Manage those on their original authorization pages. This feature does not authorize phone/computer actions or broaden other Nexus permissions.
+diff --git a/nexus_server/apps/agents/credential_page.html b/nexus_server/apps/agents/credential_page.html
+index cf9f7bdf..f9d0917b 100644
+--- a/nexus_server/apps/agents/credential_page.html
++++ b/nexus_server/apps/agents/credential_page.html
+@@ -37,7 +37,7 @@ select:disabled{opacity:.6;cursor:wait}#ownKeyNotice{margin-top:16px}#expiry:emp
+ <div id="accessSummary" class="access-summary" hidden><strong id="provider"></strong><span id="modelSummary"></span></div>
+ <button id="revoke" class="revoke" hidden>Revoke access</button><small id="expiry" class="expiry"></small></section>
+ <button id="manage" type="button" hidden>Continue with my Nexus account</button>
+-<p class="footer">Credentials are encrypted and kept out of the conversation.</p>
++<p class="footer">Credentials are encrypted and kept out of the conversation.<br><a href="/api/v1/model-connections/page/" target="_blank" rel="noopener noreferrer">Model connections · Authorize multiple Agents</a></p>
+ </main><script nonce="__NONCE__">
+ const el=id=>document.getElementById(id), endpoint=location.pathname.replace(/page\/$/,'');
+ // Preserve only this short-lived link across same-tab reloads; never store API keys.
+diff --git a/nexus_server/apps/agents/credential_services.py b/nexus_server/apps/agents/credential_services.py
+index b839e96e..b6facae0 100644
+--- a/nexus_server/apps/agents/credential_services.py
++++ b/nexus_server/apps/agents/credential_services.py
+@@ -40,13 +40,21 @@ def scope(run):
+     identity = principal_filter(run.caller_principal_type, run.caller_principal_id)
+     if run.caller_principal_type not in ("api_key", "api_key_external"):
+         identity["run__caller_subject_hash"] = run.caller_subject_hash
+-    return dict(run__agent_id=run.agent_id, run__consumer_tenant_id=run.consumer_tenant_id,
++    return dict(interactive_view__isnull=True, run__agent_id=run.agent_id, run__consumer_tenant_id=run.consumer_tenant_id,
+                 run__consumer_project_id=run.consumer_project_id,
+                 **identity)
+ 
+ 
+ def grant_state(row):
++    if row.interactive_view_id:
++        from .view_security import live
++        try: live(row.interactive_view)
++        except exceptions.NotFound: return 'revoked'
++        if row.interactive_view.run.caller_hidden_at: return 'revoked'
+     state = row.status if row.expires_at > timezone.now() else 'expired'
++    if state == 'authorized' and (row.model_permission_id or row.proxy_token_hash):
++        from .model_connections import grant_state as connection_grant_state
++        return connection_grant_state(row)
+     if state == 'authorized':
+         if row.approval_mode == 'browser_account' and (not row.approved_by_id or not row.approved_by.is_active):
+             return 'revoked'
+@@ -80,13 +88,15 @@ def renew_pending(row, *, reset_approver=False):
+     row.expires_at = row.requested_at + timedelta(minutes=10)
+     row.encrypted_secret = ''
+     row.source_grant = None
++    row.model_permission = None
++    row.proxy_token_hash = ''
+     row.derived_grants.filter(status='authorized').update(status='revoked')
+     row.issued_key_id = None
+     row.router_id = None
+     if reset_approver:
+         row.approval_mode, row.approved_by = 'caller', None
+     row.save(update_fields=['status', 'requested_at', 'expires_at', 'encrypted_secret',
+-                           'source_grant', 'issued_key_id', 'router_id', 'approval_mode', 'approved_by', 'updated_at'])
++                           'source_grant', 'issued_key_id', 'router_id', 'approval_mode', 'approved_by', 'model_permission', 'proxy_token_hash', 'updated_at'])
+     return row
+ 
+ 
+@@ -96,7 +106,7 @@ def public(row):
+     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.query or parsed.fragment:
+         raise exceptions.APIException("Secure authorization URL is not configured.")
+     state = grant_state(row)
+-    return {"authorization_id": str(row.id), "status": state, "provider": row.provider,
++    value = {"authorization_id": str(row.id), "status": state, "provider": row.provider,
+             "provider_name": PROVIDERS[row.provider]["name"], "base_url": row.base_url,
+             "model": row.model_name, "protocol": PROVIDERS[row.provider]["protocol"],
+             "router_id": str(row.router_id or ''),
+@@ -106,6 +116,11 @@ def public(row):
+             "expires_at": row.expires_at.isoformat(),
+             "authorization_url": base + "/api/v1/agent-authorizations/" + str(row.id) + "/page/",
+             "credential_supplied": state == "authorized", "preauthorized": row.preauthorized}
++    if row.model_permission_id:
++        from .model_connections import proxy_base
++        value.update(base_url=proxy_base(), connection_id=str(row.model_permission.connection_id),
++            permission_id=str(row.model_permission_id), upstream_base_url=row.base_url)
++    return value
+ 
+ 
+ def internal_run(run_id, token):
+@@ -140,6 +155,10 @@ def request_authorization(run_id, token, provider, base_url=None, model=None, fo
+     owner = owner_id(run)
+     if not owner:
+         raise exceptions.PermissionDenied("Use your personal Agent MCP credential or sign in; shared caller keys cannot authorize provider secrets.")
++    if not force_new:
++        from .model_connections import reuse
++        reused = reuse(run,owner,provider,base_url,model,explicit_configuration)
++        if reused is not None:return public(reused)
+     existing = AgentCredentialAuthorization.objects.filter(
+         **scope(run), owner_id=owner, preauthorized=False, status="authorized", expires_at__gt=timezone.now(),
+     ).order_by("-created_at")
+@@ -152,7 +171,7 @@ def request_authorization(run_id, token, provider, base_url=None, model=None, fo
+         if grant_state(candidate)=="authorized":return public(candidate)
+     # Serialize both creation and renewal for this invocation/provider.
+     AgentDisplayRun.objects.select_for_update().get(pk=run.pk)
+-    row, created = AgentCredentialAuthorization.objects.select_for_update().get_or_create(run=run, provider=provider, defaults={
++    row, created = AgentCredentialAuthorization.objects.select_for_update().get_or_create(run=run, provider=provider, interactive_view__isnull=True, defaults={
+         "owner_id": owner, "base_url":base_url, "model_name":model, "expires_at": timezone.now() + timedelta(minutes=10),
+     })
+     if not created and can_renew(row):
+@@ -172,6 +191,9 @@ def internal_status(run_id, token, authorization_id, resolve=False):
+         raise exceptions.NotFound()
+     from .credential_preauthorization import enforce_resolution
+     effective_expiry = enforce_resolution(run, row)
++    if row.status == 'pending' and not row.interactive_view_id and run.status == AgentDisplayRun.STATUS_RUNNING:
++        from .model_connections import reuse
++        row = reuse(row.run,row.owner_id,row.provider,row.base_url,row.model_name, bool(row.model_name)) or row
+     result = public(row)
+     if effective_expiry is not None:
+         result["expires_at"] = effective_expiry.isoformat()
+@@ -180,7 +202,7 @@ def internal_status(run_id, token, authorization_id, resolve=False):
+             raise exceptions.PermissionDenied("Authorization is not active for this running invocation.")
+         # This response goes only to the authenticated runtime callback, never MCP.
+         result = {"secret": decrypt_secret((row.source_grant or row).encrypted_secret), "provider": row.provider,
+-                  "base_url": row.base_url, "model":row.model_name, "protocol":PROVIDERS[row.provider]["protocol"], "expires_at": result["expires_at"]}
++                  "base_url": result['base_url'], "model":row.model_name, "protocol":PROVIDERS[row.provider]["protocol"], "expires_at": result["expires_at"]}
+     return result
+ 
+ 
+@@ -204,7 +226,7 @@ def saved_grants(row):
+         return AgentCredentialAuthorization.objects.none()
+     return AgentCredentialAuthorization.objects.filter(**scope(row.run),owner_id=row.owner_id,
+         status='authorized',preauthorized=False,expires_at__gt=timezone.now(),source_grant__isnull=True,
+-        issued_key_id__isnull=True).exclude(encrypted_secret='')
++        issued_key_id__isnull=True,model_permission__isnull=True,proxy_token_hash='').exclude(encrypted_secret='')
+ 
+ 
+ def browser_details(row):
+@@ -225,6 +247,8 @@ def decide(request, authorization_id):
+             raise exceptions.ValidationError('Renew first, then explicitly confirm the new model access.')
+         return browser_details(renew_pending(row))
+     if action in ("decline", "revoke"):
++        # This page revokes this runtime grant. Account-wide and per-Agent
++        # permissions are revoked from Model connections using parent-first locks.
+         if row.issued_key_id:
+             from apps.api_keys.models import APIKey
+             APIKey.objects.filter(pk=row.issued_key_id).update(status='revoked')
+@@ -266,7 +290,7 @@ def decide(request, authorization_id):
+                 raise exceptions.ValidationError('Enter a valid provider API key or access token.')
+             row.source_grant=None
+             row.encrypted_secret=encrypt_secret(secret)
+-        if AgentCredentialAuthorization.objects.filter(run_id=row.run_id,provider=provider).exclude(pk=row.pk).exists():
++        if not row.interactive_view_id and AgentCredentialAuthorization.objects.filter(run_id=row.run_id,provider=provider,interactive_view__isnull=True).exclude(pk=row.pk).exists():
+             raise exceptions.ValidationError('This invocation already has a request for that provider. Start a new invocation.')
+         row.provider,row.base_url,row.model_name=provider,base_url,model
+         row.status="authorized"
+diff --git a/nexus_server/apps/agents/migrations/0070_interactive_readonly_shares.py b/nexus_server/apps/agents/migrations/0070_interactive_readonly_shares.py
+new file mode 100644
+index 00000000..68902031
+--- /dev/null
++++ b/nexus_server/apps/agents/migrations/0070_interactive_readonly_shares.py
+@@ -0,0 +1,20 @@
++import uuid
++from django.db import migrations, models
++import django.db.models.deletion
++
++
++class Migration(migrations.Migration):
++    dependencies = [('agents', '0069_credential_request_renewal')]
++    operations = [migrations.CreateModel(
++        name='AgentInteractiveShare',
++        fields=[
++            ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
++            ('created_at', models.DateTimeField(auto_now_add=True)),
++            ('updated_at', models.DateTimeField(auto_now=True)),
++            ('token_hash', models.CharField(max_length=64)),
++            ('label', models.CharField(blank=True, max_length=80)),
++            ('expires_at', models.DateTimeField(db_index=True)),
++            ('revoked_at', models.DateTimeField(blank=True, null=True)),
++            ('view', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='shares', to='agents.agentinteractiveview')),
++        ], options={'abstract': False},
++    )]
+diff --git a/nexus_server/apps/agents/migrations/0071_interactive_idle_timeout.py b/nexus_server/apps/agents/migrations/0071_interactive_idle_timeout.py
+new file mode 100644
+index 00000000..0181f392
+--- /dev/null
++++ b/nexus_server/apps/agents/migrations/0071_interactive_idle_timeout.py
+@@ -0,0 +1,5 @@
++from django.db import migrations, models
++
++class Migration(migrations.Migration):
++    dependencies = [('agents', '0070_interactive_readonly_shares')]
++    operations = [migrations.AddField(model_name='agentinteractiveview', name='idle_timeout_seconds', field=models.PositiveIntegerField(default=0))]
+diff --git a/nexus_server/apps/agents/migrations/0072_interactive_model_authorization.py b/nexus_server/apps/agents/migrations/0072_interactive_model_authorization.py
+new file mode 100644
+index 00000000..3a60c3d0
+--- /dev/null
++++ b/nexus_server/apps/agents/migrations/0072_interactive_model_authorization.py
+@@ -0,0 +1,12 @@
++from django.db import migrations, models
++import django.db.models.deletion
++
++
++class Migration(migrations.Migration):
++    dependencies = [('agents', '0071_interactive_idle_timeout')]
++    operations = [
++        migrations.AddField(model_name='agentcredentialauthorization', name='interactive_view', field=models.ForeignKey(to='agents.agentinteractiveview', null=True, blank=True, on_delete=django.db.models.deletion.CASCADE, related_name='model_grants')),
++        migrations.AddField(model_name='agentinteractiveview', name='model_authorization', field=models.ForeignKey(to='agents.agentcredentialauthorization', null=True, blank=True, on_delete=django.db.models.deletion.SET_NULL, related_name='selected_views')),
++        migrations.RemoveConstraint(model_name='agentcredentialauthorization', name='agent_credential_run_provider'),
++        migrations.AddConstraint(model_name='agentcredentialauthorization', constraint=models.UniqueConstraint(fields=['run', 'provider'], condition=models.Q(interactive_view__isnull=True), name='agent_credential_run_provider')),
++    ]
+diff --git a/nexus_server/apps/agents/migrations/0073_model_connections.py b/nexus_server/apps/agents/migrations/0073_model_connections.py
+new file mode 100644
+index 00000000..bd3137dc
+--- /dev/null
++++ b/nexus_server/apps/agents/migrations/0073_model_connections.py
+@@ -0,0 +1,30 @@
++import uuid
++from django.conf import settings
++from django.db import migrations,models
++import django.db.models.deletion
++
++
++class Migration(migrations.Migration):
++    dependencies=[('agents','0072_interactive_model_authorization'),migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
++    operations=[
++        migrations.CreateModel(name='AgentModelConnection',fields=[
++            ('id',models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False,serialize=False)),
++            ('name',models.CharField(max_length=100)),('provider',models.CharField(max_length=32)),
++            ('base_url',models.CharField(max_length=2048)),('model_name',models.CharField(max_length=128)),
++            ('router_id',models.UUIDField(null=True,blank=True)),('issued_key_id',models.UUIDField(null=True,blank=True,unique=True)),
++            ('encrypted_secret',models.TextField(blank=True)),('expires_at',models.DateTimeField()),
++            ('revoked_at',models.DateTimeField(null=True,blank=True)),('max_requests',models.PositiveIntegerField(default=500)),
++            ('requests_used',models.PositiveIntegerField(default=0)),('created_at',models.DateTimeField(auto_now_add=True)),
++            ('owner',models.ForeignKey(to=settings.AUTH_USER_MODEL,on_delete=django.db.models.deletion.CASCADE)),
++        ]),
++        migrations.CreateModel(name='AgentModelPermission',fields=[
++            ('id',models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False,serialize=False)),
++            ('expires_at',models.DateTimeField()),('revoked_at',models.DateTimeField(null=True,blank=True)),
++            ('max_requests',models.PositiveIntegerField(default=100)),('requests_used',models.PositiveIntegerField(default=0)),
++            ('created_at',models.DateTimeField(auto_now_add=True)),
++            ('agent',models.ForeignKey(to='agents.agent',on_delete=django.db.models.deletion.CASCADE)),
++            ('connection',models.ForeignKey(to='agents.agentmodelconnection',related_name='permissions',on_delete=django.db.models.deletion.CASCADE)),
++        ],options={'constraints':[models.UniqueConstraint(fields=['connection','agent'],name='agent_model_connection_permission')]}),
++        migrations.AddField(model_name='agentcredentialauthorization',name='model_permission',field=models.ForeignKey(to='agents.agentmodelpermission',null=True,blank=True,related_name='authorizations',on_delete=django.db.models.deletion.SET_NULL)),
++        migrations.AddField(model_name='agentcredentialauthorization',name='proxy_token_hash',field=models.CharField(max_length=64,blank=True,db_index=True)),
++    ]
+diff --git a/nexus_server/apps/agents/model_connection_models.py b/nexus_server/apps/agents/model_connection_models.py
+new file mode 100644
+index 00000000..0ab26636
+--- /dev/null
++++ b/nexus_server/apps/agents/model_connection_models.py
+@@ -0,0 +1,35 @@
++"""Durable owner-selected destinations and explicit per-Agent permissions."""
++import uuid
++from django.conf import settings
++from django.db import models
++
++
++class AgentModelConnection(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
++    name = models.CharField(max_length=100)
++    provider = models.CharField(max_length=32)
++    base_url = models.CharField(max_length=2048)
++    model_name = models.CharField(max_length=128)
++    router_id = models.UUIDField(null=True, blank=True)
++    issued_key_id = models.UUIDField(null=True, blank=True, unique=True)
++    encrypted_secret = models.TextField(blank=True)
++    expires_at = models.DateTimeField()
++    revoked_at = models.DateTimeField(null=True, blank=True)
++    max_requests = models.PositiveIntegerField(default=500)
++    requests_used = models.PositiveIntegerField(default=0)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++
++class AgentModelPermission(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    connection = models.ForeignKey(AgentModelConnection, on_delete=models.CASCADE, related_name='permissions')
++    agent = models.ForeignKey('agents.Agent', on_delete=models.CASCADE)
++    expires_at = models.DateTimeField()
++    revoked_at = models.DateTimeField(null=True, blank=True)
++    max_requests = models.PositiveIntegerField(default=100)
++    requests_used = models.PositiveIntegerField(default=0)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        constraints = [models.UniqueConstraint(fields=['connection', 'agent'], name='agent_model_connection_permission')]
+diff --git a/nexus_server/apps/agents/model_connection_views.py b/nexus_server/apps/agents/model_connection_views.py
+new file mode 100644
+index 00000000..c937cff1
+--- /dev/null
++++ b/nexus_server/apps/agents/model_connection_views.py
+@@ -0,0 +1,170 @@
++from pathlib import Path
++import json
++import secrets
++from urllib.error import HTTPError
++from asgiref.sync import sync_to_async
++from django.db import close_old_connections
++from django.http import HttpResponse,StreamingHttpResponse
++from django.views.decorators.csrf import ensure_csrf_cookie
++from django.views.decorators.http import require_GET
++from django.utils.decorators import method_decorator
++from django.views.decorators.debug import sensitive_post_parameters,sensitive_variables
++from django.utils import timezone
++from rest_framework import exceptions
++from rest_framework.authentication import SessionAuthentication
++from rest_framework.permissions import IsAuthenticated,AllowAny
++from rest_framework.response import Response
++from apps.common.crypto import decrypt_secret
++from apps.gateway.provider_http import open_provider_url
++from .credential_views import NoStoreView
++from . import model_connections as connections
++from .models import AgentModelConnection,AgentModelPermission,AgentCredentialAuthorization
++
++
++@require_GET
++@ensure_csrf_cookie
++def page(request):
++    nonce=secrets.token_urlsafe(24)
++    html=Path(__file__).with_name('model_connections.html').read_text().replace('__NONCE__',nonce)
++    r=HttpResponse(html)
++    r['Cache-Control']='no-store, private';r['Referrer-Policy']='no-referrer';r['X-Frame-Options']='DENY'
++    r['X-Robots-Tag']='noindex, nofollow';r['X-Content-Type-Options']='nosniff'
++    r['Content-Security-Policy']=f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'nonce-{nonce}'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
++    return r
++
++
++class AccountView(NoStoreView):
++    authentication_classes=[SessionAuthentication]
++    permission_classes=[IsAuthenticated]
++    def initial(self,request,*args,**kwargs):
++        super().initial(request,*args,**kwargs)
++        if request.method=='POST' and not isinstance(request.data,dict):raise exceptions.ValidationError('A JSON object is required.')
++        if not request.user.is_active:raise exceptions.PermissionDenied('Account is inactive.')
++
++
++@method_decorator(sensitive_post_parameters('secret'),name='dispatch')
++class ConnectionsView(AccountView):
++    def get(self,request):
++        from .credential_router import available_for_user
++        return Response({'account_id':str(request.user.pk),'account':request.user.email or request.user.get_username(),
++            'connections':[connections.public(c) for c in AgentModelConnection.objects.filter(owner=request.user).select_related('owner').order_by('-created_at')[:100]],
++            'routers':available_for_user(request.user),'agents':connections.available_agents(request.user)})
++    @sensitive_variables()
++    def post(self,request):
++        if request.data.get('account_id')!=str(request.user.pk):
++            raise exceptions.PermissionDenied('Your account changed. Refresh and confirm again.')
++        return Response(connections.create(request.user,request.data),status=201)
++
++
++class PermissionsView(AccountView):
++    def post(self,request,connection_id):return Response(connections.batch(request.user,connection_id,request.data))
++
++
++class RevokeView(AccountView):
++    def post(self,request,connection_id):
++        if request.data.get('confirm') is not True:raise exceptions.ValidationError('Confirm revocation.')
++        return Response(connections.revoke(request.user,connection_id,request.data.get('permission_id')))
++
++
++def stream_live(row):
++    now=timezone.now()
++    return AgentCredentialAuthorization.objects.filter(pk=row.pk,status='authorized',expires_at__gt=now,
++        model_permission__revoked_at__isnull=True,model_permission__expires_at__gt=now,
++        model_permission__connection__revoked_at__isnull=True,model_permission__connection__expires_at__gt=now,
++        model_permission_id=row.model_permission_id,proxy_token_hash=row.proxy_token_hash,
++        model_permission__connection__owner__is_active=True).exists()
++
++
++class ModelProxyView(NoStoreView):
++    authentication_classes=[]
++    permission_classes=[AllowAny]
++    @sensitive_variables()
++    def post(self,request,operation):
++        auth=request.headers.get('Authorization','')
++        token=auth[7:] if auth.startswith('Bearer ') else request.headers.get('x-api-key','')
++        if not token.startswith('nexus-model-proxy-') or len(token)>128:raise exceptions.AuthenticationFailed('Invalid model capability.')
++        if request.query_params:raise exceptions.ValidationError('Query parameters are not supported.')
++        data=request.data
++        if not isinstance(data,dict) or len(json.dumps(data).encode())>4*1024*1024:raise exceptions.ValidationError('Model request exceeds 4 MiB.')
++        if 'stream' in data and type(data['stream']) is not bool:raise exceptions.ValidationError('stream must be a boolean.')
++        if data.get('background') is True:raise exceptions.ValidationError('Asynchronous provider jobs are not supported by this scoped proxy.')
++        c,p,row=connections.admit(token,data.get('model'),operation)
++        headers={'Content-Type':'application/json','Accept':'text/event-stream, application/json'}
++        key=decrypt_secret(c.encrypted_secret)
++        if connections.PROVIDERS[c.provider]['protocol']=='anthropic':headers.update({'x-api-key':key,'anthropic-version':'2023-06-01'})
++        else:headers['Authorization']='Bearer '+key
++        transport=open_provider_url(c.base_url.rstrip('/')+'/'+operation,method='POST',headers=headers,
++            body=json.dumps(data).encode(),timeout=180,connect_timeout=15,public_https_only=True)
++        try:upstream=transport.__enter__()
++        except HTTPError as exc:
++            exc.close()
++            # Upstream error bodies can contain echoed secrets or request content.
++            return Response({'error':{'code':'MODEL_UPSTREAM_REJECTED','message':'The model provider rejected the request.','upstream_status':exc.code}},status=502)
++        except Exception:return Response({'error':{'code':'MODEL_UPSTREAM_UNAVAILABLE','message':'The model provider is unavailable.'}},status=502)
++        content_type=upstream.headers.get('Content-Type','application/json')
++        expected='text/event-stream' if data.get('stream') else 'application/json'
++        if content_type.split(';')[0].strip().lower()!=expected:
++            transport.__exit__(None,None,None)
++            return Response({'error':{'code':'MODEL_RESPONSE_INVALID'}},status=502)
++        if not data.get('stream'):
++            try:
++                raw=upstream.read(16*1024*1024+1)
++                if len(raw)>16*1024*1024 or not stream_live(row):raise ValueError()
++                raw=raw.replace(key.encode(),b'[REDACTED]')
++                return HttpResponse(raw,content_type='application/json',headers={'Cache-Control':'no-store'})
++            except Exception:return Response({'error':{'code':'MODEL_RESPONSE_UNAVAILABLE'}},status=502)
++            finally:transport.__exit__(None,None,None)
++        stream=ProxyStream(upstream,transport,key,row)
++        response=StreamingHttpResponse(stream.async_chunks(),content_type=content_type)
++        response._resource_closers.append(stream.close)
++        response['Cache-Control']='no-store';response['X-Accel-Buffering']='no'
++        return response
++
++
++class ProxyStream:
++    """Close upstream even when a client disconnects before reading the first byte."""
++    def __init__(self,upstream,transport,key,row):
++        self.upstream,self.transport,self.key,self.row=upstream,transport,key.encode(),row
++        self.pending=b'';self.closed=False
++
++    def __iter__(self):return self
++
++    def __next__(self):
++        if self.closed:raise StopIteration
++        try:
++            while True:
++                chunk=self.upstream.read1(65536)
++                if not stream_live(self.row):
++                    self.close();raise StopIteration
++                data=(self.pending+chunk).replace(self.key,b'[REDACTED]')
++                if not chunk:
++                    self.close()
++                    if data:return data
++                    raise StopIteration
++                # Hold only an actual partial key prefix, preserving SSE latency.
++                hold=0
++                for size in range(min(len(self.key)-1,len(data)),0,-1):
++                    if data.endswith(self.key[:size]):hold=size;break
++                self.pending=data[-hold:] if hold else b''
++                ready=data[:-hold] if hold else data
++                if ready:return ready
++        except BaseException:
++            self.close();raise
++
++    def read_step(self):
++        try:return next(self)
++        except StopIteration:return None
++        finally:close_old_connections()
++
++    async def async_chunks(self):
++        try:
++            while True:
++                chunk=await sync_to_async(self.read_step,thread_sensitive=False)()
++                if chunk is None:return
++                yield chunk
++        finally:await sync_to_async(self.close,thread_sensitive=False)()
++
++    def close(self):
++        if not self.closed:
++            self.closed=True;self.pending=b''
++            self.transport.__exit__(None,None,None)
+diff --git a/nexus_server/apps/agents/model_connections.html b/nexus_server/apps/agents/model_connections.html
+new file mode 100644
+index 00000000..5da52850
+--- /dev/null
++++ b/nexus_server/apps/agents/model_connections.html
+@@ -0,0 +1,42 @@
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model connections · Nexus Cloud</title>
++<style nonce="__NONCE__">
++:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#1c2941;background:#f5f7fb;font-synthesis:none}*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;padding:32px 24px}main{max-width:1080px;margin:auto}a{color:#345cce;text-decoration:none}a:hover{text-decoration:underline}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}.brand{font-size:12px;color:#5b6d87;letter-spacing:.08em;font-weight:650}h1{font-size:30px;letter-spacing:-.04em;margin:12px 0 8px}h2{font-size:17px;letter-spacing:-.02em;margin:0 0 8px}p{font-size:14px;line-height:1.6;color:#64748b;margin:0 0 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.panel{padding:24px;background:#fff;border:1px solid #e1e7ef;border-radius:16px;margin-bottom:20px}.step{font-size:11px;color:#536ec4;font-weight:700;letter-spacing:.07em;margin-bottom:10px}label{display:block;font-size:12px;font-weight:600;color:#4d5e76;margin:14px 0 6px}input,select,button{font:inherit;font-size:14px}input:not([type=checkbox]),select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #d4dce7;border-radius:8px;background:#fff;color:#1c2941}input[type=checkbox]{accent-color:#365fd2;width:16px;height:16px;flex-shrink:0}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}button{padding:10px 15px;border-radius:8px;border:1px solid #d4dce7;background:#fff;color:#3f5272;cursor:pointer}button:hover{background:#f3f6fb}button:disabled{opacity:.5;cursor:wait}.primary{background:#345cce;color:white;border-color:#345cce;width:100%;margin-top:16px}.primary:hover{background:#294db7}.consent{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:400;line-height:1.6}.consent input{margin-top:2px}.agents{max-height:224px;overflow:auto;border:1px solid #e3e8f0;border-radius:9px;padding:4px 12px;margin:10px 0}.agents label{display:flex;align-items:center;gap:10px;padding:6px 0;margin:0;font-weight:400;color:#33445d}.toolbar{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}.toolbar button,.small{font-size:12px;padding:6px 10px}.hint{font-size:12px;line-height:1.6;color:#708097;margin:8px 0 0}.notice{padding:12px 16px;border:1px solid #d7e2fa;border-radius:10px;background:#edf3ff;color:#345282;font-size:13px;margin-bottom:20px;overflow-wrap:anywhere}.notice.error{background:#fff3f1;color:#a03333;border-color:#f1d5d1}.card{padding:18px 0;border-top:1px solid #edf0f5}.card:first-child{border-top:0}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.title{font-weight:650;font-size:14px;overflow-wrap:anywhere}.meta{font-size:12px;line-height:1.8;color:#6a7b91;overflow-wrap:anywhere;margin-top:6px}.badge{font-size:11px;border:1px solid #d4e5dc;background:#f0f9f4;color:#357451;padding:3px 8px;border-radius:20px;margin-left:8px;white-space:nowrap}.inactive{color:#777b86;background:#f5f6f8;border-color:#e3e5eb}.permissions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.permission{background:#f7f9fc;border:1px solid #e7ecf3;border-radius:8px;padding:8px 10px;font-size:12px;color:#52637d}.permission button{margin-left:10px}.danger{color:#aa4242}.empty{padding:20px 0;color:#7d8ba0;font-size:13px}:focus-visible{outline:3px solid #adc2ff;outline-offset:3px}footer{font-size:12px;color:#79889b;line-height:1.7;padding:0 4px 24px}@media(max-width:740px){body{padding:22px 14px}.grid{grid-template-columns:1fr;gap:0}.panel{padding:20px}header{align-items:flex-start}h1{font-size:26px}.row{gap:10px}input,select{font-size:16px!important}.card-head{flex-wrap:wrap}}
++</style></head><body><main>
++<header><div><div class="brand">NEXUS CLOUD / ACCESS</div><h1>Model connections</h1><p>Choose a model once. Give selected Agents access across tools and conversations.</p></div><a href="/marketplace">Marketplace ↗</a></header>
++<div id="notice" class="notice" role="status">Loading your connections…</div>
++<section id="login" class="panel" hidden><h2>Sign in to manage your model access</h2><p>Connections belong to your account. A shared authorization link does not grant access to another person's connections.</p><a href="/" target="_blank" rel="noopener noreferrer">Sign in to Nexus Cloud ↗</a> <button id="reload" class="small">I'm signed in</button></section>
++<div id="content" hidden><div class="grid">
++<section class="panel"><div class="step">01 / CONNECT A MODEL</div><h2>A destination you control</h2><p>Your original API key stays in Cloud.</p>
++<form id="createForm" autocomplete="off"><label for="name">Connection name</label><input id="name" maxlength="100" placeholder="My everyday model" required>
++<label for="provider">Model provider</label><select id="provider"><option value="nexus">Nexus Cloud</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="custom_openai">OpenAI-compatible</option><option value="custom_anthropic">Anthropic-compatible</option></select>
++<div id="nexusFields"><label for="router">Your Router</label><select id="router"></select><label for="routerModel">Authorized model</label><select id="routerModel"></select><p id="routerHint" class="hint"></p></div>
++<div id="externalFields" hidden><div id="endpointField"><label for="endpoint">Base URL</label><input id="endpoint" type="url" placeholder="https://provider.example/v1"></div><label for="model">Authorized model</label><input id="model" maxlength="128" placeholder="Exact model ID"><label for="secret">API key</label><input id="secret" type="password" autocomplete="new-password" spellcheck="false"></div>
++<div class="row"><div><label for="lifetime">Valid for</label><select id="lifetime"><option value="3600">1 hour</option><option value="86400" selected>24 hours</option><option value="604800">7 days</option><option value="2592000">30 days</option></select></div><div><label for="allowance">Total requests</label><input id="allowance" type="number" min="1" max="1000000" value="500" required></div></div>
++<label class="consent"><input id="createConsent" type="checkbox" required><span>Save this connection to my account. Agents receive access only after I select and authorize them.</span></label><button class="primary" type="submit">Save connection</button></form></section>
++<section class="panel"><div class="step">02 / AUTHORIZE AGENTS</div><h2>One confirmation, selected Agents</h2><p>All tools and new conversations within each approved Agent can reuse this permission.</p>
++<form id="batchForm"><label for="connection">Model connection</label><select id="connection" required></select><label for="search">Choose Agents</label><input id="search" type="search" placeholder="Find an Agent"><div class="toolbar"><button id="selectVisible" type="button">Select visible</button><button id="clear" type="button">Clear</button><span id="count">0 selected</span></div><div id="agents" class="agents"></div>
++<div class="row"><div><label for="permissionLifetime">Valid for</label><select id="permissionLifetime"><option value="3600">1 hour</option><option value="86400" selected>24 hours</option><option value="604800">7 days</option><option value="2592000">30 days</option></select></div><div><label for="perAgent">Requests per Agent</label><input id="perAgent" type="number" min="1" max="1000000" value="100" required></div></div>
++<p class="hint">Access ends when either the permission or connection expires. Shared and per-Agent allowances both apply. Updating a permission keeps its usage counter.</p><label class="consent"><input id="batchConsent" type="checkbox" required><span>Allow the selected Agents to use this model under these limits. Model charges are billed to my provider account.</span></label><button class="primary" type="submit">Authorize selected Agents</button></form></section></div>
++<section class="panel"><div class="card-head"><div><h2>Your connections</h2><p id="account"></p></div><button class="small" id="refresh">Refresh</button></div><div id="connections"></div></section></div>
++<footer>One admitted model request counts once, including an upstream error or timeout. Streaming chunks do not count separately. Request limits are not token or spending limits. Revocation blocks new requests; an upstream request already sent may still incur usage. Existing one-time authorizations remain separate.</footer>
++</main><script nonce="__NONCE__">
++'use strict';const $=id=>document.getElementById(id),base='/api/v1/model-connections/';let snapshot={connections:[],routers:[],agents:[]},selected=new Set(),busy=false;
++function notice(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
++function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
++function option(select,value,text){const e=node('option',text);e.value=value;select.append(e);}
++async function api(path='',body){const csrf=document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.slice(10)||'';const res=await fetch(base+path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',...(body?{'X-CSRFToken':decodeURIComponent(csrf)}:{})},body:body?JSON.stringify(body):undefined});let data;try{data=await res.json();}catch{throw Error('The service is unavailable. Try again.');}if(!res.ok){if(res.status===401||res.status===403&&!body){$('login').hidden=false;$('content').hidden=true;}const value=data.error?.message||data.detail||data;throw Error(typeof value==='string'?value:JSON.stringify(value));}return data.data||data;}
++function routers(){const current=$('router').value;$('router').replaceChildren();for(const r of snapshot.routers)option($('router'),r.router_id,[r.organization,r.name,r.project].filter(Boolean).join(' / '));if([...$('router').options].some(o=>o.value===current))$('router').value=current;models();$('routerHint').textContent=snapshot.routers.length?'Only Routers you can use are shown.':'No available Router. Check your organization access, or choose an external model provider.';}
++function models(){$('routerModel').replaceChildren();const r=snapshot.routers.find(r=>r.router_id===$('router').value);for(const m of r?.models||[])option($('routerModel'),m,m);}
++function provider(){const nexus=$('provider').value==='nexus';$('nexusFields').hidden=!nexus;$('externalFields').hidden=nexus;$('endpointField').hidden=!$('provider').value.startsWith('custom_');$('model').required=!nexus;$('secret').required=!nexus;$('endpoint').required=!nexus&&!$('endpointField').hidden;$('router').required=nexus;$('routerModel').required=nexus;$('secret').value='';$('createConsent').checked=false;}
++function agents(){const q=$('search').value.trim().toLowerCase();$('agents').replaceChildren();for(const a of snapshot.agents.filter(a=>a.name.toLowerCase().includes(q))){const label=node('label'),check=document.createElement('input');check.type='checkbox';check.checked=selected.has(a.id);check.onchange=()=>{check.checked?selected.add(a.id):selected.delete(a.id);$('batchConsent').checked=false;count();};label.append(check,node('span',a.name));$('agents').append(label);}if(!$('agents').children.length)$('agents').append(node('p','No matching Agents.','hint'));count();}
++function count(){$('count').textContent=selected.size+' selected';}
++function date(value){return new Date(value).toLocaleString();}
++function render(){const active=snapshot.connections.filter(c=>c.status==='active'),current=$('connection').value;$('connection').replaceChildren();option($('connection'),'','Select a connection');for(const c of active)option($('connection'),c.id,c.name+' · '+c.model);if(active.some(c=>c.id===current))$('connection').value=current;else if(active.length===1)$('connection').value=active[0].id;$('account').textContent=snapshot.account;$('connections').replaceChildren();for(const c of snapshot.connections){const card=node('div',undefined,'card'),head=node('div',undefined,'card-head'),info=node('div'),title=node('div',c.name,'title');title.append(node('span',c.status,'badge'+(c.status==='active'?'':' inactive')));info.append(title,node('div',c.model+' · '+c.base_url,'meta'),node('div',`${c.requests_used} / ${c.max_requests} requests · Expires ${date(c.expires_at)}`,'meta'));head.append(info);if(c.status!=='revoked'){const b=node('button','Revoke connection','small danger');b.onclick=()=>revoke(c);head.append(b);}card.append(head);const permissions=node('div',undefined,'permissions');for(const p of c.permissions){const line=node('div',`${p.agent_name} · ${p.status} · ${p.requests_used}/${p.max_requests}`,'permission');line.title='Expires '+date(p.expires_at);if(p.status!=='revoked'){const b=node('button','Revoke','small danger');b.onclick=()=>revoke(c,p);line.append(b);}permissions.append(line);}card.append(permissions);$('connections').append(card);}if(!snapshot.connections.length)$('connections').append(node('div','No saved connections yet. Start with a model above.','empty'));}
++async function load(message){snapshot=await api();$('login').hidden=true;$('content').hidden=false;routers();agents();render();notice(message||'You control the model, the Agents and the limits.');}
++async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notice(e.message||'Could not save your changes.',true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
++async function revoke(c,p){if(!confirm(p?`Revoke ${p.agent_name}'s access to ${c.name}?`:`Revoke ${c.name} for every approved Agent?`))return;await action(async()=>{await api(c.id+'/revoke/',{confirm:true,...(p?{permission_id:p.id}:{})});await load('Access revoked. New model requests are blocked.');});}
++$('createForm').onsubmit=e=>{e.preventDefault();void action(async()=>{const body={account_id:snapshot.account_id,name:$('name').value,provider:$('provider').value,model:$('provider').value==='nexus'?$('routerModel').value:$('model').value,ttl_seconds:Number($('lifetime').value),max_requests:Number($('allowance').value),consent:$('createConsent').checked};if(body.provider==='nexus')body.router_id=$('router').value;else body.secret=$('secret').value;if(body.provider.startsWith('custom_'))body.base_url=$('endpoint').value;$('secret').value='';try{const value=await api('',body);await load('Connection saved. Select the Agents you want to authorize.');$('connection').value=value.id;$('createConsent').checked=false;}finally{if(body.secret)body.secret='';}});};
++$('batchForm').onsubmit=e=>{e.preventDefault();void action(async()=>{if(!selected.size)throw Error('Select at least one Agent.');await api($('connection').value+'/permissions/',{agent_ids:[...selected],ttl_seconds:Number($('permissionLifetime').value),max_requests:Number($('perAgent').value),consent:$('batchConsent').checked});selected.clear();$('batchConsent').checked=false;await load('Agents authorized. Return to your MCP client and continue or retry the tool. New conversations reuse this access.');});};
++$('provider').onchange=provider;$('router').onchange=models;$('search').oninput=agents;$('selectVisible').onclick=()=>{const q=$('search').value.trim().toLowerCase();snapshot.agents.filter(a=>a.name.toLowerCase().includes(q)).forEach(a=>selected.add(a.id));$('batchConsent').checked=false;agents();};$('clear').onclick=()=>{selected.clear();$('batchConsent').checked=false;agents();};for(const id of ['reload','refresh'])$(id).onclick=()=>action(()=>load());for(const id of ['createForm','batchForm'])$(id).addEventListener('change',e=>{if(e.target.type!=='checkbox')$(id==='createForm'?'createConsent':'batchConsent').checked=false;});addEventListener('pagehide',()=>{$('secret').value='';});provider();void action(()=>load());
++</script></body></html>
+diff --git a/nexus_server/apps/agents/model_connections.py b/nexus_server/apps/agents/model_connections.py
+new file mode 100644
+index 00000000..ce1c2117
+--- /dev/null
++++ b/nexus_server/apps/agents/model_connections.py
+@@ -0,0 +1,227 @@
++"""Reusable model connections. Model secrets stay in Cloud; runtimes get proxy tokens."""
++from datetime import timedelta
++import secrets
++import uuid
++from django.conf import settings
++from django.db import transaction
++from django.db.models import Q
++from django.utils import timezone
++from django.views.decorators.debug import sensitive_variables
++from rest_framework import exceptions
++from apps.common.crypto import encrypt_secret
++from apps.common.subjects import hash_token
++from .models import Agent, AgentCredentialAuthorization, AgentModelConnection, AgentModelPermission
++from .credential_config import configuration, PROVIDERS
++
++
++def integer(value, low, high, label):
++    if type(value) is not int or not low <= value <= high:
++        raise exceptions.ValidationError(f'{label} must be between {low} and {high}.')
++    return value
++
++
++def state(connection, permission=None):
++    now=timezone.now()
++    if not connection.owner.is_active or connection.revoked_at or not connection.encrypted_secret:return 'revoked'
++    if connection.expires_at <= now:return 'expired'
++    if permission:
++        if permission.revoked_at:return 'revoked'
++        if permission.expires_at <= now:return 'expired'
++    if connection.requests_used >= connection.max_requests or (permission and permission.requests_used >= permission.max_requests):return 'exhausted'
++    return 'active'
++
++
++def available_agents(user):
++    from apps.tenancy.services import visible_tenants
++    from apps.common.authorization import has_nexus_permission
++    allowed=getattr(settings,'NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS',())
++    tenants=visible_tenants(user=user).filter(status='active',deleted_at__isnull=True)
++    result=[]
++    for a in Agent.objects.filter(pk__in=allowed,status='active',deleted_at__isnull=True).filter(
++            Q(visibility='public',publication_status='published')|Q(tenant__in=tenants)).select_related('tenant'):
++        published=a.visibility=='public' and a.publication_status=='published' and bool(a.current_version)
++        if published or has_nexus_permission(user,a.tenant,'use',resource_type='agent',resource_id=str(a.pk)):
++            result.append({'id':str(a.pk),'name':a.name})
++    return result
++
++
++def permission_public(p):
++    return {'id':str(p.pk),'agent_id':str(p.agent_id),'agent_name':p.agent.name,
++            'expires_at':p.expires_at.isoformat(),'max_requests':p.max_requests,'requests_used':p.requests_used,
++            'status':state(p.connection,p)}
++
++
++def public(c):
++    return {'id':str(c.pk),'name':c.name,'provider':c.provider,'base_url':c.base_url,'model':c.model_name,
++            'router_id':str(c.router_id or ''),'expires_at':c.expires_at.isoformat(),'status':state(c),
++            'max_requests':c.max_requests,'requests_used':c.requests_used,
++            'permissions':[permission_public(p) for p in c.permissions.select_related('agent','connection__owner').order_by('created_at')]}
++
++
++@sensitive_variables()
++def issue_router_connection(c, user, router_id):
++    from .credential_router import available_for_user
++    found=next((r for r in available_for_user(user) if r['router_id']==str(router_id) and c.model_name in r['models']),None)
++    if not found:raise exceptions.PermissionDenied('Select one of your available Routers and models.')
++    from apps.routers.models import Router
++    from apps.api_keys.models import APIKey,APIKeyPolicy,APIKeyUsageSummary,RouterCallerCredential
++    from apps.api_keys.services import hash_key
++    router=Router.objects.get(pk=router_id)
++    token='sk-nexus-modelconn-'+secrets.token_urlsafe(32)
++    key=APIKey.objects.create(tenant=router.tenant,project=router.project,name='Model connection '+str(c.pk),created_by=user,key_prefix=token[:32],key_hash=hash_key(token))
++    RouterCallerCredential.objects.create(api_key=key,router=router,owner=user)
++    APIKeyPolicy.objects.create(api_key=key,allowed_routers=[str(router.pk)],allowed_models=[c.model_name],
++        allowed_surfaces=['models'],allowed_operations=['responses','chat.completions'],no_store_prompt=True,no_store_response=True)
++    APIKeyUsageSummary.objects.create(api_key=key,tenant=router.tenant,project=router.project)
++    c.router_id,c.issued_key_id,c.encrypted_secret=router.pk,key.pk,encrypt_secret(token)
++
++
++@transaction.atomic
++@sensitive_variables()
++def create(user,data):
++    if data.get('consent') is not True:raise exceptions.ValidationError('Explicit confirmation is required.')
++    from django.contrib.auth import get_user_model
++    get_user_model().objects.select_for_update().get(pk=user.pk)
++    if AgentModelConnection.objects.filter(owner=user,revoked_at__isnull=True).count()>=32:raise exceptions.ValidationError('Revoke an old connection before creating another.')
++    provider,url,model=configuration(data.get('provider'),data.get('base_url'),data.get('model'),require_model=True,resolve=True)
++    name=data.get('name','')
++    if not isinstance(name,str) or not 1<=len(name.strip())<=100:raise exceptions.ValidationError('Enter a connection name (1–100 characters).')
++    ttl=integer(data.get('ttl_seconds',86400),300,2592000,'Connection lifetime')
++    limit=integer(data.get('max_requests',500),1,1000000,'Request allowance')
++    c=AgentModelConnection(owner=user,name=name.strip(),provider=provider,base_url=url,model_name=model,
++        expires_at=timezone.now()+timedelta(seconds=ttl),max_requests=limit)
++    if provider=='nexus':
++        if data.get('secret'):raise exceptions.ValidationError('Nexus connections use your Router, not an API key.')
++        issue_router_connection(c,user,data.get('router_id'))
++    else:
++        key=data.get('secret')
++        if not isinstance(key,str) or not 8<=len(key)<=8192 or any(ch.isspace() for ch in key):raise exceptions.ValidationError('Enter a valid API key.')
++        c.encrypted_secret=encrypt_secret(key)
++    c.save()
++    return public(c)
++
++
++@transaction.atomic
++def batch(user,connection_id,data):
++    c=AgentModelConnection.objects.select_for_update().filter(pk=connection_id,owner=user).first()
++    if not c:raise exceptions.NotFound()
++    if data.get('consent') is not True:raise exceptions.ValidationError('Confirm the selected Agents and limits.')
++    if state(c)!='active':raise exceptions.ValidationError('Connection is expired, revoked or exhausted.')
++    ids=data.get('agent_ids')
++    if not isinstance(ids,list) or not 1<=len(ids)<=100 or len(set(map(str,ids)))!=len(ids):raise exceptions.ValidationError('Select 1–100 distinct Agents.')
++    valid={a['id'] for a in available_agents(user)}
++    if any(str(a) not in valid for a in ids):raise exceptions.PermissionDenied('One or more Agents are unavailable; nothing was authorized.')
++    ttl=integer(data.get('ttl_seconds',86400),300,2592000,'Permission lifetime')
++    maximum=integer(data.get('max_requests',100),1,1000000,'Per-Agent allowance')
++    expiry=min(c.expires_at,timezone.now()+timedelta(seconds=ttl))
++    for aid in ids:
++        p,created=AgentModelPermission.objects.get_or_create(connection=c,agent_id=aid,defaults={'expires_at':expiry,'max_requests':maximum})
++        if not created:
++            if p.requests_used>=maximum:raise exceptions.ValidationError('New allowance must exceed requests already used; counters never reset.')
++            # Old delegated tokens must not revive when permission is re-approved.
++            p.authorizations.update(status='revoked',encrypted_secret='',proxy_token_hash='')
++            p.expires_at,p.max_requests,p.revoked_at=expiry,maximum,None
++            p.save(update_fields=['expires_at','max_requests','revoked_at'])
++    return public(c)
++
++
++@transaction.atomic
++def revoke(user,connection_id,permission_id=None):
++    c=AgentModelConnection.objects.select_for_update().filter(pk=connection_id,owner=user).first()
++    if not c:raise exceptions.NotFound()
++    if permission_id is not None:
++        try:permission_id=uuid.UUID(str(permission_id))
++        except (ValueError,TypeError,AttributeError):raise exceptions.ValidationError('Choose a valid Agent permission.') from None
++        p=c.permissions.filter(pk=permission_id).first()
++        if not p:raise exceptions.NotFound()
++        p.revoked_at=timezone.now();p.save(update_fields=['revoked_at'])
++        p.authorizations.update(status='revoked',encrypted_secret='',proxy_token_hash='')
++    else:
++        c.revoked_at,c.encrypted_secret=timezone.now(),'';c.save(update_fields=['revoked_at','encrypted_secret'])
++        AgentCredentialAuthorization.objects.filter(model_permission__connection=c).update(status='revoked',encrypted_secret='',proxy_token_hash='')
++        if c.issued_key_id:
++            from apps.api_keys.models import APIKey
++            APIKey.objects.filter(pk=c.issued_key_id).update(status='revoked')
++    return public(c)
++
++
++def grant_state(row):
++    p=row.model_permission
++    if (not p or p.agent_id!=row.run.agent_id or str(p.connection.owner_id)!=str(row.owner_id) or
++            p.connection.provider!=row.provider or p.connection.base_url!=row.base_url or p.connection.model_name!=row.model_name):return 'revoked'
++    value=state(p.connection,p)
++    return 'authorized' if value=='active' else value
++
++
++def proxy_base():
++    value=str(getattr(settings,'NEXUS_PUBLIC_BASE_URL','')).rstrip('/')
++    configuration('custom_openai',value,'validation')
++    return value+'/api/v1/agent-model-proxy'
++
++
++@transaction.atomic
++def reuse(run,owner,provider,url,model,explicit=False):
++    """Only an explicit stored Agent permission can mint another runtime grant."""
++    candidates=AgentModelPermission.objects.filter(connection__owner_id=owner,agent_id=run.agent_id,
++        revoked_at__isnull=True,expires_at__gt=timezone.now()).select_related('connection__owner').order_by('-created_at')
++    for p in candidates:
++        c=p.connection
++        if model and c.model_name!=model:continue
++        if explicit and (c.provider!=provider or c.base_url!=url):continue
++        if PROVIDERS[c.provider]['protocol']!=PROVIDERS[provider]['protocol'] or state(c,p)!='active':continue
++        # Serialize with batch updates/revocation; all admissions use parent-first locks.
++        c=AgentModelConnection.objects.select_for_update().get(pk=c.pk)
++        p=AgentModelPermission.objects.select_for_update().get(pk=p.pk)
++        if state(c,p)!='active':continue
++        token='nexus-model-proxy-'+secrets.token_urlsafe(32)
++        defaults={'owner_id':owner,'status':'authorized','base_url':c.base_url,'model_name':c.model_name,
++            'expires_at':min(c.expires_at,p.expires_at,timezone.now()+timedelta(hours=24)),
++            'model_permission':p,'proxy_token_hash':hash_token(token),'encrypted_secret':encrypt_secret(token),
++            'router_id':c.router_id,'source_grant':None,'issued_key_id':None,
++            'approval_mode':'caller','approved_by':None,'preauthorized':False}
++        row,created=AgentCredentialAuthorization.objects.get_or_create(run=run,provider=c.provider,interactive_view__isnull=True,defaults=defaults)
++        if not created:
++            from .credential_services import grant_state as effective_state
++            if row.model_permission_id == p.pk and str(row.owner_id) == str(c.owner_id) and effective_state(row)=='authorized':return row
++            if row.issued_key_id:
++                from apps.api_keys.models import APIKey
++                APIKey.objects.filter(pk=row.issued_key_id).update(status='revoked')
++            for k,v in defaults.items():setattr(row,k,v)
++            row.save()
++        return row
++    return None
++
++
++@transaction.atomic
++@sensitive_variables()
++def admit(token,model,operation):
++    row=AgentCredentialAuthorization.objects.filter(proxy_token_hash=hash_token(token)).select_related('run','model_permission__connection').first()
++    if not row or not row.model_permission_id:raise exceptions.AuthenticationFailed('Invalid model capability.')
++    c=AgentModelConnection.objects.select_for_update().select_related('owner').get(pk=row.model_permission.connection_id)
++    p=AgentModelPermission.objects.select_for_update().get(pk=row.model_permission_id)
++    row=AgentCredentialAuthorization.objects.select_for_update().get(pk=row.pk)
++    from .credential_services import owner_id,enabled
++    enabled(row.run)
++    if row.run.agent.status!='active' or row.run.agent.deleted_at:
++        raise exceptions.PermissionDenied('Agent is no longer available.')
++    if (row.status!='authorized' or row.expires_at<=timezone.now() or not secrets.compare_digest(row.proxy_token_hash,hash_token(token)) or
++            row.model_permission_id!=p.pk or row.owner_id!=c.owner_id or
++            str(owner_id(row.run))!=str(c.owner_id) or p.agent_id!=row.run.agent_id):raise exceptions.AuthenticationFailed('Model authorization is no longer active.')
++    value=state(c,p)
++    if value=='exhausted':raise exceptions.Throttled(detail='Model request allowance exhausted.')
++    if value!='active':raise exceptions.PermissionDenied('Model connection expired or revoked.')
++    if model!=c.model_name:raise exceptions.PermissionDenied('Model is outside the approved scope.')
++    protocol=PROVIDERS[c.provider]['protocol']
++    if operation not in (('chat/completions','responses') if protocol=='openai' else ('v1/messages',)):
++        raise exceptions.PermissionDenied('Operation is outside the approved scope.')
++    if c.provider=='nexus':
++        from .credential_router import available_for_user
++        from apps.api_keys.models import APIKey
++        if not APIKey.objects.filter(pk=c.issued_key_id,status='active',deleted_at__isnull=True).exists() or not any(
++            r['router_id']==str(c.router_id) and c.model_name in r['models'] for r in available_for_user(c.owner)):
++            raise exceptions.PermissionDenied('Router access is no longer available.')
++    c.requests_used+=1;p.requests_used+=1
++    c.save(update_fields=['requests_used']);p.save(update_fields=['requests_used'])
++    # Count admitted dispatches, including transport/upstream failures. Never refund a
++    # possibly executed request. Streams count once, not once per emitted chunk.
++    return c,p,row
+diff --git a/nexus_server/apps/agents/models.py b/nexus_server/apps/agents/models.py
+index 496a00eb..0909fb5d 100644
+--- a/nexus_server/apps/agents/models.py
++++ b/nexus_server/apps/agents/models.py
+@@ -30,9 +30,20 @@ class AgentInteractiveView(BaseModel):
+     producer_hash = models.CharField(max_length=64)
+     producer_seen_at = models.DateTimeField(null=True)
+     expires_at = models.DateTimeField(db_index=True)
++    model_authorization = models.ForeignKey('AgentCredentialAuthorization', null=True, blank=True, on_delete=models.SET_NULL, related_name='selected_views')
++    idle_timeout_seconds = models.PositiveIntegerField(default=0)
+     closed = models.BooleanField(default=False)
+ 
+ 
++class AgentInteractiveShare(BaseModel):
++    """Revocable, reusable read capability; never a browser/runtime control token."""
++    view = models.ForeignKey(AgentInteractiveView, on_delete=models.CASCADE, related_name='shares')
++    token_hash = models.CharField(max_length=64)
++    label = models.CharField(max_length=80, blank=True)
++    expires_at = models.DateTimeField(db_index=True)
++    revoked_at = models.DateTimeField(null=True, blank=True)
++
++
+ class AgentViewAction(BaseModel):
+     view = models.ForeignKey(AgentInteractiveView, on_delete=models.CASCADE, related_name='actions')
+     request_id = models.UUIDField()
+@@ -1608,6 +1619,7 @@ class AgentCredentialAuthorization(models.Model):
+     """Caller-scoped provider secret. Never serialize encrypted_secret to Run traces."""
+     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+     run = models.ForeignKey(AgentDisplayRun, on_delete=models.CASCADE, related_name="credential_authorizations")
++    interactive_view = models.ForeignKey(AgentInteractiveView, null=True, blank=True, on_delete=models.CASCADE, related_name='model_grants')
+     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+     provider = models.CharField(max_length=32)
+     base_url = models.CharField(max_length=2048, blank=True)
+@@ -1621,13 +1633,16 @@ class AgentCredentialAuthorization(models.Model):
+         on_delete=models.SET_NULL, related_name='approved_agent_credentials')
+     status = models.CharField(max_length=16, default="pending")
+     encrypted_secret = models.TextField(blank=True)
++    model_permission = models.ForeignKey('AgentModelPermission', null=True, blank=True,
++        on_delete=models.SET_NULL, related_name='authorizations')
++    proxy_token_hash = models.CharField(max_length=64, blank=True, db_index=True)
+     expires_at = models.DateTimeField()
+     requested_at = models.DateTimeField(null=True, blank=True)
+     created_at = models.DateTimeField(auto_now_add=True)
+     updated_at = models.DateTimeField(auto_now=True)
+ 
+     class Meta:
+-        constraints = [models.UniqueConstraint(fields=["run", "provider"], name="agent_credential_run_provider")]
++        constraints = [models.UniqueConstraint(fields=["run", "provider"], condition=models.Q(interactive_view__isnull=True), name="agent_credential_run_provider")]
+ 
+ 
+ class AgentRunCheckpoint(models.Model):
+@@ -1925,6 +1940,9 @@ class AgentBackgroundEvent(models.Model):
+         ordering = ['seq']
+ 
+ 
++from .model_connection_models import AgentModelConnection, AgentModelPermission
++
++
+ def __getattr__(name):
+     if name in {"AgentPricing", "AgentToolPricingLimit", "APIKey"}:
+         from .model_extension import model_extension
+diff --git a/nexus_server/apps/agents/private_display_urls.py b/nexus_server/apps/agents/private_display_urls.py
+index e50bdd43..12703840 100644
+--- a/nexus_server/apps/agents/private_display_urls.py
++++ b/nexus_server/apps/agents/private_display_urls.py
+@@ -15,7 +15,15 @@ from .private_display_views import (
+ from .display_token_views import PrivateAgentRunDisplayTokenView
+ from .run_history import PrivateRunReadView
+ 
++from .model_connection_views import page as model_connections_page, ConnectionsView, PermissionsView, RevokeView, ModelProxyView
++
+ urlpatterns = [
++    path("model-connections/page/", model_connections_page),
++    path("model-connections/", ConnectionsView.as_view()),
++    path("model-connections/<uuid:connection_id>/permissions/", PermissionsView.as_view()),
++    path("model-connections/<uuid:connection_id>/revoke/", RevokeView.as_view()),
++    *[path("agent-model-proxy/" + operation + suffix, ModelProxyView.as_view(), {"operation":operation})
++      for operation in ("chat/completions", "responses", "v1/messages") for suffix in ("", "/")],
+     path("agent-background-jobs/<uuid:job_id>/page/", job_page),
+     path("agent-background-jobs/<uuid:job_id>/", JobView.as_view()),
+     path("agent-background-jobs/<uuid:job_id>/events/", EventsView.as_view()),
+diff --git a/nexus_server/docs/model_connections.md b/nexus_server/docs/model_connections.md
+new file mode 100644
+index 00000000..ee6350c4
+--- /dev/null
++++ b/nexus_server/docs/model_connections.md
+@@ -0,0 +1,97 @@
++# Reusable model connections and batch Agent authorization
++
++Hosted Nexus Cloud provides an account-owned Model connections page at
++`/api/v1/model-connections/page/`. It is linked from Connect Agent and the model
++authorization page. Existing one-time browser authorizations and explicit MCP
++preauthorization remain available and are not silently migrated.
++
++## User flow
++
++1. Sign in to your own Nexus account. Save a named model connection. Nexus Cloud
++   lists only your usable Routers across organizations and their output models;
++   no endpoint or API key is needed. External OpenAI/Anthropic-compatible
++   connections require an exact model, public HTTPS endpoint and your own key.
++2. Set the connection lifetime (up to 30 days) and total request allowance.
++3. Select one or more Agents, review their per-Agent lifetime and request
++   allowance, and explicitly confirm the batch. Saving a connection alone grants
++   no Agent permission. New Marketplace Agents are never automatically included.
++4. Continue or retry your MCP tool. The same Agent's tools and new conversations
++   reuse the selected permission without another confirmation while it is valid.
++5. Revoke one Agent or the whole connection from the same page. Expired/revoked
++   permissions can be explicitly approved again while the connection is active;
++   old runtime tokens never revive. A revoked connection requires a new connection.
++
++The effective expiry is the earlier of connection and permission expiry. Both
++request counters apply. One admitted upstream request, including failures or
++timeouts, consumes one request from each counter. A streaming request counts
++once, not per chunk. Concurrent admissions serialize against both counters.
++Counters never reset when a permission is edited. These are **request allowances,
++not token or monetary budgets**; provider/Router billing limits still apply.
++
++## Runtime contract
++
++Continue using `context.credentials.authorize(...)` and the runtime resolution
++callback. Consume the returned provider, model and base URL; do not hard-code
++the original endpoint. A reusable connection returns a scoped Cloud proxy token
++and `/api/v1/agent-model-proxy` base URL. The original upstream key remains
++encrypted in Cloud and is never returned to the Agent or MCP client.
++
++Supported proxy operations are OpenAI-compatible `chat/completions`, `responses`
++and Anthropic-compatible `v1/messages`, including SSE streaming. This does not
++proxy file administration, provider background jobs or arbitrary API methods.
++Queries are rejected; only the selected model is allowed. Caller headers are not
++forwarded upstream. Endpoint resolution is pinned, public-HTTPS-only, and rejects
++redirects. Request bodies are bounded to 4 MiB and non-stream responses to 16 MiB.
++
++An explicit endpoint/model request must match the saved connection. Provider
++defaults without an explicit endpoint/model may use an approved connection with
++the same wire protocol. Explicit per-invocation MCP preauthorization takes
++priority. Multiple approved connections for one Agent use the most recently
++created matching permission ahead of independently saved one-time grants. A valid token for that permission is reused within the same invocation. Revoke
++the old permission to switch an Agent deterministically to a different connection.
++
++## Isolation and revocation
++
++- Connections belong to the server-verified caller owner, not the publisher or
++  whoever knows an authorization URL. Management requires an authenticated
++  account session with CSRF protection.
++- Personal Agent keys resolve through the server's credential-vault binding.
++  The same key is the same caller. Sharing that key shares its caller identity;
++  arbitrary shared keys without an owner binding cannot authorize a connection.
++- Batch permission is for an Agent, including all its tools and future versions.
++  It does not grant mobile/computer access or other platform permissions.
++- Each model request validates owner, Agent, grant, permission, expiry, selected
++  model and quota. Nexus Router availability is rechecked at admission.
++- Revocation blocks new requests. Active response streams recheck state on each
++  upstream chunk and close on revocation/expiry. Already dispatched upstream work
++  cannot be undone and can still incur charges. No automatic request replay occurs.
++- The original one-time grants remain separate; revoking a connection does not
++  revoke independently issued older grants. Revoke those on their original pages.
++
++## Management API
++
++All management endpoints use the signed-in browser session, no-store responses
++and CSRF for writes; they do not accept a capability link as account access.
++
++| Method | Path | Purpose |
++| --- | --- | --- |
++| GET | `/api/v1/model-connections/` | Own connections, available Agents and own usable Routers |
++| POST | `/api/v1/model-connections/` | Create with `consent: true`, name, provider, model, lifetime and allowance |
++| POST | `/api/v1/model-connections/{id}/permissions/` | Explicit batch: `agent_ids`, `ttl_seconds`, `max_requests`, `consent: true` |
++| POST | `/api/v1/model-connections/{id}/revoke/` | `confirm: true`; optional `permission_id` limits revocation to one Agent |
++
++Creation requires the `account_id` returned by GET to reject account changes
++between review and confirmation. It accepts `router_id` for Nexus; external providers accept `secret` and
++custom providers also require `base_url`. `ttl_seconds` is 300–2,592,000 and
++`max_requests` is 1–1,000,000. Defaults: one day / 500 total requests, one day /
++100 requests per Agent. A batch contains 1–100 distinct available enabled Agents.
++At most 32 non-revoked connections may be stored per account.
++
++## Deployment
++
++Migration `agents.0073_model_connections` is additive and follows the existing
++interactive-view migrations. Apply it before restarting web workers. Keep the
++old source and web assets for rollback; do not drop connection/grant data during
++an incident. Regression tests include a PostgreSQL four-way admission race,
++migration reverse/forward round trip, owner separation, caller-key binding,
++explicit confirmation, cross-Agent scope, streaming cleanup and secret redaction.
+diff --git a/nexus_server/tests/model_connections_page_state.cjs b/nexus_server/tests/model_connections_page_state.cjs
+new file mode 100644
+index 00000000..e9096629
+--- /dev/null
++++ b/nexus_server/tests/model_connections_page_state.cjs
+@@ -0,0 +1,34 @@
++// Exercise the browser API boundary against the production Nexus envelope.
++const fs = require('node:fs');
++const path = require('node:path');
++const vm = require('node:vm');
++const assert = require('node:assert/strict');
++const html = fs.readFileSync(path.join(__dirname, '../apps/agents/model_connections.html'), 'utf8');
++const script = html.slice(html.indexOf('async function api('), html.indexOf('\nfunction routers('));
++const elements = {login: {hidden: true}, content: {hidden: false}};
++let response, captured;
++const context = vm.createContext({
++  base: '/api/v1/model-connections/',
++  $: id => elements[id],
++  document: {cookie: 'csrftoken=test-csrf'},
++  fetch: async (url, options) => {captured = {url, options}; return response;},
++  Error, JSON, decodeURIComponent,
++});
++vm.runInContext(script, context);
++(async () => {
++  const catalog = {account_id: 'owner', account: 'Owner', connections: [], routers: [], agents: []};
++  response = {ok: true, status: 200, json: async () => ({success: true, data: catalog})};
++  assert.deepEqual(await context.api(), catalog);
++  assert.equal(captured.options.credentials, 'same-origin');
++  assert.equal(captured.options.cache, 'no-store');
++  response = {ok: true, status: 201, json: async () => ({data: {id: 'connection'}})};
++  assert.equal((await context.api('', {consent: true})).id, 'connection');
++  assert.equal(captured.options.headers['X-CSRFToken'], 'test-csrf');
++  response = {ok: false, status: 403, json: async () => ({error: {message: 'Sign in'}})};
++  await assert.rejects(context.api(), /Sign in/);
++  assert.equal(elements.login.hidden, false);
++  assert.equal(elements.content.hidden, true);
++  response = {ok: false, status: 400, json: async () => ({error: {message: 'Confirm selected Agents'}})};
++  await assert.rejects(context.api('id/permissions/', {}), /Confirm selected Agents/);
++  console.log('Model connections browser envelope, CSRF and authentication states: PASS');
++})().catch(error => { console.error(error); process.exitCode = 1; });
+diff --git a/nexus_server/tests/test_model_connections.py b/nexus_server/tests/test_model_connections.py
+new file mode 100644
+index 00000000..e46d65eb
+--- /dev/null
++++ b/nexus_server/tests/test_model_connections.py
+@@ -0,0 +1,286 @@
++import json
++from datetime import timedelta
++from types import SimpleNamespace
++from unittest.mock import patch, MagicMock
++from concurrent.futures import ThreadPoolExecutor
++from django.contrib.auth import get_user_model
++from django.db import connection, close_old_connections
++from django.test import TestCase, TransactionTestCase, override_settings
++from django.utils import timezone
++from rest_framework import exceptions
++from rest_framework.test import APIRequestFactory, force_authenticate
++from apps.common.crypto import decrypt_secret
++from apps.common.subjects import hash_token
++from apps.tenancy.models import Tenant, Membership
++from apps.agents.models import Agent, AgentDisplayRun, AgentCredentialAuthorization, AgentModelConnection, AgentModelPermission
++from apps.agents import credential_services as credentials, model_connections as service
++from apps.agents.model_connection_views import ModelProxyView, ConnectionsView, PermissionsView, RevokeView, ProxyStream, stream_live
++
++
++class Fixtures:
++    def setUp(self):
++        self.user=get_user_model().objects.create_user(username='connection-owner')
++        self.other=get_user_model().objects.create_user(username='other-owner')
++        self.tenant=Tenant.objects.create(name='Connections',slug='connections')
++        Membership.objects.create(user=self.user,tenant=self.tenant)
++        self.agents=[Agent.objects.create(name='Test agent '+str(i),tenant=self.tenant,created_by=self.user,status='active') for i in range(3)]
++        self.config=override_settings(NEXUS_PUBLIC_BASE_URL='https://cloud.example.test',
++            NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS=[str(a.pk) for a in self.agents],
++            NEXUS_IDENTITY_BACKEND='nexus_enterprise.identity.CommercialIdentityBackend')
++        self.config.enable();self.addCleanup(self.config.disable)
++        self.use=patch('apps.common.authorization.has_nexus_permission',return_value=True)
++        self.use.start();self.addCleanup(self.use.stop)
++        self.run=self.new_run()
++        self.factory=APIRequestFactory()
++
++    def new_run(self,agent=None,user=None):
++        return AgentDisplayRun.objects.create(agent=agent or self.agents[0],tenant=self.tenant,consumer_tenant=self.tenant,
++            run_kind='invocation',caller_principal_type='user',caller_principal_id=str((user or self.user).pk),
++            caller_subject_hash=hash_token(str(timezone.now())),status='running',
++            interaction_token_hash=hash_token('callback'),interaction_token_expires_at=timezone.now()+timedelta(hours=1))
++
++    def create(self,**kwargs):
++        value=service.create(self.user,dict(name='Default',provider='openai',model='model-a',secret='test-upstream-secret',
++            consent=True,max_requests=10,ttl_seconds=3600,**kwargs))
++        return AgentModelConnection.objects.get(pk=value['id'])
++
++    def grant(self,c=None,limit=5,agents=None):
++        c=c or self.create()
++        service.batch(self.user,c.pk,dict(consent=True,agent_ids=[str(a.pk) for a in (agents or self.agents[:2])],ttl_seconds=3600,max_requests=limit))
++        value=credentials.request_authorization(self.run.pk,'callback','openai',reuse_existing=True)
++        row=AgentCredentialAuthorization.objects.get(pk=value['authorization_id'])
++        return c,row,decrypt_secret(row.encrypted_secret)
++
++    def proxy(self,token,**data):
++        req=self.factory.post('/api/v1/agent-model-proxy/chat/completions',dict(model='model-a',messages=[],**data),format='json',HTTP_AUTHORIZATION='Bearer '+token)
++        return ModelProxyView.as_view()(req,operation='chat/completions')
++
++
++class ModelConnectionsTests(Fixtures,TestCase):
++    def test_malformed_permission_never_revokes_entire_connection(self):
++        c,row,token=self.grant()
++        for invalid in ('','not-a-uuid',{}):
++            with self.assertRaises(exceptions.ValidationError):service.revoke(self.user,c.pk,invalid)
++        c.refresh_from_db();self.assertIsNone(c.revoked_at)
++        service.admit(token,'model-a','responses')
++
++    def test_confirmation_and_atomic_batch_validation(self):
++        with self.assertRaises(exceptions.ValidationError):service.create(self.user,{'consent':False})
++        c=self.create()
++        with self.assertRaises(exceptions.ValidationError):service.batch(self.user,c.pk,{'consent':False})
++        with self.assertRaises(exceptions.PermissionDenied):service.batch(self.user,c.pk,dict(consent=True,agent_ids=[str(self.agents[0].pk),'unavailable']))
++        self.assertEqual(AgentModelPermission.objects.count(),0)
++        with self.assertRaises(exceptions.NotFound):service.batch(self.other,c.pk,{'consent':True})
++        with self.assertRaises(exceptions.NotFound):service.revoke(self.other,c.pk)
++
++    def test_same_agent_tools_new_login_and_conversations_reuse(self):
++        c,row,token=self.grant()
++        run=self.new_run()
++        value=credentials.request_authorization(run.pk,'callback','openai')
++        self.assertEqual(value['status'],'authorized')
++        self.assertEqual(value['connection_id'],str(c.pk))
++        resolved=credentials.internal_status(run.pk,'callback',value['authorization_id'],True)
++        self.assertTrue(resolved['secret'].startswith('nexus-model-proxy-'))
++        self.assertEqual(resolved['base_url'],'https://cloud.example.test/api/v1/agent-model-proxy')
++        self.assertNotIn('test-upstream-secret',json.dumps(value))
++        self.assertEqual(list(credentials.saved_grants(row)),[])
++
++    def test_explicit_batch_permission_takes_priority_over_older_one_time_grant(self):
++        from apps.common.crypto import encrypt_secret
++        old=AgentCredentialAuthorization.objects.create(run=self.run,owner=self.user,provider='openai',
++            base_url='https://api.openai.com/v1',model_name='model-a',status='authorized',
++            encrypted_secret=encrypt_secret('legacy-test-secret'),expires_at=timezone.now()+timedelta(hours=1))
++        c,row,token=self.grant()
++        self.assertEqual(row.pk,old.pk)
++        self.assertEqual(row.model_permission.connection_id,c.pk)
++        self.assertTrue(token.startswith('nexus-model-proxy-'))
++        self.assertNotEqual(token,'legacy-test-secret')
++
++    def test_batch_second_agent_and_unselected_agent(self):
++        c,row,token=self.grant()
++        second=self.new_run(agent=self.agents[1]);third=self.new_run(agent=self.agents[2])
++        self.assertEqual(credentials.request_authorization(second.pk,'callback','openai')['status'],'authorized')
++        self.assertEqual(credentials.request_authorization(third.pk,'callback','openai')['status'],'pending')
++        other=self.new_run(user=self.other)
++        self.assertEqual(credentials.request_authorization(other.pk,'callback','openai')['status'],'pending')
++        with self.assertRaises(exceptions.NotFound):credentials.internal_status(other.pk,'callback',row.pk,True)
++
++    def test_pending_request_resumes_after_batch_approval(self):
++        pending=credentials.request_authorization(self.run.pk,'callback','openai')
++        c,row,token=self.grant()
++        self.assertEqual(str(row.pk),pending['authorization_id'])
++        # Independent pending request picks up the same approved connection.
++        run=self.new_run(agent=self.agents[1])
++        pendingrow=AgentCredentialAuthorization.objects.create(run=run,owner=self.user,provider='openai',
++            base_url='https://api.openai.com/v1',expires_at=timezone.now()+timedelta(minutes=10))
++        self.assertTrue(credentials.internal_status(run.pk,'callback',pendingrow.pk,True)['secret'].startswith('nexus-model-proxy-'))
++
++    def test_owner_binding_is_rechecked_on_every_admission(self):
++        c,row,token=self.grant()
++        AgentDisplayRun.objects.filter(pk=self.run.pk).update(caller_principal_id=str(self.other.pk))
++        with self.assertRaises(exceptions.AuthenticationFailed):service.admit(token,'model-a','responses')
++
++    def test_same_personal_key_reuses_but_unbound_key_cannot(self):
++        from apps.api_keys.models import APIKey,AgentCredentialVault
++        key=APIKey.objects.create(tenant=self.tenant,name='Personal',created_by=self.user,key_prefix='test',key_hash=hash_token('api-test'))
++        AgentCredentialVault.objects.create(api_key=key,owner=self.user,agent=self.agents[0],tenant=self.tenant,project_scope='')
++        c,row,token=self.grant()
++        run=self.new_run();run.caller_principal_type='api_key';run.caller_principal_id=str(key.pk);run.save()
++        first=credentials.request_authorization(run.pk,'callback','openai')
++        run2=self.new_run();run2.caller_principal_type='api_key_external';run2.caller_principal_id=str(key.pk);run2.save()
++        self.assertEqual(credentials.request_authorization(run2.pk,'callback','openai')['connection_id'],first['connection_id'])
++        AgentCredentialVault.objects.all().delete()
++        with self.assertRaises(exceptions.PermissionDenied):credentials.request_authorization(run2.pk,'callback','openai')
++
++    def test_limits_expiry_and_scope_without_consuming_denials(self):
++        c,row,token=self.grant(limit=1)
++        for model,op in [('wrong','responses'),('model-a','v1/messages')]:
++            with self.assertRaises(exceptions.PermissionDenied):service.admit(token,model,op)
++        c.refresh_from_db();self.assertEqual(c.requests_used,0)
++        service.admit(token,'model-a','responses')
++        self.assertTrue(stream_live(row)) # final permitted request can complete
++        with self.assertRaises(exceptions.Throttled):service.admit(token,'model-a','responses')
++        c.refresh_from_db();self.assertEqual(c.requests_used,1)
++        AgentModelConnection.objects.filter(pk=c.pk).update(expires_at=timezone.now()-timedelta(seconds=1))
++        self.assertFalse(stream_live(row))
++        self.assertEqual(credentials.public(row)['status'],'expired')
++
++    def test_total_budget_shared_between_agents(self):
++        c=self.create();c.max_requests=1;c.save()
++        c,row,token=self.grant(c)
++        run=self.new_run(agent=self.agents[1]);value=credentials.request_authorization(run.pk,'callback','openai')
++        token2=credentials.internal_status(run.pk,'callback',value['authorization_id'],True)['secret']
++        service.admit(token,'model-a','responses')
++        with self.assertRaises(exceptions.Throttled):service.admit(token2,'model-a','responses')
++
++    def test_reapproval_never_revives_old_tokens_or_resets_usage(self):
++        c,row,token=self.grant()
++        service.admit(token,'model-a','responses')
++        p=row.model_permission;service.revoke(self.user,c.pk,p.pk)
++        with self.assertRaises(exceptions.AuthenticationFailed):service.admit(token,'model-a','responses')
++        service.batch(self.user,c.pk,dict(consent=True,agent_ids=[str(self.agents[0].pk)],max_requests=5))
++        with self.assertRaises(exceptions.AuthenticationFailed):service.admit(token,'model-a','responses')
++        fresh=credentials.request_authorization(self.new_run().pk,'callback','openai')
++        self.assertEqual(fresh['status'],'authorized')
++        p.refresh_from_db();self.assertEqual(p.requests_used,1)
++        service.revoke(self.user,c.pk);self.assertFalse(stream_live(row))
++
++    def test_explicit_model_and_endpoint_are_not_silently_changed(self):
++        c,row,token=self.grant()
++        run=self.new_run()
++        result=credentials.request_authorization(run.pk,'callback','openai',model='different-model')
++        self.assertEqual(result['status'],'pending')
++        self.assertEqual(result['model'],'different-model')
++
++    def test_ssrf_and_strict_allowance_validation(self):
++        for value in [True,0,-1,1000001,'500']:
++            with self.assertRaises(exceptions.ValidationError):service.integer(value,1,1000000,'limit')
++        with self.assertRaises(exceptions.ValidationError):service.create(self.user,dict(consent=True,provider='custom_openai',base_url='https://127.0.0.1/v1',model='a'))
++
++    def test_proxy_no_secret_leak_or_forwarded_caller_headers(self):
++        c,row,token=self.grant()
++        upstream=MagicMock();upstream.headers={'Content-Type':'application/json'};upstream.read.return_value=b'{"echo":"test-upstream-secret"}'
++        cm=MagicMock();cm.__enter__.return_value=upstream
++        with patch('apps.agents.model_connection_views.open_provider_url',return_value=cm) as transport:
++            response=self.proxy(token)
++        self.assertEqual(response.status_code,200)
++        self.assertNotIn(b'test-upstream-secret',response.content)
++        options=transport.call_args.kwargs
++        self.assertTrue(options['public_https_only']);self.assertEqual(options['headers']['Authorization'],'Bearer test-upstream-secret')
++        self.assertNotIn(token,json.dumps(options,default=str));cm.__exit__.assert_called_once()
++
++    def test_streaming_closes_before_first_read_and_on_revocation(self):
++        c,row,token=self.grant();upstream=MagicMock();upstream.headers={'Content-Type':'text/event-stream'}
++        cm=MagicMock();cm.__enter__.return_value=upstream
++        with patch('apps.agents.model_connection_views.open_provider_url',return_value=cm):response=self.proxy(token,stream=True)
++        self.assertTrue(response.is_async)
++        with patch('django.http.response.signals.request_finished.send'):response.close()
++        cm.__exit__.assert_called_once();upstream.read1.assert_not_called()
++        upstream.read1.side_effect=[b'data: first\n\n',b'data: second\n\n'];cm.reset_mock()
++        stream=ProxyStream(upstream,cm,'test-upstream-secret',row)
++        self.assertEqual(next(stream),b'data: first\n\n')
++        service.revoke(self.user,c.pk)
++        with self.assertRaises(StopIteration):next(stream)
++        cm.__exit__.assert_called_once()
++
++    def test_stream_key_split_at_every_byte_and_sse_latency(self):
++        c,row,token=self.grant();key='test-upstream-secret'
++        for split in range(1,len(key)):
++            upstream=MagicMock();upstream.read1.side_effect=[b'data: '+key[:split].encode(),key[split:].encode()+b'\n\n',b'']
++            cm=MagicMock();stream=ProxyStream(upstream,cm,key,row)
++            self.assertEqual(b''.join(stream),b'data: [REDACTED]\n\n');cm.__exit__.assert_called_once()
++        upstream=MagicMock();upstream.read1.side_effect=[b'data: a\n\n',b'']
++        stream=ProxyStream(upstream,MagicMock(),key,row)
++        self.assertEqual(next(stream),b'data: a\n\n');stream.close()
++
++    def test_management_needs_account_and_lists_only_owner(self):
++        c,row,token=self.grant()
++        req=self.factory.get('/api/v1/model-connections/')
++        self.assertEqual(ConnectionsView.as_view()(req).status_code,403)
++        force_authenticate(req,user=self.other)
++        self.assertEqual(ConnectionsView.as_view()(req).data['connections'],[])
++        req=self.factory.post('/api/v1/model-connections/'+str(c.pk)+'/revoke/',{'confirm':True},format='json')
++        force_authenticate(req,user=self.other)
++        self.assertEqual(RevokeView.as_view()(req,connection_id=c.pk).status_code,404)
++
++    def test_management_session_requires_csrf_and_page_does_not_reveal_data(self):
++        from django.test import Client
++        client=Client(enforce_csrf_checks=True)
++        client.force_login(self.user)
++        page=client.get('/api/v1/model-connections/page/')
++        self.assertEqual(page.status_code,200)
++        self.assertIn('no-store',page['Cache-Control'])
++        self.assertIn('nonce-',page['Content-Security-Policy'])
++        data=dict(account_id=str(self.user.pk),name='Browser',provider='openai',model='model-a',secret='test-upstream-secret',consent=True)
++        denied=client.post('/api/v1/model-connections/',data,content_type='application/json')
++        self.assertEqual(denied.status_code,403)
++        ok=client.post('/api/v1/model-connections/',data,content_type='application/json',HTTP_X_CSRFTOKEN=client.cookies['csrftoken'].value)
++        self.assertEqual(ok.status_code,201)
++        self.assertNotIn(b'test-upstream-secret',ok.content)
++
++    def test_failed_dispatch_consumes_one_request_and_no_automatic_retry(self):
++        c,row,token=self.grant()
++        cm=MagicMock();cm.__enter__.side_effect=TimeoutError('secret must not be reflected')
++        with patch('apps.agents.model_connection_views.open_provider_url',return_value=cm) as upstream:
++            response=self.proxy(token)
++        self.assertEqual(response.status_code,502);upstream.assert_called_once()
++        self.assertNotIn('secret',json.dumps(response.data))
++        c.refresh_from_db();self.assertEqual(c.requests_used,1)
++
++    def test_invalid_proxy_payload_does_not_charge(self):
++        c,row,token=self.grant()
++        self.assertEqual(self.proxy(token,stream=1).status_code,400)
++        self.assertEqual(self.proxy(token,background=True).status_code,400)
++        c.refresh_from_db();self.assertEqual(c.requests_used,0)
++
++    def test_nexus_uses_own_router_and_revokes_server_key(self):
++        from apps.routers.models import Router
++        from apps.api_keys.models import APIKey
++        router=Router.objects.create(name='Own',tenant=self.tenant,created_by=self.user,status='deployed')
++        with patch('apps.agents.credential_router.available_for_user',return_value=[{'router_id':str(router.pk),'models':['model-a']}]) as catalog:
++            value=service.create(self.user,dict(name='Own Router',provider='nexus',router_id=str(router.pk),model='model-a',consent=True))
++            c=AgentModelConnection.objects.get(pk=value['id']);self.grant(c)
++            run=self.new_run();v=credentials.request_authorization(run.pk,'callback','nexus')
++            token=credentials.internal_status(run.pk,'callback',v['authorization_id'],True)['secret']
++            self.assertNotEqual(token,decrypt_secret(c.encrypted_secret))
++            service.admit(token,'model-a','responses')
++            catalog.return_value=[]
++            with self.assertRaises(exceptions.PermissionDenied):service.admit(token,'model-a','responses')
++        service.revoke(self.user,c.pk);self.assertEqual(APIKey.objects.get(pk=c.issued_key_id).status,'revoked')
++
++
++class ConcurrentModelBudgetTests(Fixtures,TransactionTestCase):
++    def test_parallel_requests_cannot_exceed_last_slot(self):
++        if connection.vendor!='postgresql':self.skipTest('Row-lock contention requires PostgreSQL')
++        c,row,token=self.grant(limit=1)
++        from threading import Barrier
++        barrier=Barrier(4)
++        def request_one(_):
++            close_old_connections();barrier.wait()
++            try:service.admit(token,'model-a','responses');return 'admitted'
++            except exceptions.Throttled:return 'limited'
++            finally:close_old_connections()
++        with ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(request_one,range(4)))
++        self.assertEqual(results.count('admitted'),1)
++        self.assertEqual(results.count('limited'),3)
++        c.refresh_from_db();self.assertEqual(c.requests_used,1)
+diff --git a/nexus_web/src/components/AgentConnectPanel.tsx b/nexus_web/src/components/AgentConnectPanel.tsx
+index 49f014ab..e86e8cc4 100644
+--- a/nexus_web/src/components/AgentConnectPanel.tsx
++++ b/nexus_web/src/components/AgentConnectPanel.tsx
+@@ -35,9 +35,9 @@ function ConnectPanel({ agentId, apiContext, canManageKey = true, workspaceName,
+     }).finally(() => { if (current) setLoading(false); });
+     return () => { current = false; };
+   }, [agentId, apiContext.token, apiContext.tenantId, apiContext.projectId, attempt]);
+-  return <AgentMcpSetup config={config} plaintextKey={plaintextKey} loading={loading} error={error}
++  return <><AgentMcpSetup config={config} plaintextKey={plaintextKey} loading={loading} error={error}
+     onLoad={retry} workspaceName={workspaceName} projectName={projectName}
+     credentials={canManageKey
+       ? <AgentAPIAccessPanel agentId={agentId} apiContext={apiContext} onKey={setPlaintextKey} />
+-      : <p className="text-sm text-muted">{t("Use an existing authorized API key. Key management requires additional permission.")}</p>} />;
++      : <p className="text-sm text-muted">{t("Use an existing authorized API key. Key management requires additional permission.")}</p>} /><p className="text-sm text-muted"><a href="/api/v1/model-connections/page/" target="_blank" rel="noopener noreferrer">{t("Model connections")}</a> · {t("Authorize multiple Agents with one model connection.")}</p></>;
+ }
