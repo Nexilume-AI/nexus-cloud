@@ -262,6 +262,11 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
 
     def models_url(self, base_url: str) -> str:
         url = base_url.rstrip("/")
+        # Sources also accept the full chat endpoint. Its catalog is a sibling,
+        # not /chat/completions/models; probing the latter falsely degrades a
+        # working Source and causes an unnecessary billable chat fallback.
+        if url.endswith("/chat/completions"):
+            url = url[: -len("/chat/completions")]
         if not url.endswith("/models"):
             url = f"{url}/models"
         return url
