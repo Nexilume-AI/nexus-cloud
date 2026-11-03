@@ -237,7 +237,7 @@ Choose the edition for your deployment:
 | --- | --- | --- |
 | Intended use | Authenticated, single-owner self-hosting | Organization and commercial operations |
 | Agents, Private Display, model routing, Data Assets and device integrations | Shared product capabilities; setup required | Shared product capabilities; setup required |
-| Access administration | Not included | Organization / Project roles and machine identities |
+| Access administration | Not included | Organization / Project roles, [adding people and sharing](docs/hosted/access-people.md), and machine identities |
 | Billing and TokenBank | Not included | Commercial billing and accounting capabilities |
 | Agent, model and data Marketplaces | Not included | Marketplace workflows |
 | Source distribution | Source-available community source in this repository | Separately distributed proprietary implementation |
