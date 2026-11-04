@@ -12,6 +12,7 @@ TASK_MODULES = (
 )
 
 BEAT_SCHEDULE = {
+    "personal-models-dev": {"task": "apps.gateway.tasks.refresh_models_dev", "schedule": 21600.0},
     "personal-monitor-collector": {"task": "apps.metrics.operational_tasks.collect_snapshots", "schedule": 300.0},
     "personal-monitor-evaluator": {"task": "apps.metrics.operational_tasks.evaluate_rules", "schedule": 60.0},
     "personal-monitor-delivery": {"task": "apps.metrics.operational_tasks.deliver_notifications", "schedule": 30.0},

@@ -16,7 +16,9 @@ from .resource_catalog import PersonalResourceCatalog
 
 PREFIX = "np-router-"
 CATALOG_ROUTES = {"openai-compatible-models", "openai-compatible-models-slash",
-                  "claude-compatible-models", "claude-compatible-models-slash"}
+                  "claude-compatible-models", "claude-compatible-models-slash",
+                  "gateway-model-info", "gateway-model-info-slash",
+                  "gateway-model-info-unversioned", "gateway-model-info-unversioned-slash"}
 CALL_ROUTES = {"gateway-chat-completions", "openai-compatible-chat-completions",
                "openai-compatible-chat-completions-slash", "openai-compatible-responses",
                "openai-compatible-responses-slash", "claude-compatible-messages",

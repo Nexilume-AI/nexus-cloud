@@ -154,6 +154,8 @@ def refresh_provider_runtime_model_offer(*, request, runtime_id: str, offer_id: 
             raise ProviderProbeConflict()
         if declared_contract is not None:
             offer.metadata = {**(offer.metadata or {}), "model_contract": declared_contract}
+        from .model_info import retain_capacity
+        retain_capacity(offer, runtime)
         if advertised:
             if not offer.canonical_model_id:
                 offer.canonical_model = _canonical_model_for_upstream(offer.upstream_model_id)
@@ -454,6 +456,8 @@ def refresh_runtime_model_offers(
             declared_contract = contracts.get(upstream_model_id)
             if declared_contract is not None:
                 offer.metadata = {**(offer.metadata or {}), "model_contract": declared_contract}
+            from .model_info import retain_capacity
+            retain_capacity(offer, runtime)
             if upstream_model_id in probes:
                 _apply_model_probe(offer, probes[upstream_model_id], now)
                 if bounded_probes and probes[upstream_model_id][1] == MODEL_PROBE_SKIPPED:
@@ -651,6 +655,17 @@ def discover_runtime_model_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
     if not isinstance(rows, list):
         raise ProviderRuntimeError("Provider model catalog must return a data array.")
     advertised = [str(row.get("id") or "").strip() for row in rows if isinstance(row, dict)]
+    from apps.gateway.model_metadata import LIMITS, normalize
+    from .model_info import read_optional_info
+    capacities = {str(row.get("id") or "").strip(): normalize(row) for row in rows if isinstance(row, dict)}
+    runtime._discovered_model_capacities = capacities
+    if getattr(settings, "NEXUS_PROVIDER_MODEL_INFO_ENABLED", True) and any(
+            any(values.get(field) is None for field in LIMITS) for values in capacities.values()):
+        extra = read_optional_info(base_url, headers)
+        for model_id, values in capacities.items():
+            for field, value in extra.get(model_id, {}).items():
+                if values.get(field) is None and value is not None:
+                    values[field] = value
     from apps.gateway.image_serializers import ModelContractSerializer
     runtime._discovered_model_contracts = {}
     for row in rows:

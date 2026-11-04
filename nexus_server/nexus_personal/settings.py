@@ -7,6 +7,10 @@ from .host_config import load_config
 
 _host = load_config(os.environ)
 BASE_DIR = Path(__file__).resolve().parents[1]
+import json as _json
+NEXUS_MODELS_DEV_CACHE_PATH = os.environ.get("NEXUS_MODELS_DEV_CACHE_PATH", "")
+NEXUS_MODELS_DEV_PROVIDER_MAP = _json.loads(os.environ.get("NEXUS_MODELS_DEV_PROVIDER_MAP", "{}"))
+NEXUS_PROVIDER_MODEL_INFO_ENABLED = os.environ.get("NEXUS_PROVIDER_MODEL_INFO_ENABLED", "1") == "1"
 SECRET_KEY = _host["secret_key"]
 NEXUS_SECRET_ENCRYPTION_KEYS = _host["encryption_key"]
 NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS = tuple(item.strip() for item in os.environ.get("NEXUS_AGENT_CREDENTIAL_ENABLED_AGENTS", "").split(",") if item.strip())

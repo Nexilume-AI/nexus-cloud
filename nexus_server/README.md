@@ -43,3 +43,8 @@ because a configuration file exists.
 Community runtime code and the Python SDK use Apache License 2.0 (modified). Third-party components
 retain their own licenses. Commercial features and the commercial deployment
 entrypoints are not included in this distribution.
+
+## Model discovery
+
+The [LiteLLM v1 model discovery guide](docs/model-info.md) covers capacity metadata,
+exact models.dev fallback, scoped Router credentials and third-party client tests.

@@ -213,3 +213,24 @@ pool_contribution_has_capacity = _no_marketplace
 pool_tokens_since = _no_marketplace
 pool_reserved_tokens_since = _no_marketplace
 pool_contribution_for_deployment = _no_marketplace
+def model_info_targets(*, request):
+    from .gateway_catalog import model_rows
+    from .router_credentials import current_credential
+    from .resource_catalog import PersonalResourceCatalog
+    from apps.common.request_context import get_tenant_from_request
+    from apps.deployments.models import ModelGroup
+    from apps.routers.models import Router
+    from apps.gateway.model_info import router_groups
+    rows = model_rows(request)  # Enforces owner, project and credential scopes.
+    tenant = get_tenant_from_request(request)
+    credential = current_credential(request)
+    router_id = str(credential.router_id) if credential else request.query_params.get("router_id")
+    if router_id:
+        router = Router.objects.get(pk=router_id, tenant=tenant)
+        return {row["id"]: router_groups(router, row["id"]) for row in rows}
+    groups = PersonalResourceCatalog().discoverable_resource_queryset(ModelGroup.objects.all(), request=request,
+        tenant=tenant, resource_type="model_group").filter(status="active").order_by("name", "created_at")
+    by_name = {}
+    for group in groups:
+        by_name.setdefault(group.name, [group])
+    return {row["id"]: by_name[row["id"]] for row in rows}

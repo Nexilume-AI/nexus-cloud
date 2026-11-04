@@ -3,9 +3,14 @@ from django.urls import path
 from .views import ChatCompletionsView
 from .openai_compat import OpenAIChatCompletionsView, OpenAIModelsView, OpenAIResponsesView
 from .claude_compat import ClaudeMessagesView, ClaudeModelsView
+from .model_info import ModelInfoView
 
 
 urlpatterns = [
+    path("openai/model/info", ModelInfoView.as_view(), name="gateway-model-info-unversioned"),
+    path("openai/model/info/", ModelInfoView.as_view(), name="gateway-model-info-unversioned-slash"),
+    path("openai/v1/model/info", ModelInfoView.as_view(), name="gateway-model-info"),
+    path("openai/v1/model/info/", ModelInfoView.as_view(), name="gateway-model-info-slash"),
     path("chat/completions/", ChatCompletionsView.as_view(), name="gateway-chat-completions"),
     path("openai/v1/chat/completions", OpenAIChatCompletionsView.as_view(), name="openai-compatible-chat-completions"),
     path("openai/v1/chat/completions/", OpenAIChatCompletionsView.as_view(), name="openai-compatible-chat-completions-slash"),
