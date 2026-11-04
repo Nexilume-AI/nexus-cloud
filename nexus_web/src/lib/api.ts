@@ -735,6 +735,19 @@ export const api = {
       ctx,
     ),
 
+  sourceModelReference: (ctx: ApiContext, id: string) => request<import("./modelReference").SourceModelReference>(
+    `/api/v1/deployments/${encodeURIComponent(id)}/model-reference/`, {}, ctx),
+  providerModelReference: (ctx: ApiContext, id: string, offer: string) => request<import("./modelReference").SourceModelReference>(
+    `/api/v1/provider-connections/${encodeURIComponent(id)}/models/${encodeURIComponent(offer)}/model-reference/`, {}, ctx),
+  saveProviderModelReference: (ctx: ApiContext, id: string, offer: string, mapping: import("./modelReference").ModelReferenceIdentity | null,
+    expected_mapping: import("./modelReference").ModelReferenceIdentity | null) => request<import("./modelReference").SourceModelReference>(
+    `/api/v1/provider-connections/${encodeURIComponent(id)}/models/${encodeURIComponent(offer)}/model-reference/`, { method: "PATCH", body: JSON.stringify({ mapping, expected_mapping }) }, ctx),
+  saveSourceModelReference: (ctx: ApiContext, id: string, mapping: import("./modelReference").ModelReferenceIdentity | null,
+    expected_mapping: import("./modelReference").ModelReferenceIdentity | null) => request<import("./modelReference").SourceModelReference>(
+    `/api/v1/deployments/${encodeURIComponent(id)}/model-reference/`, { method: "PATCH", body: JSON.stringify({ mapping, expected_mapping }) }, ctx),
+  modelReferenceCatalog: (ctx: ApiContext, provider: string, q: string, offset = 0) => request<import("./modelReference").ModelReferenceCatalog>(
+    `/api/v1/model-reference-catalog/?${new URLSearchParams({ provider, q, offset: String(offset) })}`, {}, ctx),
+
   deploymentStatus: (ctx: ApiContext) =>
     request<Deployment[]>(
       `/api/v1/deployments/status/?view_scope=${ctx.projectId ? "current" : "all"}`,

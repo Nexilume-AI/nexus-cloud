@@ -1,3 +1,4 @@
+import { SourceModelReference } from "../components/SourceModelReference";
 import { t, useLocale, getLocale } from "../localization";
 import { ProviderFact as Fact, DialogActions, providerRuntimeId, errorToast } from "../components/ProviderPresentation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -533,6 +534,7 @@ function RuntimeInspector({
   const navigate = useNavigate();
   const loginPollGeneration = useRef(0);
   const [editingOffer, setEditingOffer] = useState<ProviderRuntimeModelOffer | null>(null);
+  const [referenceOffer, setReferenceOffer] = useState<ProviderRuntimeModelOffer | null>(null);
   const [editProviderOpen, setEditProviderOpen] = useState(false);
   const execution = useProviderExecutionSetup(provider.engine);
   const refresh = useMutation({
@@ -790,6 +792,7 @@ function RuntimeInspector({
                       className={refreshOffer.isPending && refreshOffer.variables === offer.id ? "animate-spin" : ""}
                     />{t("Refresh")}</button>
                   {publishing && <button className="btn" onClick={() => setEditingOffer(offer)}>{t("Edit")}</button>}
+                  <button className="btn" onClick={() => setReferenceOffer(offer)} aria-label={t("Model capacity reference") + ": " + offer.upstream_model_id}>{t("Model capacity")}</button>
                   {!offer.source_ids.length && (
                     <button
                       className="btn"
@@ -824,6 +827,9 @@ function RuntimeInspector({
         offer={editingOffer}
         onClose={() => setEditingOffer(null)}
       />
+      <NexilumeDialog open={!!referenceOffer} title={referenceOffer?.upstream_model_id || t("Model capacity")} onClose={() => setReferenceOffer(null)}>
+        {referenceOffer && <SourceModelReference key={provider.id + referenceOffer.id} providerId={provider.id} offerId={referenceOffer.id} />}
+      </NexilumeDialog>
       <EditProviderDialog
         provider={provider}
         open={editProviderOpen}

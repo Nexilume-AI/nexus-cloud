@@ -108,6 +108,33 @@ Otherwise `Provider.name` and `Deployment.upstream_model_id` are used exactly.
 Provider-name mappings. Never map an arbitrary multi-provider gateway to one lab
 without checking its deployments. Source-specific mappings are safer.
 
+### Configure references in the console
+
+Open **Providers → Models → Model capacity**. Search the cached models.dev
+Provider IDs, select a provider, then search and select an exact model ID.
+The preview shows reference context/input/output capacity and catalog timestamp.
+**Enter IDs manually** accepts an exact pair even when it is absent from the
+cache; an unmatched identity never invents capacity. **Restore default** removes
+the Provider model mapping. Discovery refresh preserves the mapping.
+
+Sources inherit their Provider model mapping. **Model Pool → Sources → Model
+capacity reference** can override it for one Source; **Restore inheritance**
+removes that override. These metadata identities do not change upstream model
+IDs, routing, credentials, pricing, or inference budgets. Administrator/upstream
+priority and conservative Router aggregation still apply.
+
+Authenticated console endpoints (not Gateway model credentials):
+- `GET /api/v1/model-reference-catalog/?q=...&provider=...&offset=0`:
+  cached providers, or models for an exact provider; 50 results per page.
+- `GET/PATCH /api/v1/provider-connections/{id}/models/{offer_id}/model-reference/`
+- `GET/PATCH /api/v1/deployments/{id}/model-reference/`
+
+PATCH requires `mapping` and `expected_mapping` (both an exact
+`{"provider":"...","model":"..."}` pair or `null`). `null` restores the default.
+Stale updates return 409; reload before resubmitting. Read/edit permissions are
+checked against the specific Provider/Source. Provider mappings are shared by
+its associated Sources, while Source overrides never mutate another Source.
+
 ## Snapshot operations
 
 Both hosts schedule `apps.gateway.tasks.refresh_models_dev` every six hours.

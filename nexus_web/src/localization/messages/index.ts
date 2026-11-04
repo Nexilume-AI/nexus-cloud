@@ -1,3 +1,4 @@
+import modelReference from "./model-reference.json";
 import type { Messages } from "../model";
 import publisherBadges from "./publisher-badges.json";
 import emailAccount from "./email-account.json";
@@ -95,6 +96,7 @@ import group90 from "./tool-setup-panel.json";
 import group91 from "./tool-setup-pending-change.json";
 
 export const messages: Messages = {
+  ...modelReference,
   ...publisherBadges,
   ...emailAccount,
   ...group0,

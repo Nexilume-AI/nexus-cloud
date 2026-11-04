@@ -72,6 +72,7 @@ class Deployment(SoftDeleteModel):
         related_name="sources",
     )
     upstream_model_id = models.CharField(max_length=255)
+    models_dev_mapping = models.JSONField(null=True, blank=True, default=None)
     provider_runtime = models.ForeignKey(
         "providers.ProviderRuntimeAccount",
         on_delete=models.SET_NULL,

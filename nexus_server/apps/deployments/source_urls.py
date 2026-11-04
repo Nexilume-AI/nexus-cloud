@@ -1,5 +1,6 @@
 """Source/Pool operations and topology over the installed Router schema."""
 from django.urls import path
+from .model_reference import ModelReferenceCatalogView, SourceModelReferenceView
 from .topology_views import TopologyView
 from .source_views import (
     DeploymentListCreateView,
@@ -19,6 +20,8 @@ from .source_views import (
 )
 
 urlpatterns = [
+    path("model-reference-catalog/", ModelReferenceCatalogView.as_view(), name="model-reference-catalog"),
+    path("deployments/<str:deployment_id>/model-reference/", SourceModelReferenceView.as_view(), name="source-model-reference"),
     path("topology/", TopologyView.as_view(), name="topology"),
     path("deployments/", DeploymentListCreateView.as_view(), name="deployments"),
     path("model-sources/batch/", ModelSourceBatchView.as_view(), name="model-sources-batch"),

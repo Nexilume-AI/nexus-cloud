@@ -30,6 +30,7 @@ import type {
 } from "../lib/types";
 import { formatDate, formatMoney } from "../lib/format";
 import { EmptyState } from "../components/EmptyState";
+import { SourceModelReference } from "../components/SourceModelReference";
 import { StatusBadge } from "../components/Badge";
 import { NexilumeTopology } from "../components/NexilumeTopology";
 import { NexilumeDialog, NexilumeTabs } from "../components/NexilumeControls";
@@ -886,6 +887,7 @@ function SourceOperationsSurface({
             </strong>
           </div>
         </div>
+        <SourceModelReference key={selected.id} sourceId={selected.id} />
         <section className="model-source-memberships">
           <div>
             <span className="model-pool-section-label">{t("Pool membership")}</span>

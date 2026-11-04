@@ -38,6 +38,17 @@ def router_groups(router, name):
             .select_related("model_group") if binding.model_group and binding.model_group.name == name]
 
 
+def source_reference_identity(source):
+    override = getattr(source, "models_dev_mapping", None)
+    if override is not None:
+        return override
+    metadata = mapping(getattr(getattr(source, "runtime_model_offer", None), "metadata", None))
+    override = mapping(metadata.get("models_dev"))
+    providers = mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {}))
+    return {"provider": override.get("provider") or providers.get(source.provider.name, source.provider.name),
+            "model": override.get("model") or source.upstream_model_id}
+
+
 def source_fields(source, catalog):
     offer = getattr(source, "runtime_model_offer", None)
     metadata = mapping(getattr(offer, "metadata", None))
@@ -48,10 +59,8 @@ def source_fields(source, catalog):
     canonical = source.canonical_model
     canonical_metadata = mapping(canonical.metadata)
     explicit = mapping(canonical_metadata.get("capacity_override"))
-    mapping_override = mapping(metadata.get("models_dev"))
-    provider_map = mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {}))
-    provider_id = mapping_override.get("provider") or provider_map.get(source.provider.name, source.provider.name)
-    model_id = mapping_override.get("model") or source.upstream_model_id
+    identity = source_reference_identity(source)
+    provider_id, model_id = identity.get("provider"), identity.get("model")
     reference = models_dev.lookup(catalog, provider_id, model_id) if isinstance(provider_id, str) and isinstance(model_id, str) else {}
     reference = {**reference, "reasoning": {"supported": reference.get("reasoning_supported"),
                  "efforts": reference.get("reasoning_efforts"), "included_in_output": reference.get("reasoning_in_output")}}
