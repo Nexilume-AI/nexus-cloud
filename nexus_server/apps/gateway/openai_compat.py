@@ -110,6 +110,8 @@ def responses_payload_to_chat_payload(payload: dict[str, Any]) -> dict[str, Any]
         chat_payload["router_id"] = payload["router_id"]
     if payload.get("metadata"):
         chat_payload["metadata"] = payload["metadata"]
+    if "effort" in payload.get("reasoning", {}):
+        chat_payload["reasoning_effort"] = payload["reasoning"]["effort"]
     return chat_payload
 
 

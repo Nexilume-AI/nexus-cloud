@@ -737,6 +737,12 @@ export const api = {
 
   sourceModelReference: (ctx: ApiContext, id: string) => request<import("./modelReference").SourceModelReference>(
     `/api/v1/deployments/${encodeURIComponent(id)}/model-reference/`, {}, ctx),
+  modelCapabilities: (ctx: ApiContext, path: string) => request<import("./modelCapabilities").ModelCapabilities>(path, {}, ctx),
+  saveModelCapabilities: (ctx: ApiContext, path: string, override: import("./modelCapabilities").CapabilityOverride | null,
+    expected_override: import("./modelCapabilities").CapabilityOverride | null) => request<import("./modelCapabilities").ModelCapabilities>(
+    path, { method: "PATCH", body: JSON.stringify({ override, expected_override }) }, ctx),
+  refreshModelCapabilities: (ctx: ApiContext, path: string) => request<import("./modelCapabilities").ModelCapabilities>(
+    path, { method: "POST", body: "{}" }, ctx),
   providerModelReference: (ctx: ApiContext, id: string, offer: string) => request<import("./modelReference").SourceModelReference>(
     `/api/v1/provider-connections/${encodeURIComponent(id)}/models/${encodeURIComponent(offer)}/model-reference/`, {}, ctx),
   saveProviderModelReference: (ctx: ApiContext, id: string, offer: string, mapping: import("./modelReference").ModelReferenceIdentity | null,

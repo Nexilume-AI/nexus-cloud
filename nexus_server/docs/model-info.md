@@ -1,4 +1,4 @@
-# Model capacity discovery
+# Model capacity and reasoning discovery
 
 `GET /api/v1/openai/v1/model/info` implements LiteLLM v1 model discovery.
 The unversioned alias `/api/v1/openai/model/info` and both trailing-slash forms
@@ -110,7 +110,7 @@ without checking its deployments. Source-specific mappings are safer.
 
 ### Configure references in the console
 
-Open **Providers → Models → Model capacity**. Search the cached models.dev
+Open **Providers → Models → Model capabilities**. Search the cached models.dev
 Provider IDs, select a provider, then search and select an exact model ID.
 The preview shows reference context/input/output capacity and catalog timestamp.
 **Enter IDs manually** accepts an exact pair even when it is absent from the
@@ -135,6 +135,65 @@ Stale updates return 409; reload before resubmitting. Read/edit permissions are
 checked against the specific Provider/Source. Provider mappings are shared by
 its associated Sources, while Source overrides never mutate another Source.
 
+### Configure capacity and reasoning overrides
+
+The same **Model capabilities** panel displays effective capacity, reasoning
+support, selectable effort levels, the advertised default, and source/freshness
+information. **Refresh from upstream** on a Provider model reads its model
+directory and optional LiteLLM model-info endpoint. It does not run inference
+probes or change health. An unsuccessful refresh preserves previous observations.
+Source panels can reload the latest inherited observations; only Provider editors
+can initiate the shared upstream refresh.
+
+**Override model capabilities** enables per-field overrides. Blank fields inherit;
+explicit `false`, `[]`, and the effort string `none` are distinct from unknown.
+Provider overrides are inherited by associated Sources. A Source can override
+its own fields without changing the Provider, another Source, or the shared
+Canonical Model. **Restore automatic discovery / Restore inheritance** clears
+only the local override. Priority is Source override, Provider override,
+administrator declaration, upstream observation, exact models.dev reference,
+then unknown. Known upstream capacity limits still clamp manual token limits.
+Manual declarations carry their own provenance and are never marked as upstream
+confirmed. Router lists remain conservative intersections across candidates.
+
+Console endpoints use session authentication and resource read/edit permissions:
+
+- `GET/PATCH /api/v1/provider-connections/{id}/models/{offer_id}/model-capabilities/`
+- `POST` to that Provider endpoint with `{}` refreshes upstream metadata only.
+- `GET/PATCH /api/v1/deployments/{id}/model-capabilities/`
+
+GET returns `override`, effective `model_info`, `inherited_model_info`, per-field
+`fields` / `inherited_fields`, and `can_edit`. PATCH replaces the local override
+and requires `expected_override` for optimistic concurrency; stale saves return
+409. For example:
+
+```json
+{
+  "override": {
+    "supports_reasoning": true,
+    "reasoning_effort_levels": ["none", "low", "high"],
+    "default_reasoning_effort": "low"
+  },
+  "expected_override": null
+}
+```
+
+Supported override fields also include `context_window`, `max_input_tokens`,
+`max_output_tokens`, and `supported_openai_params`. Setting `override` to null
+restores inheritance. Sparse LiteLLM effort flags are discovery outputs; an
+explicit configured effort list keeps them consistent. Invalid types and
+contradictory defaults/lists return 400. Capacity and reasoning are available
+to authorized clients together through the existing Gateway `/model/info` API.
+
+Defaults here describe model capabilities; they do not inject an inference
+parameter. Chat Completions forwards an explicitly supplied `reasoning_effort`;
+Responses forwards `reasoning.effort`, including streaming requests. Omission
+keeps the upstream service default. `none` and future short identifier values
+are preserved exactly; Cloud does not translate `none` to `off`, clamp to `low`,
+or silently raise a caller's reasoning budget. Upstream remains responsible for
+accepting its advertised API values. The standard default field's narrower
+LiteLLM type and extended default representation are described below.
+
 ## Snapshot operations
 
 Both hosts schedule `apps.gateway.tasks.refresh_models_dev` every six hours.
@@ -156,6 +215,61 @@ Provider catalog refresh supplies upstream data; bootstrap does not invoke paid
 inference or force all Provider health probes.
 
 ## Desktop
+
+### Reasoning discovery
+
+Capacity and reasoning capabilities share the same authenticated LiteLLM v1
+model-info response. In addition to capacity, `model_info` contains:
+
+```json
+{
+  "supports_reasoning": true,
+  "reasoning_effort_levels": ["none", "low", "high"],
+  "default_reasoning_effort": "low",
+  "supported_openai_params": ["messages", "reasoning_effort"],
+  "supports_none_reasoning_effort": true,
+  "supports_xhigh_reasoning_effort": null
+}
+```
+
+These names follow the upstream [LiteLLM model-info types](https://github.com/BerriAI/litellm/blob/main/litellm/types/utils.py).
+The existing `model_info.reasoning` extension remains available with
+`supported`, `efforts`, `default_effort` and `included_in_output`. Per-field
+provenance is in `nexus.fields.reasoning_supported`, `reasoning_efforts`,
+`reasoning_default`, `supported_openai_params` and the reported flags. Each
+includes `value`, `sources`, `updated_at`, `stale` and `upstream_confirmed`.
+
+Unknown metadata is `null`. A reasoning-support boolean alone does **not**
+imply a selectable effort range. Explicit effort lists are preserved; sparse
+LiteLLM `supports_*_reasoning_effort` flags supply only levels explicitly
+reported as supported, without inventing low/medium/high defaults. `none` is
+preserved as an API value and is not silently renamed to a client's `off`.
+Future upstream levels are preserved as safe short identifier strings; a client
+must check its own runtime support before presenting them as usable choices.
+LiteLLM's standard `default_reasoning_effort` currently allows only none,
+minimal, low, medium, high and xhigh. Other explicit defaults remain available
+in the `reasoning.default_effort` extension and `nexus.fields.reasoning_default`;
+the narrower standard field returns null instead of an incompatible value.
+An explicit unsupported flag, or a parameter list excluding both `reasoning`
+and `reasoning_effort`, suppresses selectable levels. The model may still reason
+at a service-controlled setting when it does not expose an effort parameter.
+
+Provider refresh reads optional model-info even when capacity fields are already
+complete. Explicit reasoning declarations from `/model/info` take precedence
+over `/models`; capacity retains its existing conservative behavior. For an
+endpoint ending in `/v1`, a 404/405 permits trying the same-origin `/model/info`
+path within the existing five-second discovery budget. Authentication failures
+and redirects never trigger a second destination, and the response remains
+bounded to 2 MiB. Discovery does not make inference calls or alter model health.
+
+Explicit administrator overrides retain priority, then upstream observations,
+then an exact Provider/model match from the cached models.dev reference. The
+reference is not upstream verification. Neither source infers capabilities from
+the model's display name. Changing the runtime endpoint invalidates its old
+observations. Routers expose the intersection of confirmed effort/parameter
+sets across all eligible candidates; any unknown candidate leaves that field
+unknown. Disjoint known lists produce an empty list. A default is exposed only
+when candidates agree and it belongs to their shared effort list.
 
 Desktop reads `/model/info` first, falling back to `/models` when unavailable.
 It displays metadata sources and stale-cache status. Automatic mode applies a
@@ -203,3 +317,11 @@ metadata. The controlled unknown-alias test verifies Nexus capacity consumption;
 for recognized models, client-selected limits can differ from this endpoint.
 This compatibility layer does not override third-party client policy or claim
 support for LiteLLM's v2 or administrative APIs.
+
+### Community Responses transport
+
+The Community Responses facade forwards `reasoning.effort` as the identical
+`reasoning_effort` value to its Chat Completions backend. Streaming uses the
+same mapping. It does not implement Hosted native Responses transport,
+reasoning summaries or opaque reasoning-history replay. No effort is injected
+when it is absent from the request.

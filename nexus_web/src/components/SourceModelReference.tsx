@@ -4,6 +4,7 @@ import { useAuth } from "../app/AuthContext";
 import { api, type ApiContext } from "../lib/api";
 import type { ModelReferenceIdentity, ReferenceCapacity } from "../lib/modelReference";
 import { t, useLocale } from "../localization";
+import { ModelCapabilities } from "./ModelCapabilities";
 
 function Capacity({ value }: { value?: ReferenceCapacity }) {
   return <div className="grid grid-cols-3 gap-3 text-sm">{([
@@ -38,7 +39,11 @@ function CatalogSelect({ ctx, provider = "", label, value, disabled, onChange }:
   </div>;
 }
 
-export function SourceModelReference({ sourceId, providerId, offerId }: { sourceId?: string; providerId?: string; offerId?: string }) {
+export function SourceModelReference(props: { sourceId?: string; providerId?: string; offerId?: string }) {
+  return <><ModelCapabilities {...props} /><ReferenceMapping {...props} /></>;
+}
+
+function ReferenceMapping({ sourceId, providerId, offerId }: { sourceId?: string; providerId?: string; offerId?: string }) {
   useLocale();
   const { apiContext } = useAuth();
   const cache = useQueryClient();
@@ -55,7 +60,8 @@ export function SourceModelReference({ sourceId, providerId, offerId }: { source
     ? api.saveProviderModelReference(apiContext, providerId, offerId, mapping, current.data!.mapping)
     : api.saveSourceModelReference(apiContext, sourceId!, mapping, current.data!.mapping),
     onSuccess: result => { cache.setQueryData(key, result); setDirty(false); setSaved(true);
-      void cache.invalidateQueries({ queryKey: ["source-model-reference"] }); } });
+      void cache.invalidateQueries({ queryKey: ["source-model-reference"] });
+      void cache.invalidateQueries({ queryKey: ["model-capabilities"] }); } });
   const edit = (value: ModelReferenceIdentity, capacity?: ReferenceCapacity) => { setDraft(value); setPreview(capacity); setDirty(true); setSaved(false); save.reset(); };
   if (current.isPending) return <section className="border-t border-line py-5" role="status">{t("Loading model reference…")}</section>;
   if (current.isError) return <section className="border-t border-line py-5"><p role="alert">{t("Model reference could not load.")}</p><button className="btn" onClick={() => void current.refetch()}>{t("Retry")}</button></section>;

@@ -792,7 +792,7 @@ function RuntimeInspector({
                       className={refreshOffer.isPending && refreshOffer.variables === offer.id ? "animate-spin" : ""}
                     />{t("Refresh")}</button>
                   {publishing && <button className="btn" onClick={() => setEditingOffer(offer)}>{t("Edit")}</button>}
-                  <button className="btn" onClick={() => setReferenceOffer(offer)} aria-label={t("Model capacity reference") + ": " + offer.upstream_model_id}>{t("Model capacity")}</button>
+                  <button className="btn" onClick={() => setReferenceOffer(offer)} aria-label={t("Model capabilities") + ": " + offer.upstream_model_id}>{t("Model capabilities")}</button>
                   {!offer.source_ids.length && (
                     <button
                       className="btn"
@@ -827,7 +827,7 @@ function RuntimeInspector({
         offer={editingOffer}
         onClose={() => setEditingOffer(null)}
       />
-      <NexilumeDialog open={!!referenceOffer} title={referenceOffer?.upstream_model_id || t("Model capacity")} onClose={() => setReferenceOffer(null)}>
+      <NexilumeDialog open={!!referenceOffer} title={referenceOffer?.upstream_model_id || t("Model capabilities")} onClose={() => setReferenceOffer(null)}>
         {referenceOffer && <SourceModelReference key={provider.id + referenceOffer.id} providerId={provider.id} offerId={referenceOffer.id} />}
       </NexilumeDialog>
       <EditProviderDialog

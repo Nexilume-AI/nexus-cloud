@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils.crypto import salted_hmac
 
 from apps.deployments.candidates import model_group_deployment_candidates
-from .model_metadata import LIMITS, aggregate, endpoint_hash, mapping, merge_fields, normalize
+from .model_metadata import LIMITS, EFFORT_FLAGS, aggregate, endpoint_hash, mapping, merge_fields, normalize, reasoning_info
 from . import models_dev
 
 
@@ -49,30 +49,59 @@ def source_reference_identity(source):
             "model": override.get("model") or source.upstream_model_id}
 
 
-def source_fields(source, catalog):
+def source_fields(source, catalog, *, include_override=True):
     offer = getattr(source, "runtime_model_offer", None)
     metadata = mapping(getattr(offer, "metadata", None))
+    return capability_fields(canonical=source.canonical_model, metadata=metadata,
+        runtime=getattr(source, "provider_runtime", None), identity=source_reference_identity(source), catalog=catalog,
+        source_override=getattr(source, "model_capabilities_override", None) if include_override else None,
+        source_updated_at=getattr(source, "updated_at", None), offer_updated_at=getattr(offer, "updated_at", None))
+
+
+def provider_fields(offer, runtime, catalog, *, include_override=True):
+    account = runtime.provider_account or runtime.source_provider_account
+    metadata = dict(mapping(offer.metadata))
+    override = mapping(metadata.get("models_dev"))
+    provider = account.provider.name
+    identity = {"provider": override.get("provider") or mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {})).get(provider, provider),
+                "model": override.get("model") or offer.upstream_model_id}
+    if not include_override:
+        metadata.pop("model_capabilities_override", None)
+    return capability_fields(canonical=offer.canonical_model, metadata=metadata, runtime=runtime,
+        identity=identity, catalog=catalog, offer_updated_at=offer.updated_at)
+
+
+def capability_fields(*, canonical, metadata, runtime, identity, catalog, source_override=None,
+                      source_updated_at=None, offer_updated_at=None):
     upstream = mapping(metadata.get("model_capacity"))
-    runtime = getattr(source, "provider_runtime", None)
     # A cached record from an older endpoint must not describe a replacement.
     origin_matches = runtime and upstream.get("endpoint_hash") == endpoint_hash(runtime.internal_api_url)
-    canonical = source.canonical_model
-    canonical_metadata = mapping(canonical.metadata)
+    canonical_metadata = mapping(getattr(canonical, "metadata", None))
     explicit = mapping(canonical_metadata.get("capacity_override"))
-    identity = source_reference_identity(source)
     provider_id, model_id = identity.get("provider"), identity.get("model")
     reference = models_dev.lookup(catalog, provider_id, model_id) if isinstance(provider_id, str) and isinstance(model_id, str) else {}
     reference = {**reference, "reasoning": {"supported": reference.get("reasoning_supported"),
                  "efforts": reference.get("reasoning_efforts"), "included_in_output": reference.get("reasoning_in_output")}}
-    manual = normalize(explicit)
-    if manual["context_window"] is None:
-        manual["context_window"] = normalize({"context_window": canonical.context_window})["context_window"]
+    administrator = normalize(explicit)
+    if administrator["context_window"] is None:
+        administrator["context_window"] = normalize({"context_window": getattr(canonical, "context_window", None)})["context_window"]
     reported = normalize(upstream.get("values")) if origin_matches else {}
-    for field in LIMITS:
-        if manual.get(field) is not None and reported.get(field) is not None:
-            manual[field] = min(manual[field], reported[field])
+    def configured(value):
+        result = normalize(value)
+        # An explicit list supersedes sparse fallback flags too. Do not let a
+        # stale upstream flag make clients disagree with the configured list.
+        if "reasoning_effort_levels" in mapping(value) or result.get("reasoning_supported") is False:
+            result.update({key: key[len("supports_"):-len("_reasoning_effort")] in result.get("reasoning_efforts", []) for key in EFFORT_FLAGS})
+        for field in LIMITS:
+            if result.get(field) is not None and reported.get(field) is not None:
+                result[field] = min(result[field], reported[field])
+        return result
+    def stamp(date):
+        return date.isoformat() if date else None
     return merge_fields([
-        (manual, "administrator", canonical.updated_at.isoformat(), False),
+        (configured(source_override), "source_override", stamp(source_updated_at), False),
+        (configured(metadata.get("model_capabilities_override")), "provider_override", stamp(offer_updated_at), False),
+        (configured(administrator), "administrator", stamp(getattr(canonical, "updated_at", None)), False),
         (reported, "upstream", upstream.get("updated_at"), True),
         (normalize(reference), "models.dev", catalog.get("updated_at"), False),
     ])
@@ -142,9 +171,7 @@ class ModelInfoView(APIView):
             # A recommendation is distinct from an advertised hard maximum.
             recommendation = min(output, 32768, context // 2) if output and context else None
             info["recommended_output_tokens"] = recommendation
-            info["reasoning"] = {"supported": fields["reasoning_supported"]["value"],
-                                 "efforts": fields["reasoning_efforts"]["value"],
-                                 "included_in_output": fields["reasoning_in_output"]["value"]}
+            info.update(reasoning_info(fields))
             # LiteLLM clients use max_input_tokens as context capacity when no
             # separate input ceiling is known. Keep the raw observation in nexus.
             info["max_input_tokens"] = compatible_input_capacity(candidates)
@@ -153,7 +180,6 @@ class ModelInfoView(APIView):
             mode = "chat" if contracts and all("chat.completions" in c["operations"] for c in contracts) else None
             info.update(id=public_id, mode=mode, base_model=None,
                         max_tokens=info["max_input_tokens"],
-                        supports_reasoning=info["reasoning"]["supported"],
                         input_cost_per_token=None, output_cost_per_token=None)
             rows.append({"model_name": name,
                          "litellm_params": {"model": "openai/" + name, "custom_llm_provider": "openai"},

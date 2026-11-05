@@ -655,17 +655,22 @@ def discover_runtime_model_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
     if not isinstance(rows, list):
         raise ProviderRuntimeError("Provider model catalog must return a data array.")
     advertised = [str(row.get("id") or "").strip() for row in rows if isinstance(row, dict)]
-    from apps.gateway.model_metadata import LIMITS, normalize
+    from apps.gateway.model_metadata import LIMITS, REASONING_FIELDS, normalize
     from .model_info import read_optional_info
     capacities = {str(row.get("id") or "").strip(): normalize(row) for row in rows if isinstance(row, dict)}
     runtime._discovered_model_capacities = capacities
     if getattr(settings, "NEXUS_PROVIDER_MODEL_INFO_ENABLED", True) and any(
-            any(values.get(field) is None for field in LIMITS) for values in capacities.values()):
+            any(values.get(field) is None for field in (*LIMITS, "reasoning_supported", "reasoning_efforts", "supported_openai_params"))
+            for values in capacities.values()):
         extra = read_optional_info(base_url, headers)
         for model_id, values in capacities.items():
             for field, value in extra.get(model_id, {}).items():
-                if values.get(field) is None and value is not None:
+                if value is not None and (values.get(field) is None or field in REASONING_FIELDS):
                     values[field] = value
+            # Reconcile effort/default contradictions after the richer endpoint
+            # overrides a /models reasoning declaration. Capacity precedence is
+            # unchanged; no new model IDs are admitted from optional metadata.
+            capacities[model_id] = normalize(values)
     from apps.gateway.image_serializers import ModelContractSerializer
     runtime._discovered_model_contracts = {}
     for row in rows:

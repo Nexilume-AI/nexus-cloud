@@ -8,6 +8,14 @@ from django.conf import settings
 from rest_framework import serializers
 
 
+class ReasoningEffortField(serializers.CharField):
+    def to_internal_value(self, data):
+        from .model_metadata import effort_token
+        if not effort_token(data):
+            raise serializers.ValidationError("Expected a short reasoning effort identifier.")
+        return data
+
+
 class ChatMessageContentField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, str):
@@ -134,6 +142,7 @@ class ChatCompletionRequestSerializer(serializers.Serializer):
     seed = serializers.IntegerField(required=False)
     enable_thinking = serializers.BooleanField(required=False)
     thinking_budget = serializers.IntegerField(required=False, min_value=128, max_value=32768)
+    reasoning_effort = ReasoningEffortField(required=False)
 
     def validate_tool_choice(self, value):
         if isinstance(value, str) and value in {"auto", "none", "required"}:
@@ -189,6 +198,14 @@ class ResponseCreateRequestSerializer(serializers.Serializer):
     tools = serializers.ListField(required=False)
     tool_choice = serializers.JSONField(required=False)
     parallel_tool_calls = serializers.BooleanField(required=False, default=True)
+
+    reasoning = serializers.DictField(required=False)
+
+    def validate_reasoning(self, value):
+        from .model_metadata import effort_token
+        if set(value) - {"effort"} or ("effort" in value and not effort_token(value["effort"])):
+            raise serializers.ValidationError("Only a valid reasoning effort is supported by this Responses facade.")
+        return value
 
 
 def validate_response_content(content):

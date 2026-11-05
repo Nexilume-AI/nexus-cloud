@@ -1,5 +1,7 @@
 """Best-effort, read-only upstream metadata; never a model-health decision."""
 import json
+import time
+from urllib.error import HTTPError
 from urllib.request import Request, build_opener
 from apps.gateway.models_dev import NoRedirect
 from apps.gateway.model_metadata import normalize, merge_fields, aggregate
@@ -11,9 +13,28 @@ def read_optional_info(base_url, headers):
         for suffix in ("/models", "/chat/completions"):
             if base.endswith(suffix):
                 base = base[:-len(suffix)]
-        request = Request(base + "/model/info", headers=headers, method="GET")
-        with build_opener(NoRedirect).open(request, timeout=5) as response:
-            body = response.read(2 * 1024 * 1024 + 1)
+        paths = [base + "/model/info"]
+        if base.endswith("/v1"):
+            paths.append(base[:-3] + "/model/info")
+        deadline = time.monotonic() + 5
+        body = None
+        for url in paths:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return {}
+            request = Request(url, headers=headers, method="GET")
+            try:
+                with build_opener(NoRedirect).open(request, timeout=remaining) as response:
+                    body = response.read(2 * 1024 * 1024 + 1)
+                break
+            except HTTPError as exc:
+                # Only an absent route allows the same-origin canonical path.
+                # Never retry auth failures or redirect credentials elsewhere.
+                if exc.code not in (404, 405):
+                    raise
+                exc.close()
+        if body is None:
+            return {}
         if len(body) > 2 * 1024 * 1024:
             return {}
         rows = json.loads(body).get("data")
