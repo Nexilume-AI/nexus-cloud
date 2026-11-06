@@ -38,3 +38,13 @@ Only an exact email lookup during an authorized membership addition can report
 that no active account matches that email. A search failure is displayed separately
 from an empty result. Editing a selected recipient clears the stale selection,
 so a share cannot accidentally target the previously selected person.
+
+## Dialog input focus
+
+The 2026-11-06 hosted fix preserves typing focus while form fields and people
+search results update. If an already-open page still loses focus after one
+character, reload it to load the updated frontend. Keyboard navigation and
+returning focus to the button that opened the dialog remain supported.
+
+The [fix, integration patch and regression coverage](../patches/2026-11-06-access-dialog-focus.md)
+are available for compatible hosted deployments.

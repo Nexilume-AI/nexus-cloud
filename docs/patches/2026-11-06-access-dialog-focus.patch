@@ -1,0 +1,107 @@
+diff --git a/nexus_web/e2e/access-control.spec.ts b/nexus_web/e2e/access-control.spec.ts
+index dac8b3a0e2ab62bad6983f5931980570dd5f95ff..6485dc5d920fd0d43cc3ca9ec59823ac1c2bf161 100644
+--- a/nexus_web/e2e/access-control.spec.ts
++++ b/nexus_web/e2e/access-control.spec.ts
+@@ -244,6 +244,68 @@ test("Access separates collaboration membership from IAM roles", async ({ page }
+   await expect(submit).toBeEnabled();
+ });
+ 
++test("Access Add person keeps typing focus through form and search updates", async ({ page }) => {
++  await mockAccessApi(page);
++  const mutations: Request[] = [];
++  page.on("request", request => {
++    if (request.url().includes("/api/v1/") && request.method() !== "GET") mutations.push(request);
++  });
++  await page.goto("/access?tab=people&target_type=project&target=project-access");
++  const trigger = page.getByRole("button", { name: /^Add person/ }).first();
++  await trigger.click();
++  const dialog = page.getByRole("dialog", { name: "Add to Project" });
++  const person = dialog.getByPlaceholder("Search name or email");
++  await person.click();
++  // Keyboard events deliberately keep the current focus; fill() would hide this regression.
++  for (const char of "focus-test@example.test") {
++    await page.keyboard.type(char);
++    await expect(person).toBeFocused();
++  }
++  await expect(person).toHaveValue("focus-test@example.test");
++  await expect(dialog.getByText(/No matching member in this Organization/)).toBeVisible();
++  await expect(person).toBeFocused();
++  const submit = dialog.getByRole("button", { name: "Add person", exact: true });
++  await expect(submit).toBeEnabled();
++  await page.keyboard.press("Tab");
++  await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
++  await page.keyboard.press("Tab");
++  await expect(submit).toBeFocused();
++  await page.keyboard.press("Tab");
++  await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
++  await page.keyboard.press("Shift+Tab");
++  await expect(submit).toBeFocused();
++  await page.keyboard.press("Escape");
++  await expect(dialog).toHaveCount(0);
++  await expect(trigger).toBeFocused();
++  expect(mutations).toEqual([]);
++});
++
++test("Access Create group keeps Unicode text, caret and selection during edits", async ({ page }) => {
++  await mockAccessApi(page);
++  await page.goto("/access?tab=people");
++  const trigger = page.getByRole("button", { name: "Create", exact: true });
++  await trigger.click();
++  const dialog = page.getByRole("dialog", { name: "Create group" });
++  const name = dialog.getByLabel("Group name");
++  await name.click();
++  await page.keyboard.type("Design group", { delay: 25 });
++  await expect(name).toHaveValue("Design group");
++  await expect(name).toBeFocused();
++  await page.keyboard.press("Home");
++  await page.keyboard.press("Shift+End");
++  await page.keyboard.insertText("芯片设计组");
++  await expect(name).toHaveValue("芯片设计组");
++  await expect(name).toBeFocused();
++  await page.keyboard.press("ArrowLeft");
++  await page.keyboard.insertText("验证");
++  await expect(name).toHaveValue("芯片设计验证组");
++  await expect(name).toBeFocused();
++  await expect.poll(() => name.evaluate(input => (input as HTMLInputElement).selectionStart)).toBe(6);
++  await page.keyboard.press("Escape");
++  await expect(dialog).toHaveCount(0);
++  await expect(trigger).toBeFocused();
++});
++
+ test("Access restores the selected tab and keeps mobile controls usable", async ({ page }) => {
+   await mockAccessApi(page);
+   await page.setViewportSize({ width: 390, height: 844 });
+diff --git a/nexus_web/src/enterprise/pages/AccessControlPage.tsx b/nexus_web/src/enterprise/pages/AccessControlPage.tsx
+index 7f44b184fd6a4da10706977aa0f7baecc5a8c953..1a72907c0fec645faf20ac0f0a7ab4623f996eb2 100644
+--- a/nexus_web/src/enterprise/pages/AccessControlPage.tsx
++++ b/nexus_web/src/enterprise/pages/AccessControlPage.tsx
+@@ -2085,7 +2085,11 @@ function Modal({ title, description, onClose, maxWidth, children, footer }: { ti
+   useLocale();
+   const dialogRef = useRef<HTMLDivElement>(null);
+   const previousFocusRef = useRef<HTMLElement | null>(null);
++  const closeRef = useRef(onClose);
++  closeRef.current = onClose;
+ 
++  // Focus belongs to this mounted dialog, not to each parent form render.
++  // Keep Escape's callback current without resetting the user's caret while typing.
+   useEffect(() => {
+     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+     const dialog = dialogRef.current;
+@@ -2097,7 +2101,7 @@ function Modal({ title, description, onClose, maxWidth, children, footer }: { ti
+     const onKeyDown = (event: KeyboardEvent) => {
+       if (event.key === "Escape") {
+         event.preventDefault();
+-        onClose();
++        closeRef.current();
+         return;
+       }
+       if (event.key !== "Tab" || !dialog) return;
+@@ -2126,7 +2130,7 @@ function Modal({ title, description, onClose, maxWidth, children, footer }: { ti
+       document.removeEventListener("keydown", onKeyDown);
+       previousFocusRef.current?.focus();
+     };
+-  }, [onClose]);
++  }, []);
+ 
+   return (
+     <div
