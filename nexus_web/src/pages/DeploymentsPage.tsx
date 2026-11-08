@@ -340,6 +340,14 @@ export function ModelPoolPage() {
             />
           ) : (
             <PoolOperationsDesk
+              // A draft and any in-flight preview belong to one Pool revision.
+              // Remount before rendering a new membership map, not in an effect
+              // after the old draft has already been rendered against it.
+              key={JSON.stringify([
+                selectedPool?.id,
+                selectedPool?.modelGroup.routing_revision,
+                selectedPool?.memberships.map((link) => [link.id, link.deployment?.id]),
+              ])}
               pools={poolRows}
               selected={selectedPool}
               onSelect={selectPool}
@@ -405,25 +413,17 @@ function PoolOperationsDesk({
   apiContext: ApiContext;
 }) {
   useLocale();
-  const [strategy, setStrategy] = useState("fallback");
+  const [strategy, setStrategy] = useState(() => selected?.modelGroup.routing_strategy || "fallback");
   const [draftSources, setDraftSources] = useState<
     ModelGroupRoutingDraftSource[]
-  >([]);
+  >(() => (selected?.memberships ?? []).map((link) => ({
+    id: link.id,
+    enabled: link.enabled,
+    priority: link.priority,
+    weight: link.weight,
+    fallback_order: link.fallback_order,
+  })));
   const [preview, setPreview] = useState<ModelGroupRoutingPreview | null>(null);
-  useEffect(() => {
-    if (!selected) return;
-    setStrategy(selected.modelGroup.routing_strategy || "fallback");
-    setDraftSources(
-      selected.memberships.map((link) => ({
-        id: link.id,
-        enabled: link.enabled,
-        priority: link.priority,
-        weight: link.weight,
-        fallback_order: link.fallback_order,
-      })),
-    );
-    setPreview(null);
-  }, [selected?.id, selected?.modelGroup.routing_revision]);
   const history = useQuery({
     queryKey: ["model-routing-history", apiContext, selected?.id],
     queryFn: () => api.modelRoutingHistory(apiContext, selected!.id),
@@ -500,6 +500,7 @@ function PoolOperationsDesk({
   const sourceByLink = new Map(
     selected.memberships.map((item) => [item.id, item.deployment]),
   );
+  const hasUnavailableSource = draftSources.some((draft) => !sourceByLink.get(draft.id));
   return (
     <div className="model-pool-desk">
       <aside className="model-pool-track" aria-label={t("Model Pools")}>
@@ -618,7 +619,12 @@ function PoolOperationsDesk({
             <span>{routeFieldLabel}</span>
           </header>
           {draftSources.map((draft) => {
-            const source = sourceByLink.get(draft.id)!;
+            const source = sourceByLink.get(draft.id);
+            if (!source) return (
+              <div key={draft.id} role="alert">
+                {t("Source details are unavailable. Refresh the Pool before reviewing or applying changes.")}
+              </div>
+            );
             const routeValue =
               strategy === "weighted"
                 ? draft.weight
@@ -685,7 +691,7 @@ function PoolOperationsDesk({
           <button
             className="btn min-h-10"
             disabled={
-              !canUpdate || previewMutation.isPending || applyMutation.isPending
+              !canUpdate || hasUnavailableSource || previewMutation.isPending || applyMutation.isPending
             }
             onClick={() => previewMutation.mutate()}
           >
@@ -694,6 +700,7 @@ function PoolOperationsDesk({
             className="btn btn-primary min-h-10"
             disabled={
               !canUpdate ||
+              hasUnavailableSource ||
               !preview ||
               previewMutation.isPending ||
               applyMutation.isPending
@@ -1067,7 +1074,7 @@ function callableSources(memberships: ModelGroupSource[]) {
       (membership) =>
         membership.status === "active" &&
         membership.enabled &&
-        membership.deployment.status === "active",
+        membership.deployment?.status === "active",
     )
     .map((membership) => membership.deployment);
 }
