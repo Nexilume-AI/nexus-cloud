@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Loader2, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
 import { decisionRole, orderedDecisionModels } from "../lib/decisionHarness";
+import { decisionConnectionError, prepareDecisionConnection, type RouterDecisionSettings } from "../lib/routerDecisionConnection";
 import type { Router } from "../lib/types";
 import { useCursorPage } from "../lib/useCursorPage";
 import { t, useLocale } from "../localization";
@@ -13,7 +14,7 @@ import { Field } from "./Form";
 import { NexilumeDialog } from "./NexilumeControls";
 import "./router-routing.css";
 
-export type RouterDecisionSettings = { provider_connection_id: string; model: string; timeout_ms: number; model_source: "catalog" | "explicit"; model_order?: string[] };
+export type { RouterDecisionSettings } from "../lib/routerDecisionConnection";
 
 export function savedDecisionSettings(router: Router): RouterDecisionSettings {
   const config: RouterDecisionSettings = { provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog", ...router.decision_config };
@@ -57,7 +58,12 @@ function RouterModelSelectionDialog({ router, onClose }: { router: Router; onClo
   const rows = orderedDecisionModels(router.child_bindings ?? [], config.model_order);
   const changed = strategy !== router.strategy || (strategy === "system_one" && JSON.stringify(config) !== JSON.stringify(savedDecisionSettings(router)));
   const save = useMutation({
-    mutationFn: () => api.updateRouter(apiContext, router.id, { strategy, ...(strategy === "system_one" ? { decision_config: config } : {}) }),
+    mutationFn: async () => {
+      const decision = strategy === "system_one" ? await prepareDecisionConnection(apiContext, config, router, setConfig) : undefined;
+      return api.updateRouter(apiContext, router.id, { strategy, ...(decision ? { decision_config: decision } : {}) });
+    },
+    gcTime: 0,
+    onSettled: () => { void queryClient.invalidateQueries({ queryKey: ["system-one-routing-providers"] }); void queryClient.invalidateQueries({ queryKey: ["provider-connections"] }); },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["routers"] }),
@@ -76,7 +82,7 @@ function RouterModelSelectionDialog({ router, onClose }: { router: Router; onClo
     [order[index], order[target]] = [order[target], order[index]];
     setConfig(current => ({ ...current, model_order: order }));
   }
-  const invalid = strategy === "system_one" && (!config.provider_connection_id || !config.model.trim());
+  const invalid = strategy === "system_one" && Boolean(decisionConnectionError(config));
   return <NexilumeDialog open title={t("Model selection")} eyebrow={router.name} description={t("Choose how this API selects a model.")} size="large" busy={save.isPending} onClose={onClose}
     footer={<><button className="btn" disabled={save.isPending} onClick={onClose}>{t("Cancel")}</button><button className="btn btn-primary" disabled={!changed || invalid || save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 size={16} className="animate-spin" />}{t("Save routing")}</button></>}>
     <fieldset className="router-routing-editor" disabled={save.isPending}>
@@ -107,16 +113,30 @@ function RouterModelSelectionDialog({ router, onClose }: { router: Router; onClo
   </NexilumeDialog>;
 }
 
-export function SystemOneRoutingSettings({ value, onChange }: { value: RouterDecisionSettings; onChange: (value: RouterDecisionSettings) => void }) {
+export function SystemOneRoutingSettings({ value, onChange, disabled = false }: { value: RouterDecisionSettings; onChange: (value: RouterDecisionSettings) => void; disabled?: boolean }) {
   const { apiContext, isContextReady } = useAuth();
   const paging = useCursorPage(apiContext);
   const [search, setSearch] = useState("");
+  const existingDraft = useRef<RouterDecisionSettings | null>(null);
   const connections = useQuery({ queryKey: ["system-one-routing-providers", apiContext, paging.cursor], queryFn: ({ signal }) => api.providerConnectionsPage(apiContext, { protocol: "system_one", cursor: paging.cursor }, signal), enabled: isContextReady });
   const provider = useQuery({ queryKey: ["provider-connection", apiContext, value.provider_connection_id], queryFn: ({ signal }) => api.providerConnection(apiContext, value.provider_connection_id, signal), enabled: isContextReady && Boolean(value.provider_connection_id) });
   const models = (provider.data?.models ?? []).filter(row => ["detected", "confirmed"].includes(row.status));
   const visibleModels = models.filter(row => row.upstream_model_id === value.model || row.upstream_model_id.toLowerCase().includes(search.trim().toLowerCase()));
-  return <div className="router-decision-fields">
-    <Field label={t("Decision Provider")}><select className="select" value={value.provider_connection_id} onChange={event => { setSearch(""); onChange({ ...value, provider_connection_id: event.target.value, model: "", model_source: "catalog" }); }}>
+  const fresh = value.new_connection;
+  return <fieldset className="router-decision-fields" disabled={disabled}>
+    <legend className="sr-only">{t("System One connection")}</legend>
+    <div className="router-connection-switch" role="group" aria-label={t("Connection source")}>
+      <button type="button" aria-pressed={!fresh} onClick={() => { if (fresh) { const { new_connection: _draft, ...existing } = value; onChange({ ...(existingDraft.current ?? existing), timeout_ms: value.timeout_ms, model_order: value.model_order }); } }}>{t("Existing Provider")}</button>
+      <button type="button" aria-pressed={Boolean(fresh)} onClick={() => { if (!fresh) { existingDraft.current = value; onChange({ ...value, model: "", new_connection: { name: "System One", url: "", key: "" } }); } }}>{t("New connection")}</button>
+    </div>
+    {fresh ? <>
+      <Field label={t("Connection name")}><input className="input" value={fresh.name} maxLength={255} onChange={event => onChange({ ...value, new_connection: { ...fresh, name: event.target.value } })} /></Field>
+      <Field label={t("Endpoint / Base URL")} hint={t("System One native API. A /systemone URL is also accepted.")}><input className="input" type="url" inputMode="url" placeholder="https://api.example.com/v1" value={fresh.url} maxLength={1024} autoComplete="off" spellCheck={false} onChange={event => onChange({ ...value, new_connection: { ...fresh, url: event.target.value } })} /></Field>
+      <Field label={t("API key")} hint={t("Stored encrypted in Providers. Never returned to the browser.")}><input className="input" type="password" autoComplete="new-password" spellCheck={false} value={fresh.key} maxLength={4096} onChange={event => onChange({ ...value, new_connection: { ...fresh, key: event.target.value } })} /></Field>
+      <Field label={t("Decision model ID")}><input className="input" value={value.model} placeholder="decision-model-preview" maxLength={128} spellCheck={false} onChange={event => onChange({ ...value, model: event.target.value })} /></Field>
+      <p className="router-routing-footnote">{t("Saving creates a reusable Provider connection in this Router's organization or project. Model availability is checked when used.")}</p>
+    </> : <>
+    <Field label={t("Decision Provider")}><select className="select" value={value.provider_connection_id} onChange={event => { setSearch(""); onChange({ ...value, needs_start: false, provider_connection_id: event.target.value, model: "", model_source: "catalog" }); }}>
       <option value="">{connections.isPending ? t("Loading providers…") : t("Choose a System One Provider")}</option>
       {value.provider_connection_id && !(connections.data?.items ?? []).some(row => row.id === value.provider_connection_id) && <option value={value.provider_connection_id}>{provider.data?.name || value.provider_connection_id}</option>}
       {(connections.data?.items ?? []).filter(row => ["system_one", "system-one"].includes(row.upstream_provider)).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
@@ -130,10 +150,12 @@ export function SystemOneRoutingSettings({ value, onChange }: { value: RouterDec
     </select></Field>}
     <label className="router-decision-explicit"><input type="checkbox" checked={value.model_source === "explicit"} onChange={event => onChange({ ...value, model_source: event.target.checked ? "explicit" : "catalog" })} />{t("Enter a model ID manually")}</label>
     {value.model_source === "explicit" && <p className="router-routing-footnote">{t("An explicit ID does not verify availability or enable a disabled model.")}</p>}
+    {value.needs_start && <p className="router-routing-footnote" role="status">{t("Connection saved. Save routing again to retry starting it; the API key does not need to be entered again.")}</p>}
     {(connections.isError || provider.isError) && <p role="alert">{t("Decision Provider could not be loaded.")} <button className="btn" onClick={() => { void connections.refetch(); if (value.provider_connection_id) void provider.refetch(); }}>{t("Retry")}</button></p>}
+    </>}
     <Field label={t("Decision timeout")}><select className="select" value={value.timeout_ms} onChange={event => onChange({ ...value, timeout_ms: Number(event.target.value) })}>
       {Array.from(new Set([1000, 3000, 5000, 8000, value.timeout_ms])).sort((a, b) => a - b).map(ms => <option key={ms} value={ms}>{ms / 1000} s</option>)}
     </select></Field>
     <p className="router-routing-footnote">{t("Timeouts and failures use the Router's fallback policy. Sends up to 4,000 characters of user text and candidate summaries to this Provider; usage may incur charges.")}</p>
-  </div>;
+  </fieldset>;
 }

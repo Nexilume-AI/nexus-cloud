@@ -32,7 +32,7 @@ Existing specified-model routes retain their strategy; Auto is opt-in.
 1. Add ordinary inference Providers and create Sources/Model Pools.
 2. Create and deploy Execution Routers for those Pools.
 3. Add their explicit outputs to an Aggregation Router under distinct model names.
-4. In **Configure**, choose **Auto · rules** and save. Deploy the Router if needed.
+4. In **Configure → Edit routing**, choose **Rules** and save. Deploy the Router if needed.
 5. In **API & keys**, obtain its Router key. `/models` now includes `auto`.
 
 Use the actual base URL and key from your installation:
@@ -57,14 +57,23 @@ Calling an explicit exported model bypasses cross-model selection.
 
 ## Intelligent routing
 
-1. Create a **Direct API** Provider with protocol **System One · native decisions**.
-2. Enter its upstream base URL and key, then start the Provider and refresh models.
-3. If a callable decision model is not advertised, choose **Add explicit model**
-   and enter its exact upstream ID. It remains unverified until a real native call.
-4. On the Aggregation Router, select **Auto · Decision Model**, choose that
-   Provider and decision model. Order candidate mappings **strongest to fastest**
-   and select a decision timeout (0.5–8 seconds via API). Save the configuration.
-   The client still calls `model="auto"`.
+1. In **Configure → Edit routing**, choose **Decision Model**.
+2. Choose **Existing Provider**, or **New connection** to enter a connection name,
+   System One HTTPS base URL (a `/systemone` endpoint is accepted), API key and
+   exact decision model ID. This uses the native System One protocol, not Chat
+   Completions. An explicit model ID remains unverified until a real native call.
+3. Order candidate mappings **strongest to fastest** and select a decision timeout
+   (0.5–8 seconds via API), then **Save routing**. The client calls `model="auto"`.
+
+Saving a new connection creates a reusable Direct API Provider in the Router's
+organization/project scope, starts it, then applies routing. Existing Provider
+creation/start permissions, quotas and endpoint validation still apply. The key
+is sent only to the Provider creation API, stored encrypted, and never placed in
+`decision_config` or browser storage. Cancel before saving discards the draft.
+If Start or routing fails after creation, the Provider remains available in
+**Providers**; the open form forgets its key and retries that same connection.
+After closing the form, select the saved Provider rather than creating it again.
+Saving an existing connection does not change its credentials or restart it.
 
 The harness uses the same task-profile policy as Desktop: two candidates become
 Deep reasoning / Fast; three add Balanced; four add Advanced; five add Efficient.

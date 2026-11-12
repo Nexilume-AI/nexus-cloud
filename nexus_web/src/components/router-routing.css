@@ -19,7 +19,12 @@
 .router-routing-section { min-width: 0; }
 .router-routing-section h3, .router-routing-explanation h3 { margin: 0 0 .65rem; color: #10251e; font-size: .9375rem; font-weight: 650; }
 .router-routing-section > p, .router-routing-explanation p { font-size: .8125rem; color: #65766d; line-height: 1.65; }
-.router-decision-fields { display: grid; gap: .875rem; }
+.router-decision-fields { display: grid; gap: .875rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.router-connection-switch { display: flex; gap: .25rem; padding: .25rem; border-radius: 8px; background: #edf1e9; }
+.router-connection-switch button { flex: 1; padding: .6rem .5rem; border: 0; border-radius: 6px; background: transparent; color: #65766d; font-size: .8125rem; cursor: pointer; }
+.router-connection-switch button[aria-pressed="true"] { background: #fff; color: #10251e; box-shadow: 0 1px 3px #10251e14; font-weight: 600; }
+.router-connection-switch button:focus-visible { outline: 2px solid #4e755c; outline-offset: 2px; }
+.router-connection-switch button:disabled { cursor: default; }
 .router-decision-fields .input, .router-decision-fields .select { min-width: 0; width: 100%; }
 .router-decision-explicit { display: flex; align-items: center; gap: .5rem; min-height: 40px; font-size: .8125rem; color: #52655a; }
 .router-decision-explicit input { accent-color: #234b35; }

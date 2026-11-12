@@ -31,6 +31,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
 import { RouterModelSelection, SystemOneRoutingSettings, savedDecisionSettings, type RouterDecisionSettings } from "../components/RouterModelSelection";
+import { prepareDecisionConnection } from "../lib/routerDecisionConnection";
 import { useCatalogSearch, useCursorPage } from "../lib/useCursorPage";
 import { CursorPageControls } from "../components/CursorPageControls";
 import type { ModelGroup, Router, RouterAggregationCandidate, RouterTestResult, RouterTraceRecord } from "../lib/types";
@@ -295,7 +296,7 @@ export function RoutersPage() {
   });
 
   const applyRouterChanges = useMutation({
-    mutationFn: () =>
+    mutationFn: async () =>
       api.updateRouter(
         apiContext,
         selectedRouter!.id,
@@ -304,10 +305,12 @@ export function RoutersPage() {
           : {
               name: routerEditName.trim(),
               strategy: policy,
-              ...(policy === "system_one" ? { decision_config: decisionConfig } : {}),
+              ...(policy === "system_one" ? { decision_config: await prepareDecisionConnection(apiContext, decisionConfig, selectedRouter!, setDecisionConfig) } : {}),
               model_group_ids: selectedModelGroupIds,
             },
       ),
+    gcTime: 0,
+    onSettled: () => { void queryClient.invalidateQueries({ queryKey: ["system-one-routing-providers"] }); void queryClient.invalidateQueries({ queryKey: ["provider-connections"] }); },
     onSuccess: async () => {
       toast.success(t("Router changes applied"));
       if (activeModal === "rename") setActiveModal(null);
@@ -678,7 +681,7 @@ export function RoutersPage() {
                   <input id="router-workspace-name" className="input" value={routerEditName} onChange={(event) => setRouterEditName(event.target.value)} />
                 </div>
                 <select className="select" aria-label={t("Routing policy")} value={policy} onChange={(event) => setPolicy(event.target.value)}><option value="manual_priority">{t("Pool priority")}</option><option value="lowest_cost_pool">{t("Lowest cost")}</option><option value="lowest_latency_pool">{t("Lowest latency")}</option><option value="best_health_pool">{t("Best availability")}</option><option value="system_one">{t("System One · intelligent routing")}</option><option value="custom">{t("Custom policy")}</option></select>
-                {policy === "system_one" && <SystemOneRoutingSettings value={decisionConfig} onChange={setDecisionConfig} />}
+                {policy === "system_one" && <SystemOneRoutingSettings key={selectedRouter.id} value={decisionConfig} onChange={setDecisionConfig} disabled={applyRouterChanges.isPending} />}
                 <p className="router-strategy-note">{strategyExplanation(policy)}</p>
                 {customStrategyBlocked && policy === "custom" && <p className="router-inline-help is-warning">{t("Deploy a valid router.py before selecting Custom policy.")}</p>}
               </section>
