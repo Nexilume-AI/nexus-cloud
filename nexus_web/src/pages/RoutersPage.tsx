@@ -30,7 +30,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
-import { decisionRole, orderedDecisionModels } from "../lib/decisionHarness";
+import { RouterModelSelection, SystemOneRoutingSettings, savedDecisionSettings, type RouterDecisionSettings } from "../components/RouterModelSelection";
 import { useCatalogSearch, useCursorPage } from "../lib/useCursorPage";
 import { CursorPageControls } from "../components/CursorPageControls";
 import type { ModelGroup, Router, RouterAggregationCandidate, RouterTestResult, RouterTraceRecord } from "../lib/types";
@@ -67,17 +67,6 @@ type RouterModal = "create" | "advanced" | "rename" | "mapping" | "delete" | nul
 type RouterWorkspaceView = "overview" | "configure" | "activity" | "usage";
 type RouterTypeFilter = "all" | "execution" | "aggregation";
 type RouterStatusFilter = "all" | "attention";
-type RouterDecisionSettings = {provider_connection_id: string; model: string; timeout_ms: number; model_source: "catalog" | "explicit"; model_order?: string[]};
-
-function savedDecisionSettings(router: Router): RouterDecisionSettings {
-  const config: RouterDecisionSettings = {provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog", ...router.decision_config};
-  if (config.model_order) {
-    const active = new Set((router.child_bindings ?? []).filter(row => row.status === "active").map(row => row.id));
-    config.model_order = config.model_order.filter(id => active.has(id));
-  }
-  return config;
-}
-
 export function RoutersPage() {
   useLocale();
   const { RouterCallerUsage } = useApplicationDistribution();
@@ -310,8 +299,8 @@ export function RoutersPage() {
       api.updateRouter(
         apiContext,
         selectedRouter!.id,
-        selectedRouter!.router_type === "aggregation"
-          ? { name: routerEditName.trim(), strategy: policy, ...(policy === "system_one" ? { decision_config: decisionConfig } : {}) }
+        activeModal === "rename" || selectedRouter!.router_type === "aggregation"
+          ? { name: routerEditName.trim() }
           : {
               name: routerEditName.trim(),
               strategy: policy,
@@ -421,7 +410,6 @@ export function RoutersPage() {
   function openRouterModal(router: Router, modal: "advanced" | "rename" | "delete") {
     selectRouter(router.id);
     setRouterEditName(router.name);
-    setPolicy(router.strategy);
     setActiveModal(modal);
   }
 
@@ -486,14 +474,6 @@ export function RoutersPage() {
     ? selectedRouter.output_models
     : visibleBoundModels.map((model) => model.name);
   const childBindings = selectedRouter?.child_bindings?.filter((binding) => binding.status !== "deleted" && binding.enabled) ?? [];
-  const decisionModels = orderedDecisionModels(selectedRouter?.child_bindings ?? [], decisionConfig.model_order);
-  function moveDecisionModel(index: number, direction: -1 | 1) {
-    const order = decisionModels.map(row => row.id);
-    const target = index + direction;
-    if (target < 0 || target >= order.length) return;
-    [order[index], order[target]] = [order[target], order[index]];
-    setDecisionConfig({...decisionConfig, model_order: order});
-  }
   const selectedChildRouter = (aggregationCandidates.data ?? []).find((candidate) => candidate.router_id === childRouterId);
   const candidateModelByOutputId = new Map(
     (aggregationCandidates.data ?? []).flatMap((candidate) => candidate.models.map((model) => [model.output_id, model] as const)),
@@ -704,29 +684,8 @@ export function RoutersPage() {
               </section>
             </div>}
 
-            {(routerView === "overview" || routerView === "configure") && selectedRouter.router_type === "aggregation" && <div className={routerView === "overview" ? "router-overview-content grid gap-4" : "router-aggregation-configure"}>
-              {routerView === "configure" && <section className="router-composer-panel">
-                <div className="router-panel-heading"><h3>{t("Automatic model selection")}</h3></div>
-                <select className="select" aria-label="Auto model routing" value={policy} onChange={event => setPolicy(event.target.value)}>
-                  <option value="manual_priority">Specified models only</option>
-                  <option value="task_type">Auto · rules</option>
-                  <option value="system_one">Auto · Decision Model</option>
-                </select>
-                {policy === "system_one" && <>
-                  <div className="mt-4 grid gap-2">
-                    <h4 className="font-medium">{t("Model preference order")}</h4>
-                    <p className="text-sm text-muted">{t("Order strongest to fastest. This order defines task profiles; simple tasks prefer Fast, demanding tasks use a stronger model. Capacity and reasoning capabilities are read from Sources.")}</p>
-                    {decisionModels.map((row, index) => <div key={row.id} className="router-pool-order-row">
-                      <span className="router-pool-index">{index + 1}</span>
-                      <span className="min-w-0 flex-1"><strong>{row.exposed_model_name}</strong><small>{t(decisionRole(index, decisionModels.length))}{!row.enabled && ` · ${t("Disabled")}`}</small></span>
-                      <button className="btn h-8 w-8 p-0" aria-label={t("Move {{0}} up", {0: row.exposed_model_name})} disabled={index === 0} onClick={() => moveDecisionModel(index, -1)}><ArrowUp size={14}/></button>
-                      <button className="btn h-8 w-8 p-0" aria-label={t("Move {{0}} down", {0: row.exposed_model_name})} disabled={index === decisionModels.length - 1} onClick={() => moveDecisionModel(index, 1)}><ArrowDown size={14}/></button>
-                    </div>)}
-                  </div>
-                  <SystemOneRoutingSettings value={decisionConfig} onChange={setDecisionConfig} />
-                </>}
-                <p className="router-strategy-note">Call auto to choose the fastest capable model. Decision failures fall back to rules. Named models always use their existing mapping.</p>
-              </section>}
+            {(routerView === "overview" || routerView === "configure") && selectedRouter.router_type === "aggregation" && <div className={routerView === "overview" ? "router-overview-content grid gap-4" : "router-aggregation-configure"} role="tabpanel" id={`router-workspace-panel-${routerView}`} aria-labelledby={`router-workspace-tab-${routerView}`}>
+              {routerView === "configure" && <RouterModelSelection router={selectedRouter} canEdit={selectedCanEdit} />}
               {routerView === "overview" && <section className="router-readiness">
                 <span className="router-readiness-icon">{childBindings.length > 0 && !hasAggregationOneToOneConflict && aggregationUnavailableCount === 0 ? <CheckCircle2 size={20} /> : <CircleAlert size={20} />}</span>
                 <div>
@@ -744,22 +703,22 @@ export function RoutersPage() {
                 <RouterDecisionFallback router={selectedRouter} models={models.data ?? []} />
               ))}
 
-              {routerView === "configure" && <section className="router-composer-panel" role="tabpanel" id="router-workspace-panel-configure" aria-labelledby="router-workspace-tab-configure">
+              {routerView === "configure" && <section className="router-model-catalog">
                 <div className="router-panel-heading router-aggregation-catalog-heading">
-                  <div><div className="tech-label">{t("API MODEL CATALOG")}</div><h3>{t("Models available through this API")}</h3></div>
+                  <div><h3>{t("Model mappings")}</h3></div>
                   <div className="flex items-center gap-2"><span className="router-selection-count">{aggregationCatalog.length} {aggregationCatalog.length === 1 ? t("model") : t("models")}</span>{childBindings.length > 0 && <button className="btn h-9 px-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add model")}</button>}</div>
                 </div>
                 <p className="router-strategy-note router-aggregation-note">{t("Clients choose a model name. That name forwards directly to one Execution Router.")}</p>
-                {aggregationCatalog.length === 0 ? <div className="router-empty-slot mt-4"><strong>{t("This API has no models yet")}</strong><span>{t("Add an Execution Router as the first model.")}</span><button className="btn btn-primary mx-auto mt-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add first model")}</button></div> : <div className="mt-4 overflow-hidden rounded-lg border border-line" role="table" aria-label={t("Aggregation API models")}>
-                  <div className="hidden grid-cols-[minmax(9rem,0.8fr)_minmax(14rem,1.5fr)_minmax(8rem,0.7fr)_auto] gap-4 border-b border-line bg-slate-50 px-4 py-2 text-xs font-medium text-muted md:grid" role="row">
+                {aggregationCatalog.length === 0 ? <div className="router-empty-slot mt-4"><strong>{t("This API has no models yet")}</strong><span>{t("Add an Execution Router as the first model.")}</span><button className="btn btn-primary mx-auto mt-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add first model")}</button></div> : <div className="router-model-table" role="table" aria-label={t("Aggregation API models")}>
+                  <div role="row">
                     <span role="columnheader">{t("API model")}</span><span role="columnheader">{t("Execution Router")}</span><span role="columnheader">{t("Status")}</span><span role="columnheader">{t("Action")}</span>
                   </div>
-                  <div className="divide-y divide-line">{aggregationCatalog.flatMap(([modelName, bindings]) => bindings.map((binding) => {
+                  <div className="router-model-table-body">{aggregationCatalog.flatMap(([modelName, bindings]) => bindings.map((binding) => {
                     const state = candidateModelByOutputId.get(binding.child_output.id);
                     const hasConflict = bindings.length !== 1 || (aggregationRouterUseCounts.get(binding.child_output.router_id) ?? 0) !== 1;
                     const mappingStatus = !hasConflict && state?.available ? "healthy" : "degraded";
-                    return <div key={binding.id} className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(9rem,0.8fr)_minmax(14rem,1.5fr)_minmax(8rem,0.7fr)_auto] md:items-center md:gap-4" role="row">
-                      <div role="cell"><span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted md:hidden">{t("API model")}</span><strong className="break-words text-sm text-ink">{modelName}</strong>{hasConflict && <small className="mt-1 block text-xs text-amber-700">{t("Duplicate legacy mapping")}</small>}</div>
+                    return <div key={binding.id} role="row">
+                      <div role="cell"><span className="sr-only">{t("API model")}</span><strong className="break-words text-sm text-ink">{modelName}</strong>{hasConflict && <small className="mt-1 block text-xs text-amber-700">{t("Duplicate legacy mapping")}</small>}</div>
                       <div className="flex min-w-0 items-center gap-3" role="cell"><span className="router-pool-index shrink-0"><ArrowRight size={14} /></span><span className="min-w-0"><strong className="block truncate text-sm text-ink" title={binding.child_output.router_name}>{binding.child_output.router_name}</strong><small className="block break-words text-xs text-muted">{t("Router model ·")}{" "}{binding.child_output.model_name}</small></span></div>
                       <div role="cell"><StatusBadge status={mappingStatus} />{state?.message && <small className="mt-1 block text-xs text-amber-700">{state.message}</small>}</div>
                       <div className="md:text-right" role="cell"><button className="btn h-9 px-3" disabled={removeChildBinding.isPending} onClick={() => removeChildBinding.mutate(binding.id)}>{t("Remove")}</button></div>
@@ -1064,32 +1023,6 @@ export function RoutersPage() {
     </div>
   );
 }
-function SystemOneRoutingSettings({ value, onChange }: { value: RouterDecisionSettings; onChange: (value: RouterDecisionSettings) => void }) {
-  const { apiContext, isContextReady } = useAuth();
-  const paging = useCursorPage(apiContext);
-  const connections = useQuery({ queryKey: ["system-one-routing-providers", apiContext, paging.cursor], queryFn: ({signal}) => api.providerConnectionsPage(apiContext, {protocol: "system_one", cursor: paging.cursor}, signal), enabled: isContextReady });
-  const provider = useQuery({ queryKey: ["provider-connection", apiContext, value.provider_connection_id], queryFn: ({signal}) => api.providerConnection(apiContext, value.provider_connection_id, signal), enabled: isContextReady && Boolean(value.provider_connection_id) });
-  return <div className="grid gap-3 mt-4">
-    <Field label={t("Decision Provider")}><select className="select" value={value.provider_connection_id} onChange={event => onChange({...value, provider_connection_id: event.target.value, model: "", model_source: "catalog"})}>
-      <option value="">{t("Choose a System One Provider")}</option>
-      {value.provider_connection_id && !(connections.data?.items ?? []).some(row => row.id === value.provider_connection_id) && <option value={value.provider_connection_id}>{provider.data?.name || value.provider_connection_id}</option>}
-      {(connections.data?.items ?? []).filter(row => ["system_one", "system-one"].includes(row.upstream_provider)).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
-    </select></Field>
-    <CursorPageControls page={paging.page} hasMore={Boolean(connections.data?.next_cursor)} busy={connections.isFetching} onPrevious={paging.previous} onNext={() => paging.next(connections.data?.next_cursor)} />
-    <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={value.model_source === "explicit"} onChange={event => onChange({...value, model: "", model_source: event.target.checked ? "explicit" : "catalog"})} />{t("Specify an unlisted model ID")}</label>
-    {value.model_source === "explicit" ? <Field label={t("Decision model ID")} hint={t("Some services omit callable models from their catalog. An explicit ID does not verify availability or override a disabled model.")}><input className="input" aria-label={t("Decision model ID")} value={value.model} maxLength={128} onChange={event => onChange({...value, model: event.target.value})} /></Field> : <Field label={t("Decision model")}><select className="select" value={value.model} onChange={event => onChange({...value, model: event.target.value})}>
-      <option value="">{t("Choose a decision model")}</option>
-      {(provider.data?.models ?? []).filter(row => ["detected", "confirmed"].includes(row.status)).map(row => <option key={row.id} value={row.upstream_model_id}>{row.upstream_model_id}{row.discovery_source === "explicit" ? " · " + t("Explicit model") : ""}</option>)}
-    </select></Field>}
-    {(connections.isError || provider.isError) && <p role="alert">{t("Decision Provider could not be loaded.")} <button className="btn" onClick={() => {void connections.refetch(); if(value.provider_connection_id) void provider.refetch();}}>{t("Retry")}</button></p>}
-    <Field label={t("Decision timeout")} hint={t("On timeout, use the Router's fallback policy without retrying the decision.")}><select className="select" value={value.timeout_ms} onChange={event => onChange({...value, timeout_ms: Number(event.target.value)})}>
-      {Array.from(new Set([1000, 3000, 5000, 8000, value.timeout_ms])).sort((a,b) => a-b).map(ms => <option key={ms} value={ms}>{ms / 1000} s</option>)}
-    </select></Field>
-    <p className="text-xs text-muted">{t("Sends up to 4,000 characters of the latest user text, task profiles and capability summaries to this Provider. Decisions may incur upstream charges. Only authorized, eligible candidates can be selected. Failures use the Router's fallback policy.")}</p>
-    <p className="text-xs text-muted">{t("Use Auto for intelligent routing. Explicit model names remain pinned; successful tool continuations retain their model, and new tasks are evaluated again.")}</p>
-  </div>;
-}
-
 function strategyExplanation(strategy: string) {
   const descriptions: Record<string, string> = {
     system_one: "Use a native System One decision to choose among eligible Pools; fall back to Pool priority on failure.",
