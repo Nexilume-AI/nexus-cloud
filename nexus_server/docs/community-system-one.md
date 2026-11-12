@@ -62,7 +62,31 @@ Calling an explicit exported model bypasses cross-model selection.
 3. If a callable decision model is not advertised, choose **Add explicit model**
    and enter its exact upstream ID. It remains unverified until a real native call.
 4. On the Aggregation Router, select **Auto · Decision Model**, choose that
-   Provider and decision model, and save. The client still calls `model="auto"`.
+   Provider and decision model. Order candidate mappings **strongest to fastest**
+   and select a decision timeout (0.5–8 seconds via API). Save the configuration.
+   The client still calls `model="auto"`.
+
+The harness uses the same task-profile policy as Desktop: two candidates become
+Deep reasoning / Fast; three add Balanced; four add Advanced; five add Efficient.
+Intermediate roles repeat when more than five candidates are configured. These
+are operator preferences, not measured quality or speed. Candidates are presented
+fastest first to avoid a first-position bias. Simple coding does not automatically
+require the strongest model. Current task needs determine whether to upgrade.
+
+Execution Routers use their existing Model Pool order. Aggregation Routers store
+the optional `decision_config.model_order` as up to 32 child-binding UUIDs, never
+model names or Provider credentials. Unknown/foreign IDs and duplicates are
+rejected. Renaming a mapping preserves its preference; newly added mappings are
+appended in binding priority order. Deleted mappings are ignored at runtime.
+Unavailable or unauthorized candidates are excluded without changing the remaining
+profiles. A decision can never expand caller permissions.
+
+The native `/systemone` Choice criteria are description **strings**, including
+task suitability, strength/speed preference ranks, Source context/input/output
+limits and supported reasoning levels. Unknown metadata stays unknown; Cloud
+forwards the caller's output budget and effort instead of inventing a default.
+Only a bounded latest-user task is sent, not tools, results or full conversation.
+Native decision errors remain bounded and fall back without POST retries.
 
 The decision service receives bounded latest-user text and eligible candidate
 metadata. Timeout, invalid output or an unavailable decision Provider falls back

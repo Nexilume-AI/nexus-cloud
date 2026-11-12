@@ -1785,7 +1785,7 @@ export type RouterAggregationCandidate = {
 };
 
 export type Router = {
-  decision_config?: { provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit" };
+  decision_config?: { provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit"; model_order?: string[] };
   id: string;
   tenant_id: string;
   project_id: string | null;

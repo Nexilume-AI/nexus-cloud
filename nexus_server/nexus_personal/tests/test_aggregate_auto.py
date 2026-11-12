@@ -18,6 +18,11 @@ class AggregateAutoIntegrationTests(NativeSystemOneRoutingTests):
             resolution=gateway.resolve_router_routing(request=self.request(),tenant=self.installation.tenant,router_id=str(self.aggregate.pk),payload=self.payload('auto'))
         self.assertEqual(resolution.trace['router']['decision']['reason'],'decision_model')
         self.assertEqual(len(self.system_one_payloads),1)
+        import json
+        criteria=self.system_one_payloads[0]['questions']['route']['criteria']
+        self.assertEqual(list(criteria), ['model_1','model_0'])
+        self.assertEqual(json.loads(criteria['model_1'])['role'], 'fast')
+        self.assertEqual(resolution.deployments[0].pk, second.pk)
         pinned=self.resolve(self.payload('my-export'))
         self.assertEqual(pinned[0].pk,self.source_row.pk)
         self.assertEqual(len(self.system_one_payloads),1)
@@ -38,6 +43,21 @@ class AggregateAutoIntegrationTests(NativeSystemOneRoutingTests):
         self.resolve(self.payload('auto'));self.assertEqual(len(self.system_one_payloads),decisions)
         services.update_router(request=self.request(),router_id=str(self.aggregate.pk),data={'strategy':'manual_priority'})
         self.aggregate.refresh_from_db();self.assertNotIn('auto',services.router_output_model_names(router=self.aggregate))
+
+    def test_model_order_persists_and_rejects_foreign_mapping(self):
+        account_id=self.decision_provider()
+        binding=self.aggregate.child_bindings.get()
+        config={'provider_connection_id':str(account_id),'model':'personal-model','model_order':[str(binding.pk)]}
+        response=self.client.patch(f'/api/v1/routers/{self.aggregate.pk}/', {'strategy':'system_one','decision_config':config},format='json',**self.headers)
+        self.assertEqual(response.status_code,200,response.data)
+        self.aggregate.refresh_from_db()
+        self.assertEqual(self.aggregate.decision_config['model_order'],[str(binding.pk)])
+        config['model_order']=['00000000-0000-0000-0000-000000000001']
+        response=self.client.patch(f'/api/v1/routers/{self.aggregate.pk}/', {'decision_config':config},format='json',**self.headers)
+        self.assertEqual(response.status_code,400,response.data)
+        self.aggregate.refresh_from_db()
+        self.assertEqual(self.aggregate.decision_config['model_order'],[str(binding.pk)])
+        self.assertEqual(len(self.system_one_payloads),0)
 
     def test_auto_respects_model_policy_before_decision(self):
         services.update_router(request=self.request(),router_id=str(self.aggregate.pk),data={'strategy':'task_type'})

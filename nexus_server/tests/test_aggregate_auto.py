@@ -1,5 +1,5 @@
 from types import SimpleNamespace as NS
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from django.test import SimpleTestCase
 from django.core.cache import cache
 from apps.routers import aggregate_auto as auto
@@ -13,6 +13,9 @@ class AggregateAutoTests(SimpleTestCase):
         self.payload={'messages':[{'role':'user','content':'Say hello'}]}
         self.rows=[(NS(last_latency_ms=1000),NS(exposed_model_name='strong',priority=1),{}),
                    (NS(last_latency_ms=100),NS(exposed_model_name='fast',priority=2),{})]
+        self.rows[0][1].pk='strong-binding';self.rows[1][1].pk='fast-binding'
+        self.router.child_bindings = Mock()
+        self.router.child_bindings.filter.return_value.order_by.return_value = [r[1] for r in self.rows]
         self.catalog=patch('apps.gateway.models_dev.snapshot',return_value={});self.catalog.start();self.addCleanup(self.catalog.stop)
         self.compat=patch.object(auto,'compatible',return_value=True);self.compat.start();self.addCleanup(self.compat.stop)
         self.fields=patch('apps.gateway.model_info.source_fields',return_value={});self.fields.start();self.addCleanup(self.fields.stop)
@@ -43,10 +46,21 @@ class AggregateAutoTests(SimpleTestCase):
         from apps.gateway.provider_adapters import ProviderClientError
         self.router.strategy='system_one';self.router.decision_config={'model':'decision'}
         with patch('apps.routers.decision_routing.resolve_provider',return_value=(NS(encrypted_key='encrypted'),NS(internal_api_url='https://fixture.invalid'))),patch('apps.common.crypto.decrypt_secret',return_value='fixture'),patch('apps.gateway.system_one.decide',return_value='model_1') as decide:
-            rows,trace=self.rank();self.assertEqual(rows[0][1].exposed_model_name,'strong');self.assertEqual(trace['reason'],'decision_model')
+            rows,trace=self.rank();self.assertEqual(rows[0][1].exposed_model_name,'fast');self.assertEqual(trace['reason'],'decision_model')
             self.assertIn('fastest capable',decide.call_args.kwargs['instructions'])
+            import json
+            choices=decide.call_args.kwargs['choices']
+            self.assertEqual(list(choices),['model_1','model_0'])
+            self.assertEqual(json.loads(choices['model_1'])['role'],'fast')
+            self.assertEqual(json.loads(choices['model_0'])['role'],'deep_reasoning')
             decide.side_effect=ProviderClientError('unavailable')
             rows,trace=self.rank();self.assertEqual(trace['status'],'fallback');self.assertEqual(rows[0][1].exposed_model_name,'fast')
+
+    def test_harness_order_is_independent_of_latency_and_filters(self):
+        from apps.routers.decision_harness import aggregate_order
+        self.router.decision_config={'model_order':['fast-binding','strong-binding']}
+        self.assertEqual(aggregate_order(self.router,self.rows),['fast','strong'])
+        self.assertEqual(aggregate_order(self.router,self.rows[:1]),['fast','strong'])
 
     def test_personal_keys_do_not_share_task_continuity(self):
         self.request.api_key = None

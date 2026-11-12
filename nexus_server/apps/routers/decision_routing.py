@@ -47,6 +47,13 @@ def validate_config(*, request, router, config):
         raise exceptions.ValidationError('Rename the existing auto mapping before enabling intelligent routing.')
     if not config.get("provider_connection_id") or not config.get("model"):
         raise exceptions.ValidationError("Choose a System One Provider connection and model.")
+    order = config.get("model_order", [])
+    if order:
+        if router.router_type != 'aggregation':
+            raise exceptions.ValidationError("Execution Routers use their Model Pool order.")
+        allowed = {str(value) for value in router.child_bindings.filter(status='active').values_list('pk', flat=True)}
+        if not set(order).issubset(allowed):
+            raise exceptions.ValidationError("Model order contains a mapping no longer in this Router. Refresh its configuration.")
     account, runtime = require_connection_runtime(request=request, account_id=config["provider_connection_id"])
     if not resource_access_payload(request=request, resource_type="provider_connection", obj=account).get("can_use"):
         raise exceptions.PermissionDenied("Provider use permission is required for decision routing.")
@@ -77,34 +84,53 @@ def resolve_provider(*, router, config, account=None, runtime=None):
     return account, runtime
 
 
-def select_pools(*, router, pools, payload):
+def select_pools(*, router, pools, payload, request=None):
     started = time.monotonic()
     trace = {"algorithm": "system_one", "status": "skipped", "reason": "single_eligible_pool"}
     if not 2 <= len(pools) <= 32:
         trace["reason"] = "single_eligible_pool" if len(pools) < 2 else "candidate_limit"
         return pools, trace
+    from .aggregate_auto import continuity_key
+    from django.core.cache import cache
+    state_key = continuity_key(request, router, payload) + ':pool' if request is not None else None
+    try:
+        previous = cache.get(state_key) if state_key and payload.get('messages', [])[-1:] and payload['messages'][-1].get('role') == 'tool' else None
+    except Exception:
+        previous = None
+    retained = next((pool for pool in pools if str(pool['id']) == previous), None)
+    if retained is not None:
+        trace.update(status='retained', reason='tool_continuation', selected_pool_id=previous)
+        pools = [retained, *(pool for pool in pools if pool is not retained)]
+        for pool in pools:
+            for source in pool['deployments']:
+                source._nexus_auto_memory = (state_key, str(pool['id']))
+        return pools, trace
     try:
         config = router.decision_config or {}
         account, runtime = resolve_provider(router=router, config=config)
         from apps.common.crypto import decrypt_secret
-        # Text only, bounded latest user intent. Never send tools, tool results,
-        # system prompts, images, API keys, full conversation or raw Pool data.
-        latest = next((row.get("content") for row in reversed(payload.get("messages", [])) if row.get("role") == "user"), "")
-        if isinstance(latest, list):
-            latest = "\n".join(part.get("text", "") for part in latest if isinstance(part, dict) and part.get("type") == "text")
-        task = str(latest or "")[:4000]
+        from . import decision_harness as harness
+        from apps.gateway import models_dev
         key = decrypt_secret(account.encrypted_key)
         if not key:
             raise exceptions.ValidationError("Missing decision credential.")
-        task = task.replace(key, "[redacted]")
-        choices = {f"pool_{i}": {"name": str(pool["group"].display_name or pool["group"].name)[:128],
-                                "priority_rank": i + 1, "task_hint": str(pool["binding"].routing_hint)[:128]} for i, pool in enumerate(pools)}
-        choice = decide(base_url=runtime.internal_api_url, key=key, model=config["model"], state={"task": task},
-                        choices=choices, timeout=min(8, max(.5, config.get("timeout_ms", 8000) / 1000)))
-        index = list(choices).index(choice)
+        order = [str(b.model_group_id) for b in router.model_group_bindings.filter(status='active').order_by('priority', 'created_at')]
+        order = list(dict.fromkeys([*order, *(str(p['id']) for p in pools)]))
+        catalog = models_dev.snapshot()
+        targets = {f"pool_{order.index(str(pool['id']))}": pool for pool in sorted(pools, key=lambda p: order.index(str(p['id'])), reverse=True)}
+        choices = {route: harness.description(name=pool['group'].display_name or pool['group'].name,
+                    index=order.index(str(pool['id'])), count=len(order), sources=pool['deployments'], catalog=catalog,
+                    payload=payload, hint=pool['binding'].routing_hint) for route, pool in targets.items()}
+        choice = decide(base_url=runtime.internal_api_url, key=key, model=config["model"], state=harness.state(payload, key=key),
+                        choices=choices, timeout=min(8, max(.5, config.get("timeout_ms", 8000) / 1000)), instructions=harness.INSTRUCTIONS)
+        index = pools.index(targets[choice])
         trace.update(status="selected", reason="decision_model", selected_pool_id=str(pools[index]["id"]))
         pools = [pools[index], *pools[:index], *pools[index + 1:]]
     except (ProviderClientError, exceptions.APIException, InvalidToken, ValueError, TypeError, KeyError):
         trace.update(status="fallback", reason="decision_unavailable_or_invalid")
     trace["latency_ms"] = int((time.monotonic() - started) * 1000)
+    if state_key:
+        for pool in pools:
+            for source in pool['deployments']:
+                source._nexus_auto_memory = (state_key, str(pool['id']))
     return pools, trace

@@ -50,6 +50,19 @@ class NativeSystemOneRoutingTests(PersonalGatewayRoutingTests):
         self.assertEqual(result.trace["router"]["decision"]["status"], "selected")
         self.assertEqual(len(self.system_one_payloads), 1)
         self.assertEqual(set(self.system_one_payloads[0]), {"model", "state", "questions"})
+        import json
+        criteria = self.system_one_payloads[0]['questions']['route']['criteria']
+        self.assertEqual(list(criteria), ['pool_1', 'pool_0'])
+        self.assertEqual(json.loads(criteria['pool_1'])['role'], 'fast')
+        self.assertEqual(json.loads(criteria['pool_0'])['role'], 'deep_reasoning')
+        from apps.routers.aggregate_auto import remember
+        remember(result.deployments[0])
+        continued = gateway.resolve_router_routing(request=self.request(), tenant=self.installation.tenant,
+            router_id=str(self.execution.pk), payload={**self.payload(auto_model_name(self.execution)),
+            'messages': [*self.payload(auto_model_name(self.execution))['messages'], {'role':'tool','content':'finished'}]})
+        self.assertEqual(continued.trace['router']['decision']['reason'], 'tool_continuation')
+        self.assertEqual(continued.deployments[0].pk, second.pk)
+        self.assertEqual(len(self.system_one_payloads), 1)
         response = OpenAICompatibleClient().chat_completions(deployment=result.deployments[0], payload={"messages": [{"role": "user", "content": "fixture"}]})
         self.assertEqual(response.raw["choices"][0]["message"]["content"], "healthy")
         pinned = gateway.resolve_router_routing(request=self.request(), tenant=self.installation.tenant,

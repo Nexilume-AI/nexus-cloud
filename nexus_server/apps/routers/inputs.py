@@ -10,10 +10,16 @@ class DecisionConfigSerializer(serializers.Serializer):
     model = serializers.CharField(max_length=128)
     timeout_ms = serializers.IntegerField(min_value=500, max_value=8000, default=8000)
     model_source = serializers.ChoiceField(choices=["catalog", "explicit"], default="catalog")
+    model_order = serializers.ListField(child=serializers.UUIDField(), max_length=32, required=False)
+
+    def validate_model_order(self, value):
+        if len(set(value)) != len(value):
+            raise serializers.ValidationError("Model order must not contain duplicate mappings.")
+        return [str(item) for item in value]
 
     def to_internal_value(self, data):
         if not isinstance(data, dict) or set(data) - set(self.fields):
-            raise serializers.ValidationError("Only a Provider connection, model ID, model source and timeout may be configured; no URL or key.")
+            raise serializers.ValidationError("Only a Provider connection, model ID, model source, timeout and model order may be configured; no URL or key.")
         return super().to_internal_value(data)
 
     def validate_provider_connection_id(self, value):

@@ -607,7 +607,7 @@ def resolve_execution_router(
         pools = select_custom_router_pools(request=request, tenant=tenant, router=router, payload=payload, pools=pools)
     if router.strategy == Router.STRATEGY_SYSTEM_ONE and request_operation(payload) != "systemone":
         from apps.routers.decision_routing import select_pools
-        pools, decision_trace = select_pools(router=router, pools=pools, payload=payload)
+        pools, decision_trace = select_pools(router=router, pools=pools, payload=payload, request=request)
     ordered = [deployment for pool in pools for deployment in pool["deployments"]]
     # Each pool has already applied its own Source strategy. Keep pool boundaries
     # intact here so health sorting cannot pull a Source from a later pool ahead
@@ -634,6 +634,7 @@ def resolve_execution_router(
     if decision_trace is not None:
         trace["router"]["decision"] = decision_trace
         trace["router"]["reason"] = {
+            "retained": "The successful task continues on its eligible Model Pool without another decision call.",
             "selected": "System One selected an eligible Pool.",
             "fallback": "System One was unavailable or returned an invalid decision; using Pool priority.",
             "skipped": "System One was not called because the eligible Pool count is outside 2–32; using Pool priority.",

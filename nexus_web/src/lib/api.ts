@@ -957,7 +957,7 @@ export const api = {
   updateRouter: (
     ctx: ApiContext,
     routerId: string,
-    body: { name?: string; strategy?: string; model_group_ids?: string[]; decision_config?: {provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit"} },
+    body: { name?: string; strategy?: string; model_group_ids?: string[]; decision_config?: {provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit"; model_order?: string[]} },
   ) =>
     request<Router>(
       `/api/v1/routers/${routerId}/`,
