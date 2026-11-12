@@ -5,8 +5,24 @@ from apps.common.resource_catalog import ResourceOwnershipInputSerializer
 from .models import Router
 
 
+class DecisionConfigSerializer(serializers.Serializer):
+    provider_connection_id = serializers.UUIDField()
+    model = serializers.CharField(max_length=128)
+    timeout_ms = serializers.IntegerField(min_value=500, max_value=8000, default=8000)
+    model_source = serializers.ChoiceField(choices=["catalog", "explicit"], default="catalog")
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict) or set(data) - set(self.fields):
+            raise serializers.ValidationError("Only a Provider connection, model ID, model source and timeout may be configured; no URL or key.")
+        return super().to_internal_value(data)
+
+    def validate_provider_connection_id(self, value):
+        return str(value)
+
+
 class RouterCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
+    decision_config = DecisionConfigSerializer(required=False)
     router_type = serializers.ChoiceField(
         choices=[choice[0] for choice in Router.TYPE_CHOICES],
         required=False,
@@ -32,6 +48,7 @@ class RouterCreateSerializer(serializers.Serializer):
 
 class RouterUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255, required=False)
+    decision_config = DecisionConfigSerializer(required=False)
     strategy = serializers.ChoiceField(
         choices=[choice[0] for choice in Router.STRATEGY_CHOICES],
         required=False,

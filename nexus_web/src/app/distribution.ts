@@ -43,6 +43,7 @@ export type ApplicationDistribution = {
   sourceDiscovery?: SourceDiscoveryExtension;
   computerPairing?: ComputerPairingPresentation;
   authPresentation?: AuthPresentation;
+  RouterCallerUsage?: ComponentType<{ routerId: string }>;
   edgeRouterPresentation?: {
     RegistrationDiagnostic: ComponentType<{ node: EdgeNode }>;
     statusLabel: (node: EdgeNode) => string;

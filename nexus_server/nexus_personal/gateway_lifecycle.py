@@ -54,6 +54,8 @@ def operation_for_request(request):
     image_routes = {"personal-images-generate": "images.generate", "personal-images-edit": "images.edit", "personal-images-variation": "images.variation"}
     if route in image_routes:
         return image_routes[route]
+    if route in {"gateway-systemone", "gateway-systemone-slash"}:
+        return "systemone"
     return "responses" if route in {"openai-compatible-responses", "openai-compatible-responses-slash"} else "chat.completions"
 
 
@@ -303,6 +305,8 @@ def observe_stream(*, request, event):
         if event.raw.get("error"):
             raise ProviderClientError("Upstream reported a streaming failure.", error_code="PROVIDER_STREAM_FAILED")
         if isinstance(event.raw.get("choices"), list) and event.raw["choices"]:
+            request._nexus_personal_stream_received = True
+        if str(event.raw.get("type", "")).startswith("response."):
             request._nexus_personal_stream_received = True
     if event.done:
         request._nexus_personal_stream_done = True

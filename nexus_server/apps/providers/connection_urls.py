@@ -1,4 +1,5 @@
 from django.urls import path
+from .explicit_models import ProviderExplicitModelView
 from .model_reference import ProviderModelReferenceView
 from .model_capabilities import ProviderModelCapabilitiesView
 from .connection_views import ProviderExecutionSetupView
@@ -18,6 +19,7 @@ from .connection_views import (
 )
 
 urlpatterns = [
+    path("provider-connections/<str:account_id>/models/explicit/", ProviderExplicitModelView.as_view(), name="provider-explicit-model"),
     path("provider-connections/<str:account_id>/models/<uuid:offer_id>/model-capabilities/", ProviderModelCapabilitiesView.as_view(), name="provider-model-capabilities"),
     path("provider-connections/<str:account_id>/models/<uuid:offer_id>/model-reference/", ProviderModelReferenceView.as_view(), name="provider-model-reference"),
     path("provider-connections/execution-setup/", ProviderExecutionSetupView.as_view()),

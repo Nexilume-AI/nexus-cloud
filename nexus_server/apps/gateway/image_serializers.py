@@ -10,9 +10,9 @@ class ImagePricingRowSerializer(serializers.Serializer):
 
 
 class ModelContractSerializer(serializers.Serializer):
-    operations = serializers.ListField(child=serializers.ChoiceField(choices=["chat.completions", "responses", "images.generate", "images.edit", "images.variation"]), allow_empty=False)
+    operations = serializers.ListField(child=serializers.ChoiceField(choices=["chat.completions", "responses", "images.generate", "images.edit", "images.variation", "systemone"]), allow_empty=False)
     input_modalities = serializers.ListField(child=serializers.ChoiceField(choices=["text", "image"]), allow_empty=False)
-    output_modalities = serializers.ListField(child=serializers.ChoiceField(choices=["text", "image"]), allow_empty=False)
+    output_modalities = serializers.ListField(child=serializers.ChoiceField(choices=["text", "image", "json"]), allow_empty=False)
 
     def validate(self, attrs):
         if any(op.startswith("images.") for op in attrs["operations"]) and "image" not in attrs["output_modalities"]:

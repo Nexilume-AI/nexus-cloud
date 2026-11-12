@@ -74,6 +74,51 @@ class DeploymentNotAvailable(GatewayError):
     default_code = "DEPLOYMENT_NOT_AVAILABLE"
 
 
+class RouterSourceUnavailable(DeploymentNotAvailable):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_code = "ROUTER_SOURCE_UNAVAILABLE"
+
+
+class RouterConfigurationRequired(DeploymentNotAvailable):
+    default_code = "ROUTER_CONFIGURATION_REQUIRED"
+
+
+def router_source_failure(pools: list[dict[str, Any]]) -> DeploymentNotAvailable:
+    """Explain eligibility without exposing endpoints, credentials or probe bodies."""
+    if not pools or all(pool.get("group") is None for pool in pools):
+        return RouterConfigurationRequired("Router has no usable Model Pool binding. Reconnect a Model Pool in Router configuration.")
+    reasons = {
+        source.get("exclusion_reason")
+        for pool in pools for source in pool.get("source_trace", [])
+        if source.get("exclusion_reason")
+    }
+    guidance = {
+        "provider_login_required": "A Provider requires sign-in. Reconnect it in Providers.",
+        "provider_runtime_inactive": "A Provider Runtime is not active. Check its status in Providers; start it if stopped.",
+        "provider_model_unhealthy": "A Provider model failed its health check. Review its model health in Providers and retry after recovery.",
+        "provider_model_check_pending": "Provider model verification is pending. Wait for verification or refresh that model in Providers.",
+        "provider_model_unavailable": "A Provider model is disabled, unconfirmed or no longer advertised. Review the model in Providers.",
+        "source_unhealthy": "An upstream Source failed its health check. Review Source health and retry after recovery.",
+        "provider_account_inactive": "A Provider account is inactive. Review its status in Providers.",
+        "quota_unavailable": "Provider quota is unavailable. Wait for its reset or choose another Source.",
+        "marketplace_capacity_exhausted": "Provider capacity is exhausted. Retry later or choose another Source.",
+        "marketplace_runtime_unavailable": "A shared Provider is no longer available. Review the Source subscription.",
+        "marketplace_listing_not_approved": "A shared Provider is not approved for use. Choose another Source.",
+        "provider_source_inactive": "The shared Provider Source is inactive. Choose another Source.",
+        "source_disabled": "A Pool Source is disabled. Review enabled Sources in the Model Pool.",
+        "source_link_inactive": "A Pool Source link is inactive. Review Source bindings in the Model Pool.",
+        "source_inactive": "An upstream Source is inactive. Review Sources in the Model Pool.",
+        "source_scope_mismatch": "A Source no longer matches its Model Pool ownership or model. Reconnect a compatible Source.",
+    }
+    messages = [message for reason, message in guidance.items() if reason in reasons]
+    if not messages:
+        messages = ["Review enabled Sources, model availability and Provider quota in the bound Model Pool."]
+    return RouterSourceUnavailable(
+        "Router is deployed, but no eligible upstream Source is available for this model. "
+        + " ".join(messages[:4]) + " Keep the same Router API key; rotating it will not restore the Source."
+    )
+
+
 class ProviderAccountMissing(GatewayError):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = "Provider account not found."
@@ -93,6 +138,16 @@ class ProviderUpstreamError(GatewayError):
 
     def __init__(self, detail=None, *, code: str = "PROVIDER_REQUEST_FAILED") -> None:
         self.default_code = code
+        self.status_code = {
+            "PROVIDER_TIMEOUT": status.HTTP_504_GATEWAY_TIMEOUT,
+            "PROVIDER_CONNECT_TIMEOUT": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PROVIDER_CONNECTION_FAILED": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PROVIDER_UPSTREAM_UNAVAILABLE": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PROVIDER_RATE_LIMITED": status.HTTP_429_TOO_MANY_REQUESTS,
+            "PROVIDER_QUOTA_EXHAUSTED": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PROVIDER_REQUEST_REJECTED": status.HTTP_400_BAD_REQUEST,
+            "PROVIDER_RESPONSES_UNSUPPORTED": status.HTTP_400_BAD_REQUEST,
+        }.get(code, status.HTTP_502_BAD_GATEWAY)
         super().__init__(detail)
 
 
@@ -229,7 +284,8 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
                 capacity_reservation = None
                 last_provider_error = exc
                 update_provider_account_quota_from_error(request=request, deployment=deployment, error=exc)
-                mark_deployment_runtime_failure(deployment=deployment, reason=str(exc))
+                if exc.affects_health and exc.error_code != "PROVIDER_RESPONSE_TOO_LARGE":
+                    mark_deployment_runtime_failure(deployment=deployment, reason=str(exc))
                 failure_log = write_failure_log(
                     request=request,
                     tenant=tenant,
@@ -248,6 +304,10 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
                     deployment=deployment,
                     gateway_request_log=failure_log,
                 )
+                if exc.safe_to_retry is False or exc.error_code == "PROVIDER_RESPONSE_TOO_LARGE":
+                    # Unknown dispatched results and local safety limits do
+                    # not authorize paying another upstream for the same call.
+                    raise ProviderUpstreamError(str(exc), code=exc.error_code)
                 continue
         if last_provider_error is not None:
             raise ProviderUpstreamError(str(last_provider_error), code=last_provider_error.error_code)
@@ -263,6 +323,7 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
 
 def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[ProviderStreamEvent]:
     gateway_started = time.monotonic()
+    from .stream_framing import StreamFramingError
     tenant = get_tenant_from_request(request)
     gateway_integration().prepare_request(request=request, tenant=tenant, payload=payload)
     api_key = getattr(request, "api_key", None)
@@ -323,19 +384,25 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     capacity_unavailable = True
                     continue
                 deployment._nexus_latency['capacity_check_ms'] = round((time.monotonic() - capacity_started) * 1000, 2)
-                for event in OpenAICompatibleClient().stream_chat_completions(deployment=deployment, payload=provider_payload):
-                    gateway_integration().observe_stream(request=request, event=event)
-                    if event.done:
-                        continue
-                    if event.raw is not None:
-                        first_chunk_sent = True
-                    if event.text_delta:
-                        text_parts.append(event.text_delta)
-                    if event.finish_reason:
-                        finish_reason = event.finish_reason
-                    if event.usage:
-                        final_usage = event.usage
-                    yield event
+                upstream = OpenAICompatibleClient().stream_chat_completions(deployment=deployment, payload=provider_payload)
+                try:
+                    for event in upstream:
+                        gateway_integration().observe_stream(request=request, event=event)
+                        if event.done:
+                            continue
+                        if event.raw is not None:
+                            first_chunk_sent = True
+                        if event.text_delta:
+                            text_parts.append(event.text_delta)
+                        if event.finish_reason:
+                            finish_reason = event.finish_reason
+                        if event.usage:
+                            final_usage = event.usage
+                        yield event
+                finally:
+                    close = getattr(upstream, "close", None)
+                    if close is not None:
+                        close()
                 gateway_integration().complete_stream(request=request)
                 provider_response = build_stream_provider_response(
                     deployment=deployment,
@@ -383,7 +450,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     event_id=f"gateway:{gateway_log.id}",
                 )
                 return
-            except ProviderClientError as exc:
+            except (ProviderClientError, StreamFramingError) as exc:
                 if first_chunk_sent:
                     mark_provider_capacity_used(
                         reservation=capacity_reservation,
@@ -393,7 +460,8 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                 capacity_reservation = None
                 last_provider_error = exc
                 update_provider_account_quota_from_error(request=request, deployment=deployment, error=exc)
-                mark_deployment_runtime_failure(deployment=deployment, reason=str(exc))
+                if exc.affects_health and exc.error_code != "PROVIDER_RESPONSE_TOO_LARGE":
+                    mark_deployment_runtime_failure(deployment=deployment, reason=str(exc))
                 failure_log = write_failure_log(
                     request=request,
                     tenant=tenant,
@@ -412,12 +480,13 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     deployment=deployment,
                     gateway_request_log=failure_log,
                 )
-                if first_chunk_sent:
-                    yield ProviderStreamEvent(error_code=exc.error_code, error_message=str(exc))
+                if first_chunk_sent or exc.safe_to_retry is False or exc.error_code == "PROVIDER_RESPONSE_TOO_LARGE":
+                    yield ProviderStreamEvent(error_code=exc.error_code, error_message=str(exc), error_details=exc.error_details)
                     return
                 continue
         if last_provider_error is not None:
-            yield ProviderStreamEvent(error_code=last_provider_error.error_code, error_message=str(last_provider_error))
+            yield ProviderStreamEvent(error_code=last_provider_error.error_code, error_message=str(last_provider_error),
+                                      error_details=last_provider_error.error_details)
             return
         if capacity_unavailable:
             yield ProviderStreamEvent(
@@ -438,7 +507,19 @@ def resolve_deployment(*, request, tenant: Tenant, payload: dict[str, Any]) -> D
 
 
 def resolve_deployment_candidates(*, request, tenant: Tenant, payload: dict[str, Any]) -> list[Deployment]:
-    return gateway_integration().resolve_deployment_candidates(request=request, tenant=tenant, payload=payload)
+    started = time.monotonic()
+    try:
+        return gateway_integration().resolve_deployment_candidates(request=request, tenant=tenant, payload=payload)
+    except (RouterSourceUnavailable, RouterConfigurationRequired) as exc:
+        # Resolution fails before funding/provider execution. Keep it visible in
+        # traffic without reserving funds or replaying a potentially sent request.
+        write_failure_log(
+            request=request, tenant=tenant, api_key=getattr(request, "api_key", None),
+            router=get_router_for_payload(tenant=tenant, payload=payload),
+            fallback_count=0, deployment=None, model=payload["model"],
+            error_code=exc.default_code, latency_ms=elapsed_ms(started), cost=Decimal("0"),
+        )
+        raise
 
 
 def resolve_router_deployment_candidates(*, request, tenant: Tenant, router_id: str, payload: dict[str, Any]) -> list[Deployment]:
@@ -501,7 +582,8 @@ def resolve_execution_router(
         .select_related("model_group", "model_group__canonical_model")
         .order_by("priority", "created_at")
     )
-    if output is not None:
+    from apps.routers.decision_routing import is_auto_output
+    if output is not None and not is_auto_output(output):
         if output.model_group_id is None or output.model_group is None:
             raise DeploymentNotAvailable("Router output is not connected to an active Model Pool.")
         bindings = [
@@ -518,19 +600,21 @@ def resolve_execution_router(
         payload=payload,
     )
     pools = [pool for pool in diagnosed_pools if pool["deployments"]]
+    decision_trace = None
     if not pools and any(pool.get("exclusion_reason") == "model_operation_unsupported" for pool in diagnosed_pools):
         raise ModelOperationUnsupported()
     if router.strategy == Router.STRATEGY_CUSTOM:
         pools = select_custom_router_pools(request=request, tenant=tenant, router=router, payload=payload, pools=pools)
+    if router.strategy == Router.STRATEGY_SYSTEM_ONE and request_operation(payload) != "systemone":
+        from apps.routers.decision_routing import select_pools
+        pools, decision_trace = select_pools(router=router, pools=pools, payload=payload)
     ordered = [deployment for pool in pools for deployment in pool["deployments"]]
     # Each pool has already applied its own Source strategy. Keep pool boundaries
     # intact here so health sorting cannot pull a Source from a later pool ahead
     # of the pool selected by the Router.
     available = dedupe_deployments(ordered)
     if not available:
-        if ordered:
-            raise DeploymentNotAvailable("Router has no healthy deployment binding.")
-        raise DeploymentNotAvailable("Router has no active deployment binding.")
+        raise router_source_failure(diagnosed_pools)
     selected_pool_ids = {str(pool["id"]) for pool in pools}
     selected_pool_ranks = {str(pool["id"]): index + 1 for index, pool in enumerate(pools)}
     custom_reason = ""
@@ -547,6 +631,13 @@ def resolve_execution_router(
         selected=available[0],
         custom_reason=custom_reason,
     )
+    if decision_trace is not None:
+        trace["router"]["decision"] = decision_trace
+        trace["router"]["reason"] = {
+            "selected": "System One selected an eligible Pool.",
+            "fallback": "System One was unavailable or returned an invalid decision; using Pool priority.",
+            "skipped": "System One was not called because the eligible Pool count is outside 2–32; using Pool priority.",
+        }[decision_trace["status"]]
     if output is not None:
         trace["output"] = {
             "id": str(output.id),
@@ -586,15 +677,33 @@ def resolve_aggregation_router(
     bindings: list[RouterChildBinding],
 ) -> RoutingResolution:
     requested_model = payload["model"]
-    matching = [binding for binding in bindings if binding.exposed_model_name == requested_model]
+    from apps.routers import aggregate_auto
+    auto = requested_model == 'auto' and aggregate_auto.enabled(router)
+    matching = bindings if auto else [binding for binding in bindings if binding.exposed_model_name == requested_model]
     if not matching:
         available = ", ".join(dict.fromkeys(binding.exposed_model_name for binding in bindings))
         raise ModelNotFound(f"Model is not exported by this Aggregation Router. Available models: {available}.")
 
     candidate_rows: list[dict[str, Any]] = []
     resolved: list[tuple[Deployment, RouterChildBinding, dict[str, Any]]] = []
+    source_failures: list[DeploymentNotAvailable] = []
+    from apps.routers.decision_routing import is_auto_output
     for binding in matching:
+        if auto:
+            try:
+                enforce_api_key_policy(api_key=getattr(request, 'api_key', None), model=binding.exposed_model_name)
+                # Reuse the host's credential check for each actual candidate.
+                # A scoped Personal tool credential containing only `auto`
+                # must not gain access to all models exported by its Router.
+                gateway_integration().prepare_request(request=request, tenant=tenant,
+                    payload={**payload, 'router_id': str(router.pk), 'model': binding.exposed_model_name})
+            except exceptions.APIException as exc:
+                if exc.status_code != 403:
+                    raise
+                continue
         output = binding.child_output
+        if auto and (output.model_group_id is None or is_auto_output(output)):
+            continue  # No nested decision calls, including aliases to child Auto.
         child_router = output.router
         reason = ""
         child_resolution = None
@@ -602,7 +711,7 @@ def resolve_aggregation_router(
             reason = "router_depth_or_cycle_rejected"
         elif child_router.status != Router.STATUS_DEPLOYED:
             reason = "child_router_not_deployed"
-        elif output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or output.model_group_id is None:
+        elif output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
             reason = "child_output_unavailable"
         else:
             try:
@@ -613,8 +722,10 @@ def resolve_aggregation_router(
                     payload={**payload, "model": output.model_name},
                     output=output,
                 )
-            except (DeploymentNotAvailable, ModelNotFound) as exc:
+            except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported) as exc:
                 reason = str(exc.detail if hasattr(exc, "detail") else exc)
+                if isinstance(exc, (RouterSourceUnavailable, RouterConfigurationRequired)):
+                    source_failures.append(exc)
         candidate_rows.append(
             {
                 "binding_id": str(binding.id),
@@ -634,8 +745,15 @@ def resolve_aggregation_router(
                 resolved.append((deployment, binding, child_resolution.trace))
 
     if not resolved:
+        if source_failures:
+            # Preserve the actionable leaf diagnosis instead of hiding it behind
+            # another "no child output" error. Existing healthy fallback wins.
+            raise next((exc for exc in source_failures if isinstance(exc, RouterSourceUnavailable)), source_failures[0])
         raise DeploymentNotAvailable("Aggregation Router has no available child Router output for this model.")
 
+    decision = None
+    if auto:
+        resolved, decision = aggregate_auto.rank(request, router, payload, resolved)
     deployments = dedupe_deployments([row[0] for row in resolved])
     trace_by_deployment_id: dict[str, dict[str, Any]] = {}
     for deployment, binding, leaf_trace in resolved:
@@ -651,6 +769,9 @@ def resolve_aggregation_router(
         )
     for deployment in deployments:
         deployment._nexus_routing_trace = trace_by_deployment_id[str(deployment.id)]
+        if decision is not None:
+            selected = next(b.exposed_model_name for d,b,_ in resolved if d.id == deployment.id)
+            deployment._nexus_routing_trace['router']['decision'] = {**decision, 'selected_model': selected}
     return RoutingResolution(deployments=deployments, trace=trace_by_deployment_id[str(deployments[0].id)])
 
 
@@ -723,7 +844,7 @@ def build_aggregation_trace(
 
 def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, Any]]:
     """Return stable Router model names and their current end-to-end availability."""
-    from .capabilities import group_contract
+    from .capabilities import output_contract
 
     child_bindings = list(
         router.child_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True)
@@ -750,7 +871,6 @@ def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, An
                 and output.router.status == Router.STATUS_DEPLOYED
                 and output.status == SoftDeleteModel.STATUS_ACTIVE
                 and output.enabled
-                and output.model_group_id is not None
                 and output_has_available_source(tenant=tenant, output=output)
             )
             row["targets"].append(
@@ -763,7 +883,12 @@ def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, An
             )
             if available:
                 row.update({"available": True, "code": "", "message": ""})
-                row["model_contract"] = group_contract(tenant=tenant, group=output.model_group)
+                row["model_contract"] = output_contract(tenant=tenant, output=output)
+        from apps.routers.aggregate_auto import enabled
+        if enabled(router):
+            rows['auto'] = {'id': 'auto', 'available': any(r['available'] for r in rows.values()),
+                'router_type': 'aggregation', 'targets': [], 'code': '', 'message': '',
+                'model_contract': {'operations': ['chat.completions', 'responses'], 'input_modalities': ['text'], 'output_modalities': ['text']}}
         return list(rows.values())
 
     outputs = list(
@@ -784,7 +909,7 @@ def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, An
     return [
         {
             "id": output.model_name,
-            "model_contract": group_contract(tenant=tenant, group=output.model_group),
+            "model_contract": output_contract(tenant=tenant, output=output),
             "available": output_has_available_source(tenant=tenant, output=output),
             "router_type": Router.TYPE_EXECUTION,
             "targets": [
@@ -845,7 +970,7 @@ def order_model_group_deployments(*, group: ModelGroup, deployments: list[Deploy
     return sorted(
         available,
         key=lambda deployment: (
-            int(getattr(deployment, "_nexus_fallback_order", 100) or 100),
+            source_fallback_order(deployment),
             source_priority(deployment),
             int(getattr(deployment, "_nexus_source_weight", 100) or 100),
             deployment.created_at,
@@ -1079,8 +1204,14 @@ def order_router_candidate_pools(*, router: Router, pools: list[dict[str, Any]],
     return sorted(pools, key=lambda pool: (available_key(pool), *binding_key(pool)))
 
 
+def source_fallback_order(deployment: Deployment) -> int:
+    value = getattr(deployment, "_nexus_fallback_order", None)
+    return 100 if value is None else int(value)
+
+
 def source_priority(deployment: Deployment) -> int:
-    return int(getattr(deployment, "_nexus_source_priority", 100) or 100)
+    value = getattr(deployment, "_nexus_source_priority", None)
+    return 100 if value is None else int(value)
 
 
 def routing_task_type(payload: dict[str, Any]) -> str:
@@ -1105,6 +1236,10 @@ def apply_provider_output_limit(payload: dict[str, Any]) -> None:
     """Ensure preauthorization has a finite output-token ceiling."""
 
     value = payload.get("max_tokens")
+    if "max_completion_tokens" in payload:
+        # Internal accounting uses max_tokens; the adapter removes this alias.
+        payload["max_tokens"] = payload["max_completion_tokens"]
+        return
     if isinstance(value, int) and value > 0:
         return
     payload["max_tokens"] = max(int(getattr(settings, "NEXUS_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS", 512)), 1)
@@ -1123,7 +1258,7 @@ def apply_single_router_key_default(*, payload: dict[str, Any], api_key: Any | N
 
 
 def request_actor_user(request):
-    return request.user if not getattr(request.user, "is_api_key_principal", False) else None
+    return request.user if not getattr(request.user, "is_api_key_principal", False) else getattr(request.user, "usage_actor", None)
 
 
 def get_router_for_payload(*, tenant: Tenant, payload: dict[str, Any]) -> Router | None:

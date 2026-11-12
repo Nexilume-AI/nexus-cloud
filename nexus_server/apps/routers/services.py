@@ -68,6 +68,7 @@ def create_router(
     strategy: str = Router.STRATEGY_MANUAL_PRIORITY,
     model_group_ids: list | None = None,
     ownership: dict | None = None,
+    decision_config: dict | None = None,
 ) -> Router:
     tenant = get_tenant_from_request(request)
     require_router_admin(request=request, tenant=tenant)
@@ -93,6 +94,12 @@ def create_router(
     )
     if model_group_ids:
         bind_model_groups(request=request, router_id=str(router.id), model_group_ids=model_group_ids)
+    if decision_config is not None or strategy == Router.STRATEGY_SYSTEM_ONE:
+        from .decision_routing import validate_config
+        router.decision_config = validate_config(request=request, router=router, config=decision_config or {})
+        router.save(update_fields=["decision_config"])
+    from .decision_routing import sync_auto_output
+    sync_auto_output(router)
     log_write(
         request=request,
         action="routers.create",
@@ -110,6 +117,13 @@ def get_router(*, request, router_id: str) -> Router:
     ).select_related("project").filter(id=router_id).first()
     if router is None:
         raise RouterNotFound()
+    return router
+
+
+def get_usable_router(*, request, router_id: str) -> Router:
+    router = get_router(request=request, router_id=router_id)
+    if not can_use_router(user=request.user, router=router):
+        raise exceptions.PermissionDenied("Router use permission is required.")
     return router
 
 
@@ -164,6 +178,13 @@ def update_router(*, request, router_id: str, data: dict[str, Any]) -> Router:
         update_fields.append("strategy")
     if "model_group_ids" in data:
         validate_model_groups(tenant=router.tenant, model_group_ids=data["model_group_ids"])
+    from .aggregate_auto import enabled as auto_enabled
+    if auto_enabled(router) and router.child_bindings.filter(status='active', enabled=True, exposed_model_name='auto').exists():
+        raise exceptions.ValidationError('Rename the existing auto mapping before enabling Auto routing.')
+    if "decision_config" in data or router.strategy == Router.STRATEGY_SYSTEM_ONE:
+        from .decision_routing import validate_config
+        router.decision_config = validate_config(request=request, router=router, config=data.get("decision_config", router.decision_config))
+        update_fields.append("decision_config")
     router.save(update_fields=update_fields)
     if "model_group_ids" in data:
         bind_model_groups(
@@ -172,6 +193,8 @@ def update_router(*, request, router_id: str, data: dict[str, Any]) -> Router:
             model_group_ids=data["model_group_ids"],
         )
     log_write(request=request, action="routers.update", router=router, metadata={"fields": sorted(data.keys())})
+    from .decision_routing import sync_auto_output
+    sync_auto_output(router)
     return router
 
 
@@ -361,6 +384,8 @@ def bind_model_groups(*, request, router_id: str, providers: list[str] | None = 
         router=router,
         metadata={"providers": providers or [], "model_group_ids": [str(value) for value in model_group_ids or []]},
     )
+    from .decision_routing import sync_auto_output
+    sync_auto_output(router)
     return bindings
 
 
@@ -550,7 +575,8 @@ def aggregation_candidate_output_state(*, user, tenant: Tenant, output: RouterOu
         return "EXECUTION_OUTPUT_UNRESOLVED", "Only Execution Router outputs can be added to an Aggregation Router."
     if child.status != Router.STATUS_DEPLOYED:
         return "EXECUTION_ROUTER_NOT_DEPLOYED", "Deploy this Execution Router before using its output."
-    if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or output.model_group_id is None:
+    from .decision_routing import is_auto_output
+    if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
         return "EXECUTION_OUTPUT_UNRESOLVED", "Reconnect this output to a real Model Pool in the Execution Router."
     if not output_has_available_source(tenant=tenant, output=output):
         return "EXECUTION_MODEL_UNAVAILABLE", "The backing Model Pool has no available Source."
@@ -595,6 +621,9 @@ def resolve_aggregation_candidate_output(*, request, router: Router, output_id: 
 def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -> RouterChildBinding:
     router = get_mutable_router(request=request, router_id=router_id)
     router = Router.objects.select_for_update().get(id=router.id)
+    from .aggregate_auto import enabled as auto_enabled
+    if auto_enabled(router) and data.get('exposed_model_name') == 'auto':
+        raise exceptions.ValidationError('auto is reserved while automatic model routing is enabled.')
     if router.router_type != Router.TYPE_AGGREGATION:
         raise exceptions.ValidationError("Child Router outputs can only be configured on an Aggregation Router.")
     if router.model_group_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True).exists():
@@ -612,7 +641,8 @@ def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -
         raise exceptions.ValidationError("Deploy the child Router before aggregating its output.")
     if child_output.router.child_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True).exists():
         raise exceptions.ValidationError("Router nesting is limited to two levels; an Aggregation Router cannot be a child.")
-    if child_output.model_group_id is None:
+    from .decision_routing import is_auto_output
+    if child_output.model_group_id is None and not is_auto_output(child_output):
         raise exceptions.ValidationError("The child Router output is not connected to a Model Pool.")
     active_bindings = router.child_bindings.filter(
         status=SoftDeleteModel.STATUS_ACTIVE,
@@ -672,6 +702,9 @@ def update_router_child_binding(
         raise RouterNotFound("Child Router binding not found.")
     next_enabled = data.get("enabled", binding.enabled)
     next_model_name = data.get("exposed_model_name", binding.exposed_model_name)
+    from .aggregate_auto import enabled as auto_enabled
+    if next_enabled and auto_enabled(router) and next_model_name == 'auto':
+        raise exceptions.ValidationError('auto is reserved while automatic model routing is enabled.')
     if next_enabled:
         other_active = router.child_bindings.filter(
             status=SoftDeleteModel.STATUS_ACTIVE,
@@ -730,7 +763,8 @@ def validate_aggregation_bindings(*, router: Router, bindings: list[RouterChildB
         seen_child_router_ids.add(child_router_id)
         if output.router_id == router.id:
             raise exceptions.ValidationError("A Router cannot aggregate its own output.")
-        if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or output.model_group_id is None:
+        from .decision_routing import is_auto_output
+        if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
             raise exceptions.ValidationError(f"Child output {binding.exposed_model_name} is unavailable.")
         if output.router.status != Router.STATUS_DEPLOYED:
             raise exceptions.ValidationError(f"Child Router for {binding.exposed_model_name} is not deployed.")
@@ -764,6 +798,9 @@ def serialize_router_trace(*, log) -> dict[str, Any]:
 
 def set_policy(*, request, router_id: str, strategy: str) -> Router:
     router = get_mutable_router(request=request, router_id=router_id)
+    if strategy == Router.STRATEGY_SYSTEM_ONE:
+        from .decision_routing import validate_config
+        validate_config(request=request, router=router, config=router.decision_config)
     if strategy == Router.STRATEGY_CUSTOM:
         version = current_deployed_router_version(router=router)
         if version is None:
@@ -771,6 +808,8 @@ def set_policy(*, request, router_id: str, strategy: str) -> Router:
         ensure_router_file_exists(version=version)
     router.strategy = strategy
     router.save(update_fields=["strategy", "updated_at"])
+    from .decision_routing import sync_auto_output
+    sync_auto_output(router)
     log_write(request=request, action="routers.policy.set", router=router, metadata={"strategy": strategy})
     return router
 
@@ -804,7 +843,8 @@ def router_output_model_names(*, router: Router) -> list[str]:
             .order_by("priority", "created_at")
             .values_list("exposed_model_name", flat=True)
         )
-        return list(dict.fromkeys(child_names))
+        from .aggregate_auto import enabled
+        return list(dict.fromkeys(child_names + (['auto'] if enabled(router) else [])))
     output_names = list(
         router.outputs.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True)
         .order_by("-is_default", "created_at")

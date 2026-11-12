@@ -214,6 +214,7 @@ export type ModelContract = {
   output_modalities: string[];
 };
 export type ProviderRuntimeModelOffer = {
+  discovery_source?: "catalog" | "explicit";
   model_contract?: ModelContract;
   id: string;
   canonical_model_id: string | null;
@@ -252,6 +253,19 @@ export type ProviderRuntimeLoginInfo = {
   login_url: string;
   public_login_path: string;
   status: string;
+};
+
+export type ProviderLoginSession = {
+  message?: string;
+  mode: "device_code" | "browser";
+  device_code_supported?: boolean;
+  status: "pending" | "completed" | "failed" | "expired";
+  session_id?: string;
+  user_code?: string;
+  verification_uri?: string;
+  login_url?: string;
+  expires_at?: number;
+  interval?: number;
 };
 
 export type ProviderRuntimeCredentials = {
@@ -1771,6 +1785,7 @@ export type RouterAggregationCandidate = {
 };
 
 export type Router = {
+  decision_config?: { provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit" };
   id: string;
   tenant_id: string;
   project_id: string | null;
@@ -1850,6 +1865,20 @@ export type RouterProviderPreference = {
   updated_at: string;
 };
 
+export type AgentAPIAccess = {
+  status: "missing" | "active" | "disabled" | "revoked" | "repair_required";
+  credential_id: string | null;
+  prefix: string;
+  plaintext_key: string | null;
+};
+
+export type RouterAPIAccess = {
+  status: string;
+  credential_id: string | null;
+  prefix: string;
+  credentials: RouterCredentials | null;
+};
+
 export type RouterCredentials = {
   router_id: string;
   router_name: string;
@@ -1863,9 +1892,18 @@ export type RouterCredentials = {
   gateway_authorization_header: string;
   recommended_model: string;
   available_models: string[];
+  model_operations?: Record<string, string[]>;
+  systemone?: {
+    endpoint: string;
+    recommended_model: string;
+    available_models: string[];
+    python: string;
+    curl: string;
+  };
   env: string;
   curl: string;
   invoke_curl: string;
+  python?: string;
 };
 
 export type RoutingSourceCandidate = {
@@ -1919,6 +1957,7 @@ export type RoutingTrace = {
       exclusion_reason: string;
     }>;
     selected_pool_id: string;
+    decision?: { algorithm: string; status: string; reason: string; latency_ms?: number };
     reason: string;
   };
   pool: {

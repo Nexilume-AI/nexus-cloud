@@ -78,6 +78,9 @@ class ProviderHTTPFixture:
         cls.image_mode = "complete"
         cls.image_upload_hashes = []
         cls.message_content_hashes = []
+        cls.response_content_hashes = []
+        cls.system_one_payloads = []
+        cls.system_one_choice = "pool_1"
         class Upstream(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
@@ -133,8 +136,18 @@ class ProviderHTTPFixture:
                 for message in payload.get("messages", []):
                     content = json.dumps(message.get("content"), sort_keys=True, ensure_ascii=False).encode()
                     cls.message_content_hashes.append(hashlib.sha256(content).hexdigest())
+                if isinstance(payload.get("input"), list):
+                    for item in payload["input"]:
+                        if item.get("type") == "message":
+                            content = json.dumps(item.get("content"), sort_keys=True, ensure_ascii=False).encode()
+                            cls.response_content_hashes.append(hashlib.sha256(content).hexdigest())
                 if cls.probe_status != 200:
                     self.send_error(cls.probe_status)
+                    return
+                if self.path == "/v1/systemone":
+                    cls.system_one_payloads.append(payload)
+                    self.reply({"model": payload["model"], "answers": {"route": {
+                        "type": "choice", "choice": cls.system_one_choice}}})
                     return
                 if "/images/" in self.path:
                     if cls.image_mode == "empty":
@@ -150,6 +163,28 @@ class ProviderHTTPFixture:
                 if cls.gateway_failures_remaining:
                     cls.gateway_failures_remaining -= 1
                     self.send_error(503)
+                    return
+                if self.path == "/v1/responses":
+                    result = {"id": "resp_fixture", "object": "response", "status": "completed",
+                              "output_text": "hello world" if payload.get("stream") else "healthy",
+                              "output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "healthy", "annotations": []}]}],
+                              "usage": {"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}}
+                    if not payload.get("stream"):
+                        self.reply(result)
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.end_headers()
+                    chunks = [{"type": "response.output_text.delta", "delta": "hello "}]
+                    if cls.gateway_stream_mode == "complete":
+                        chunks += [{"type": "response.output_text.delta", "delta": "world"}, {"type": "response.completed", "response": result}]
+                    elif cls.gateway_stream_mode == "error":
+                        chunks = [{"type": "response.failed", "response": {"error": {"message": "do-not-leak-stream-error"}}}]
+                    elif cls.gateway_stream_mode == "empty":
+                        chunks = []
+                    for chunk in chunks:
+                        if not self.send_sse(("event: " + chunk["type"] + "\ndata: " + json.dumps(chunk) + "\n\n").encode()):
+                            return
                     return
                 if payload.get("stream"):
                     self.send_response(200)
@@ -208,6 +243,9 @@ class ProviderHTTPFixture:
         type(self).image_mode = "complete"
         type(self).image_upload_hashes.clear()
         type(self).message_content_hashes.clear()
+        type(self).response_content_hashes.clear()
+        type(self).system_one_payloads.clear()
+        type(self).system_one_choice = "pool_1"
 
 
     def request(self, user=None):

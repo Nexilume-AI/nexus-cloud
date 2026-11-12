@@ -11,6 +11,25 @@ from .services import installation_context
 
 
 class PersonalRouterIntegration:
+    def managed_credential(self, *, request, router, credential_id, revoke=False):
+        from django.utils import timezone
+        from .models import PersonalRouterCredential
+        row = PersonalRouterCredential.objects.select_for_update().filter(
+            pk=credential_id, owner=request.user, router=router, issued_for="exported",
+        ).first()
+        if row is None:
+            return {"status": "missing"}
+        if revoke:
+            row.revoked_at = timezone.now()
+            row.save(update_fields=["revoked_at"])
+        _, tenant_id, project_id = installation_context()
+        state = "revoked" if row.revoked_at else "expired" if row.expires_at <= timezone.now() else "active"
+        if str(row.tenant_id) != str(tenant_id) or str(row.project_id) != str(project_id):
+            state = "scope_changed"
+        from .router_credentials import effective_model_names
+        return {"status": state, "hash": row.token_hash, "prefix": "np-router-" + row.pk.hex[:8],
+                "models": effective_model_names(row), "expires_at": row.expires_at}
+
     def log_runtime_invocation(self, **kwargs):
         from .router_runtime import log_runtime_invocation
         return log_runtime_invocation(**kwargs)
@@ -72,8 +91,13 @@ class PersonalRouterIntegration:
             if not self.can_use_router(user=request.user, router=binding.child_output.router):
                 raise exceptions.NotFound("Execution Router is no longer available.")
             if binding.child_output.model_group_id is None:
-                raise exceptions.ValidationError("Reconnect the Execution output to a real Model Pool.")
-            self.validate_model_groups(tenant=router.tenant, model_group_ids=[binding.child_output.model_group_id])
+                from apps.routers.decision_routing import is_auto_output, output_groups
+                if not is_auto_output(binding.child_output):
+                    raise exceptions.ValidationError("Reconnect the Execution output to a real Model Pool.")
+                ids = [group.pk for group in output_groups(binding.child_output)]
+            else:
+                ids = [binding.child_output.model_group_id]
+            self.validate_model_groups(tenant=router.tenant, model_group_ids=ids)
 
     def set_pricing(self, *, request, router_id, plan_id, pricing_json=None):
         from apps.routers.services import get_mutable_router

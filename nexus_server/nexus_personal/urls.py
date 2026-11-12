@@ -39,6 +39,7 @@ urlpatterns = [
     path("api/v1/", include("apps.deployments.source_urls")),
     path("api/v1/", include("apps.routers.management_urls")),
     path("api/v1/", include("apps.gateway.chat_urls")),
+    path("api/v1/", include("apps.gateway.system_one_urls")),
     path("api/v1/", include("apps.gateway.image_urls")),
     path("api/v1/", include("apps.mobile.urls")),
     path("api/v1/", include("apps.workspaces.computer_urls")),

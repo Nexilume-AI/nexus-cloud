@@ -158,7 +158,7 @@ class RouterSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Router
         list_serializer_class = RouterListSerializer
-        fields = ["id", "tenant_id", "project_id", "name", "strategy", "status", "current_version",
+        fields = ["id", "tenant_id", "project_id", "name", "strategy", "decision_config", "status", "current_version",
                   "router_type", "created_at", "updated_at"]
 
     def to_representation(self, instance):

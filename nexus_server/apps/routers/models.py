@@ -23,6 +23,7 @@ class Router(SoftDeleteModel):
     STRATEGY_LOWEST_LATENCY_POOL = "lowest_latency_pool"
     STRATEGY_BEST_HEALTH_POOL = "best_health_pool"
     STRATEGY_TASK_TYPE = "task_type"
+    STRATEGY_SYSTEM_ONE = "system_one"
     STRATEGY_CHOICES = (
         (STRATEGY_COST, "Cost"),
         (STRATEGY_QUALITY, "Quality"),
@@ -32,6 +33,7 @@ class Router(SoftDeleteModel):
         (STRATEGY_LOWEST_LATENCY_POOL, "Lowest latency pool"),
         (STRATEGY_BEST_HEALTH_POOL, "Best health pool"),
         (STRATEGY_TASK_TYPE, "Task type"),
+        (STRATEGY_SYSTEM_ONE, "System One decision"),
     )
 
     STATUS_DRAFT = "draft"
@@ -49,6 +51,7 @@ class Router(SoftDeleteModel):
     name = models.CharField(max_length=255)
     router_type = models.CharField(max_length=32, choices=TYPE_CHOICES, default=TYPE_EXECUTION)
     strategy = models.CharField(max_length=32, choices=STRATEGY_CHOICES, default=STRATEGY_COST)
+    decision_config = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_DRAFT)
     current_version = models.CharField(max_length=32, blank=True)
     created_by = models.ForeignKey(
@@ -68,6 +71,21 @@ class Router(SoftDeleteModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class RouterCredentialVault(BaseModel):
+    """One recoverable, encrypted API credential per Router, owner and host."""
+
+    router = models.ForeignKey(Router, on_delete=models.CASCADE, related_name="credential_vaults")
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    backend = models.CharField(max_length=255)
+    credential_id = models.UUIDField()
+    encrypted_key = models.TextField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["router", "owner", "backend"], name="router_credential_vault_owner",
+        )]
 
 
 class RouterVersion(SoftDeleteModel):

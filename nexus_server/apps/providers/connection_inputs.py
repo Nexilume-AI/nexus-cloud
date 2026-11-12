@@ -59,6 +59,8 @@ class ProviderConnectionCreateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["engine"] == "direct_api":
+            if attrs.get("upstream_provider") in {"system_one", "system-one"} and attrs.get("url", "").rstrip("/").endswith("/systemone"):
+                attrs["url"] = attrs["url"].rstrip("/")[:-len("/systemone")]
             if not attrs.get("url"):
                 raise serializers.ValidationError({"url": "API URL is required for Direct API."})
             if not attrs.get("key"):
@@ -86,6 +88,8 @@ class ProviderConnectionUpdateSerializer(serializers.Serializer):
             if attrs["upstream_provider"].lower() not in {"openai", "claude"}:
                 raise serializers.ValidationError({"upstream_provider": "Choose OpenAI or Claude for CLIProxyAPI."})
         if "url" in attrs and attrs["url"]:
+            if attrs.get("upstream_provider") in {"system_one", "system-one"} and attrs["url"].rstrip("/").endswith("/systemone"):
+                attrs["url"] = attrs["url"].rstrip("/")[:-len("/systemone")]
             try:
                 attrs["url"] = validate_provider_base_url(attrs["url"])
             except ProviderEndpointRejected as exc:

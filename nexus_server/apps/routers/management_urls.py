@@ -1,10 +1,11 @@
 """Operational Router URLs; excludes uncomposed Gateway and commerce actions."""
 from django.urls import path
 from .trace_views import RouterTraceListView
-from .credential_views import RouterCredentialsExportView, RouterInvokeView
+from .credential_views import RouterAPIAccessView, RouterCredentialsExportView, RouterInvokeView
 from .management_views import (RouterListCreateView, RouterDetailView, RouterUploadView, RouterSourceView, RouterDeployView, RouterModelGroupsView, RouterOutputsView, RouterOutputDetailView, RouterChildBindingsView, RouterAggregationCandidatesView, RouterChildBindingDetailView, RouterPolicyView)
 
 urlpatterns = [
+    path("routers/<uuid:router_id>/api-access/", RouterAPIAccessView.as_view(), name="router-api-access"),
     path("routers/<uuid:router_id>/export-credentials/", RouterCredentialsExportView.as_view(), name="router-export-credentials"),
     path("routers/<uuid:router_id>/invoke/", RouterInvokeView.as_view(), name="router-invoke"),
     path("routers/<uuid:router_id>/traces/", RouterTraceListView.as_view(), name="router-traces"),

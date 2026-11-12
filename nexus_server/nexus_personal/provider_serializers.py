@@ -11,6 +11,11 @@ from apps.providers.connection_inputs import (
 
 
 class PersonalProviderModelSerializer(serializers.ModelSerializer):
+    discovery_source = serializers.SerializerMethodField()
+
+    def get_discovery_source(self, obj):
+        return "explicit" if (obj.metadata or {}).get("discovery_source") == "explicit" else "catalog"
+
     canonical_model_id = serializers.UUIDField(read_only=True, allow_null=True)
     canonical_model_key = serializers.CharField(source="canonical_model.key", read_only=True, default="")
     source_ids = serializers.SerializerMethodField()
@@ -22,7 +27,7 @@ class PersonalProviderModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProviderRuntimeModelOffer
-        fields = ["id", "canonical_model_id", "canonical_model_key", "upstream_model_id", "status",
+        fields = ["id", "canonical_model_id", "canonical_model_key", "upstream_model_id", "status", "discovery_source",
                   "health_status", "health_reason", "capabilities", "last_discovered_at", "last_health_check_at",
                   "price_per_1k_tokens", "input_price_per_1k_tokens", "output_price_per_1k_tokens", "image_pricing", "source_ids"]
 

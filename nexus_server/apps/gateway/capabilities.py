@@ -1,7 +1,7 @@
 """Explicit model operation and modality contracts."""
 from rest_framework.exceptions import APIException
 
-OPERATIONS = ("chat.completions", "responses", "images.generate", "images.edit", "images.variation")
+OPERATIONS = ("chat.completions", "responses", "images.generate", "images.edit", "images.variation", "systemone")
 
 
 class ModelOperationUnsupported(APIException):
@@ -66,6 +66,13 @@ def supports_request(deployment, payload):
     )
 
 
+def output_contract(*, tenant, output):
+    from apps.routers.decision_routing import output_groups
+    contracts = [group_contract(tenant=tenant, group=group) for group in output_groups(output)]
+    return {field: sorted({value for contract in contracts for value in contract[field]})
+            for field in ("operations", "input_modalities", "output_modalities")}
+
+
 def filter_candidates(deployments, payload, *, required=True):
     candidates = [item for item in deployments if supports_request(item, payload)]
     if request_operation(payload).startswith("images.") and candidates:
@@ -93,6 +100,11 @@ def enforce_operation_policy(api_key, operation):
     if api_key is None:
         return
     policy = getattr(api_key, "policy", None)
+    # Router-bound keys follow published model contracts when no explicit
+    # operation restriction exists. Model/Router scope is still checked before
+    # dispatch; an explicit Chat-only policy never acquires native access.
+    if operation == "systemone" and not getattr(policy, "allowed_operations", []) and getattr(policy, "allowed_routers", []):
+        return
     allowed = getattr(policy, "allowed_operations", []) or ["chat.completions", "responses"]
     if operation not in allowed:
         raise OperationPolicyDenied()

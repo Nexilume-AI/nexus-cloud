@@ -24,6 +24,16 @@ class ProviderEndpointRejected(ValueError):
     """Raised before any bytes are sent to an unsafe Provider endpoint."""
 
 
+class ProviderTransportError(URLError):
+    """Safe diagnostics plus an explicit pre-dispatch retry boundary."""
+    def __init__(self, phase, cause):
+        self.phase = phase
+        self.safe_to_retry = phase == "connect"
+        reason = cause.reason if isinstance(cause, URLError) else cause
+        self.timed_out = isinstance(reason, TimeoutError)
+        super().__init__(f"Provider transport failed during {phase}.")
+
+
 _doh_cache: dict[str, tuple[float, tuple[str, ...]]] = {}
 _doh_lock = threading.Lock()
 
@@ -94,10 +104,12 @@ def validate_provider_base_url(value: str, *, resolve: bool = False, allow_priva
     return str(value).strip().rstrip("/")
 
 
-def resolve_provider_endpoint(url: str, *, allow_private: bool = False,
+def resolve_provider_endpoint(url: str, *, allow_private: bool = False, allow_http: bool = False,
                               public_https_only: bool = False) -> ResolvedProviderEndpoint:
     parsed = urlsplit(str(url or "").strip())
-    allow_http = not public_https_only and bool(getattr(settings, "NEXUS_PROVIDER_ALLOW_HTTP", False))
+    # Private-address admission and cleartext transport are separate privileges.
+    # Only a verified managed Runtime caller supplies the per-request HTTP flag.
+    allow_http = not public_https_only and (allow_http or bool(getattr(settings, "NEXUS_PROVIDER_ALLOW_HTTP", False)))
     if public_https_only and any(ord(char) <= 32 or ord(char) == 127 for char in str(url)):
         raise ProviderEndpointRejected("Endpoint contains unsupported whitespace or control data.")
     if parsed.scheme not in ({"https", "http"} if allow_http else {"https"}):
@@ -155,8 +167,13 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
         self.endpoint = endpoint
 
     def connect(self) -> None:
+        deadline = time.monotonic() + self.timeout
         raw = _connect_address(self.endpoint.addresses, self.timeout)
         try:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError()
+            raw.settimeout(remaining)
             self.sock = self._context.wrap_socket(raw, server_hostname=self.endpoint.hostname)
         except Exception:
             raw.close()
@@ -165,9 +182,14 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 def _connect_address(addresses: tuple[tuple[int, int, int, tuple], ...], timeout: float | None):
     last_error: OSError | None = None
-    for family, socktype, proto, address in addresses:
+    deadline = time.monotonic() + timeout if timeout is not None else None
+    for index, (family, socktype, proto, address) in enumerate(addresses):
+        remaining = deadline - time.monotonic() if deadline is not None else None
+        if remaining is not None and remaining <= 0:
+            last_error = TimeoutError()
+            break
         candidate = socket.socket(family, socktype, proto)
-        candidate.settimeout(timeout)
+        candidate.settimeout(remaining / (len(addresses) - index) if remaining is not None else None)
         try:
             candidate.connect(address)
             return candidate
@@ -185,7 +207,9 @@ def open_provider_url(
     headers: dict[str, str] | None = None,
     body: bytes | None = None,
     timeout: float,
+    connect_timeout: float | None = None,
     allow_private: bool = False,
+    allow_http: bool = False,
     public_https_only: bool = False,
     error_body_limit: int = 64 * 1024,
     timing: dict | None = None,
@@ -193,19 +217,43 @@ def open_provider_url(
     """Open one redirect-free, DNS-pinned Provider request."""
     timing = timing if timing is not None else {}
     began = time.monotonic()
-    endpoint = resolve_provider_endpoint(url, allow_private=allow_private, public_https_only=public_https_only)
+    endpoint = resolve_provider_endpoint(url, allow_private=allow_private, allow_http=allow_http,
+                                         public_https_only=public_https_only)
     timing['dns_ms'] = round((time.monotonic() - began) * 1000, 2)
-    connection: http.client.HTTPConnection
-    if endpoint.scheme == "https":
-        connection = _PinnedHTTPSConnection(endpoint, timeout)
-    else:
-        connection = _PinnedHTTPConnection(endpoint, timeout)
+    factory = _PinnedHTTPSConnection if endpoint.scheme == "https" else _PinnedHTTPConnection
+    connection = None
+    phase = "connect"
     try:
+        if connect_timeout is None:
+            connection = factory(endpoint, timeout)
+        else:
+            deadline = time.monotonic() + connect_timeout
+            for attempt in range(2):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProviderTransportError("connect", TimeoutError())
+                connection = factory(endpoint, remaining / (2 - attempt))
+                try:
+                    connection.connect()
+                except ssl.SSLError:
+                    # Certificate/hostname errors are not transient recovery.
+                    raise
+                except (URLError, OSError) as exc:
+                    connection.close()
+                    connection = None
+                    if attempt == 1:
+                        raise ProviderTransportError("connect", exc) from exc
+                    continue
+                connection.sock.settimeout(timeout)
+                break
+            timing['connect_ms'] = round((time.monotonic() - began) * 1000 - timing['dns_ms'], 2)
         request_headers = dict(headers or {})
         if not any(name.lower() == "user-agent" for name in request_headers):
             request_headers["User-Agent"] = PROVIDER_USER_AGENT
+        phase = "send"
         connection.request(method.upper(), endpoint.path, body=body, headers=request_headers)
         timing['request_sent_ms'] = round((time.monotonic() - began) * 1000, 2)
+        phase = "response"
         response = connection.getresponse()
         timing['headers_ms'] = round((time.monotonic() - began) * 1000, 2)
         if response.status < 200 or response.status >= 300:
@@ -217,9 +265,15 @@ def open_provider_url(
                 response.headers,
                 io.BytesIO(encoded),
             )
+        phase = "read"
         yield response
-    except (ProviderEndpointRejected, HTTPError, URLError, TimeoutError, OSError):
+    except (ProviderEndpointRejected, HTTPError, ProviderTransportError, ssl.SSLError):
         raise
+    except (URLError, OSError, http.client.HTTPException) as exc:
+        if connect_timeout is None:
+            raise
+        raise ProviderTransportError(phase, exc) from exc
     finally:
         timing['http_total_ms'] = round((time.monotonic() - began) * 1000, 2)
-        connection.close()
+        if connection is not None:
+            connection.close()

@@ -25,7 +25,11 @@ def compatible_input_capacity(candidates):
 def router_groups(router, name):
     from .services import child_router_id_invalid
     if router.router_type == router.TYPE_AGGREGATION:
-        bindings = router.child_bindings.filter(status="active", enabled=True, exposed_model_name=name).select_related(
+        from apps.routers.aggregate_auto import enabled
+        bindings = router.child_bindings.filter(status="active", enabled=True)
+        if not (name == 'auto' and enabled(router)):
+            bindings = bindings.filter(exposed_model_name=name)
+        bindings = bindings.select_related(
             "child_output__router", "child_output__model_group")
         return [binding.child_output.model_group for binding in bindings
                 if binding.child_output.status == "active" and binding.child_output.enabled
@@ -38,15 +42,40 @@ def router_groups(router, name):
             .select_related("model_group") if binding.model_group and binding.model_group.name == name]
 
 
+def runtime_reference_identity(*, runtime, provider, model, metadata):
+    """Resolve the model vendor, not the synthetic runtime account's name.
+
+    Hosted OAuth adapters use a shared ``codex-login`` account even for Claude.
+    Only known adapter/vendor combinations are translated. A generic compatible
+    endpoint and an unknown model alias still require an explicit mapping.
+    """
+    override = mapping(metadata.get("models_dev"))
+    providers = mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {}))
+    source = getattr(runtime, "source_provider_account", None)
+    origin = getattr(getattr(source, "provider", None), "name", "")
+    engine = getattr(runtime, "runtime_type", "")
+    vendor = provider
+    if engine == "codex_proxy":
+        vendor = "openai"
+    elif engine == "cliproxyapi":
+        vendor = {"openai": "openai", "claude": "anthropic"}.get(origin, provider)
+    return {"provider": override.get("provider") or providers.get(provider) or providers.get(origin) or vendor,
+            "model": override.get("model") or model}
+
+
 def source_reference_identity(source):
     override = getattr(source, "models_dev_mapping", None)
     if override is not None:
         return override
     metadata = mapping(getattr(getattr(source, "runtime_model_offer", None), "metadata", None))
-    override = mapping(metadata.get("models_dev"))
-    providers = mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {}))
-    return {"provider": override.get("provider") or providers.get(source.provider.name, source.provider.name),
-            "model": override.get("model") or source.upstream_model_id}
+    return runtime_reference_identity(runtime=getattr(source, "provider_runtime", None),
+        provider=source.provider.name, model=source.upstream_model_id, metadata=metadata)
+
+
+def provider_reference_identity(offer, runtime):
+    account = runtime.provider_account or runtime.source_provider_account
+    return runtime_reference_identity(runtime=runtime, provider=account.provider.name,
+        model=offer.upstream_model_id, metadata=mapping(offer.metadata))
 
 
 def source_fields(source, catalog, *, include_override=True):
@@ -59,12 +88,8 @@ def source_fields(source, catalog, *, include_override=True):
 
 
 def provider_fields(offer, runtime, catalog, *, include_override=True):
-    account = runtime.provider_account or runtime.source_provider_account
     metadata = dict(mapping(offer.metadata))
-    override = mapping(metadata.get("models_dev"))
-    provider = account.provider.name
-    identity = {"provider": override.get("provider") or mapping(getattr(settings, "NEXUS_MODELS_DEV_PROVIDER_MAP", {})).get(provider, provider),
-                "model": override.get("model") or offer.upstream_model_id}
+    identity = provider_reference_identity(offer, runtime)
     if not include_override:
         metadata.pop("model_capabilities_override", None)
     return capability_fields(canonical=offer.canonical_model, metadata=metadata, runtime=runtime,

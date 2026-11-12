@@ -2,7 +2,6 @@ import { t, useLocale, getLocale } from "../localization";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Copy,
   ArrowLeft,
   ArrowDown,
   ArrowRight,
@@ -33,7 +32,9 @@ import { useAuth } from "../app/AuthContext";
 import { api } from "../lib/api";
 import { useCatalogSearch, useCursorPage } from "../lib/useCursorPage";
 import { CursorPageControls } from "../components/CursorPageControls";
-import type { ModelGroup, Router, RouterAggregationCandidate, RouterCredentials, RouterTestResult, RouterTraceRecord } from "../lib/types";
+import type { ModelGroup, Router, RouterAggregationCandidate, RouterTestResult, RouterTraceRecord } from "../lib/types";
+import { RouterAPIAccessDialog } from "../components/RouterAPIAccessDialog";
+import { useApplicationDistribution } from "../app/distribution";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Form";
 import { StatusBadge } from "../components/Badge";
@@ -62,18 +63,20 @@ const starterRouter = `def route(request, candidates, context):
 `;
 
 type RouterModal = "create" | "advanced" | "rename" | "mapping" | "delete" | null;
-type RouterWorkspaceView = "overview" | "configure" | "activity";
+type RouterWorkspaceView = "overview" | "configure" | "activity" | "usage";
 type RouterTypeFilter = "all" | "execution" | "aggregation";
 type RouterStatusFilter = "all" | "attention";
+type RouterDecisionSettings = {provider_connection_id: string; model: string; timeout_ms: number; model_source: "catalog" | "explicit"};
 
 export function RoutersPage() {
   useLocale();
+  const { RouterCallerUsage } = useApplicationDistribution();
   const { apiContext, isContextReady, projects, projectId } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialView = searchParams.get("view");
   const [selectedId, setSelectedIdState] = useState(searchParams.get("router") ?? "");
-  const [routerView, setRouterViewState] = useState<RouterWorkspaceView>(initialView === "configure" || initialView === "activity" ? initialView : "overview");
+  const [routerView, setRouterViewState] = useState<RouterWorkspaceView>(initialView === "configure" || initialView === "activity" || (initialView === "usage" && RouterCallerUsage) ? initialView : "overview");
   const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(searchParams.get("router")));
   const [activeModal, setActiveModal] = useState<RouterModal>(null);
   const [routerName, setRouterName] = useState("");
@@ -88,10 +91,9 @@ export function RoutersPage() {
     [],
   );
   const [policy, setPolicy] = useState("manual_priority");
+  const [decisionConfig, setDecisionConfig] = useState<RouterDecisionSettings>({ provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog" });
   const [routerCode, setRouterCode] = useState(starterRouter);
-  const [credentials, setCredentials] = useState<RouterCredentials | null>(
-    null,
-  );
+  const [apiAccessOpen, setApiAccessOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<ShareResourceTarget | null>(
     null,
   );
@@ -212,7 +214,7 @@ export function RoutersPage() {
   useEffect(() => {
     const urlRouter = searchParams.get("router") ?? "";
     const urlView = searchParams.get("view");
-    const normalizedView: RouterWorkspaceView = urlView === "configure" || urlView === "activity" ? urlView : "overview";
+    const normalizedView: RouterWorkspaceView = urlView === "configure" || urlView === "activity" || (urlView === "usage" && RouterCallerUsage) ? urlView : "overview";
     const urlQuery = searchParams.get("q") ?? "";
     if (urlRouter !== selectedId) setSelectedIdState(urlRouter);
     if (normalizedView !== routerView) setRouterViewState(normalizedView);
@@ -234,6 +236,7 @@ export function RoutersPage() {
   useEffect(() => {
     if (selectedRouter?.strategy) {
       setPolicy(selectedRouter.strategy);
+      setDecisionConfig({ provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog", ...selectedRouter.decision_config });
       setSelectedModelGroupIds(selectedRouter.model_group_ids ?? []);
       setRouterEditName(selectedRouter.name);
     }
@@ -241,6 +244,7 @@ export function RoutersPage() {
     selectedRouter?.id,
     selectedRouter?.name,
     selectedRouter?.strategy,
+    selectedRouter?.decision_config,
     selectedRouter?.model_group_ids,
   ]);
 
@@ -297,10 +301,11 @@ export function RoutersPage() {
         apiContext,
         selectedRouter!.id,
         selectedRouter!.router_type === "aggregation"
-          ? { name: routerEditName.trim() }
+          ? { name: routerEditName.trim(), strategy: policy, ...(policy === "system_one" ? { decision_config: decisionConfig } : {}) }
           : {
               name: routerEditName.trim(),
               strategy: policy,
+              ...(policy === "system_one" ? { decision_config: decisionConfig } : {}),
               model_group_ids: selectedModelGroupIds,
             },
       ),
@@ -390,20 +395,6 @@ export function RoutersPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : t("Failed to remove Router output")),
   });
 
-  const exportCredentials = useMutation({
-    mutationFn: (routerId: string) =>
-      api.exportRouterCredentials(apiContext, routerId),
-    onSuccess: (payload) => {
-      setCredentials(payload);
-      toast.success(t("Router credentials ready"));
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("Failed to export router credentials"),
-      ),
-  });
 
   const testRouting = useMutation({
     mutationFn: () => {
@@ -477,9 +468,8 @@ export function RoutersPage() {
   const hasUnsavedChanges = Boolean(
     selectedRouter &&
       (routerEditName.trim() !== selectedRouter.name ||
-        (selectedRouter.router_type === "execution" &&
-          (policy !== selectedRouter.strategy ||
-            selectedModelGroupIds.join("|") !== selectedRouter.model_group_ids.join("|")))),
+        policy !== selectedRouter.strategy || (policy === "system_one" && JSON.stringify(decisionConfig) !== JSON.stringify({ provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog", ...selectedRouter.decision_config })) ||
+        (selectedRouter.router_type === "execution" && selectedModelGroupIds.join("|") !== selectedRouter.model_group_ids.join("|"))),
   );
   const visibleBoundModels = (models.data ?? []).filter((model) => selectedModelGroupIds.includes(model.id));
   const effectiveOutputModels = selectedRouter?.output_models?.length
@@ -555,7 +545,7 @@ export function RoutersPage() {
     if (recommendedAction === "configure") return <button className="btn btn-primary" onClick={() => setRouterView("configure")}><SlidersHorizontal size={15} />{t("Configure router")}</button>;
     if (recommendedAction === "apply") return <button className="btn btn-primary" onClick={() => applyRouterChanges.mutate()} disabled={applyRouterChanges.isPending || !selectedCanEdit}>{applyRouterChanges.isPending ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}{t("Apply changes")}</button>;
     if (recommendedAction === "deploy") return <button className="btn btn-primary" onClick={() => deploy.mutate()} disabled={deploy.isPending || Boolean(deployBlockedReason) || !selectedCanEdit} title={deployBlockedReason}>{deploy.isPending ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} />}{t("Deploy router")}</button>;
-    if (recommendedAction === "sdk") return <button className="btn btn-primary" onClick={() => exportCredentials.mutate(selectedRouter.id)} disabled={exportCredentials.isPending}><KeyRound size={15} />{t("SDK setup")}</button>;
+    if (recommendedAction === "sdk") return null;
     return <button className="btn btn-primary" onClick={() => setRouterView("activity")}><FlaskConical size={15} />{t("Test router")}</button>;
   }
 
@@ -619,6 +609,8 @@ export function RoutersPage() {
               </div>
               <div className="router-toolbar-actions">
                 {renderRecommendedAction()}
+                {selectedCanRead && <button className={recommendedAction === "sdk" ? "btn btn-primary" : "btn"}
+                  onClick={() => setApiAccessOpen(true)}><KeyRound size={15} />{t("API & keys")}</button>}
                 <details className="router-more-menu">
                   <summary className="btn"><MoreHorizontal size={16} />{t("More")}</summary>
                   <div>
@@ -633,8 +625,9 @@ export function RoutersPage() {
 
             {!selectedCanRead ? <section className="router-access-required" aria-label={t("Router access required")}><CircleAlert size={22} /><div><h3>{t("Access required")}</h3><p>{t("You can discover this Router, but its configuration, topology, and traffic are hidden. Ask an Organization or Project administrator for a Role or explicit Share.")}</p></div></section> : <>
             <div className="router-workspace-tabs">
-              <NexilumeTabs<RouterWorkspaceView> label={t("Router workspace")} options={[{ value: "overview", label: t("Overview") }, { value: "configure", label: t("Configure") }, { value: "activity", label: t("Test & traffic") }]} value={routerView} onChange={setRouterView} variant="view" idBase="router-workspace" />
+              <NexilumeTabs<RouterWorkspaceView> label={t("Router workspace")} options={[{ value: "overview", label: t("Overview") }, { value: "configure", label: t("Configure") }, { value: "activity", label: t("Test & traffic") }, ...(RouterCallerUsage ? [{ value: "usage" as const, label: t("Usage by person") }] : [])]} value={routerView} onChange={setRouterView} variant="view" idBase="router-workspace" />
             </div>
+            {routerView === "usage" && RouterCallerUsage && <div role="tabpanel" id="router-workspace-panel-usage" aria-labelledby="router-workspace-tab-usage"><RouterCallerUsage key={selectedRouter.id} routerId={selectedRouter.id} /></div>}
 
             {routerView === "overview" && <div className="router-overview-strip" role="tabpanel" id="router-workspace-panel-overview" aria-labelledby="router-workspace-tab-overview">
               <div><span>{t("Type")}</span><strong>{selectedRouter.router_type === "aggregation" ? t("Aggregation") : t("Execution")}</strong></div>
@@ -685,13 +678,24 @@ export function RoutersPage() {
                   <label htmlFor="router-workspace-name">{t("Router name")}</label>
                   <input id="router-workspace-name" className="input" value={routerEditName} onChange={(event) => setRouterEditName(event.target.value)} />
                 </div>
-                <select className="select" aria-label={t("Routing policy")} value={policy} onChange={(event) => setPolicy(event.target.value)}><option value="manual_priority">{t("Pool priority")}</option><option value="lowest_cost_pool">{t("Lowest cost")}</option><option value="lowest_latency_pool">{t("Lowest latency")}</option><option value="best_health_pool">{t("Best availability")}</option><option value="custom">{t("Custom policy")}</option></select>
+                <select className="select" aria-label={t("Routing policy")} value={policy} onChange={(event) => setPolicy(event.target.value)}><option value="manual_priority">{t("Pool priority")}</option><option value="lowest_cost_pool">{t("Lowest cost")}</option><option value="lowest_latency_pool">{t("Lowest latency")}</option><option value="best_health_pool">{t("Best availability")}</option><option value="system_one">{t("System One · intelligent routing")}</option><option value="custom">{t("Custom policy")}</option></select>
+                {policy === "system_one" && <SystemOneRoutingSettings value={decisionConfig} onChange={setDecisionConfig} />}
                 <p className="router-strategy-note">{strategyExplanation(policy)}</p>
                 {customStrategyBlocked && policy === "custom" && <p className="router-inline-help is-warning">{t("Deploy a valid router.py before selecting Custom policy.")}</p>}
               </section>
             </div>}
 
-            {routerView !== "activity" && selectedRouter.router_type === "aggregation" && <div className={routerView === "overview" ? "router-overview-content grid gap-4" : "router-aggregation-configure"}>
+            {(routerView === "overview" || routerView === "configure") && selectedRouter.router_type === "aggregation" && <div className={routerView === "overview" ? "router-overview-content grid gap-4" : "router-aggregation-configure"}>
+              {routerView === "configure" && <section className="router-composer-panel">
+                <div className="router-panel-heading"><h3>{t("Automatic model selection")}</h3></div>
+                <select className="select" aria-label="Auto model routing" value={policy} onChange={event => setPolicy(event.target.value)}>
+                  <option value="manual_priority">Specified models only</option>
+                  <option value="task_type">Auto · rules</option>
+                  <option value="system_one">Auto · Decision Model</option>
+                </select>
+                {policy === "system_one" && <SystemOneRoutingSettings value={decisionConfig} onChange={setDecisionConfig} />}
+                <p className="router-strategy-note">Call auto to choose the fastest capable model; complex tasks prefer lower-priority-number routes. Decision failures fall back to rules. Named models always use their existing mapping.</p>
+              </section>}
               {routerView === "overview" && <section className="router-readiness">
                 <span className="router-readiness-icon">{childBindings.length > 0 && !hasAggregationOneToOneConflict && aggregationUnavailableCount === 0 ? <CheckCircle2 size={20} /> : <CircleAlert size={20} />}</span>
                 <div>
@@ -1014,10 +1018,12 @@ export function RoutersPage() {
         </RouterModalFrame>
       )}
 
-      {credentials && (
-        <RouterCredentialsDialog
-          credentials={credentials}
-          onClose={() => setCredentials(null)}
+      {apiAccessOpen && selectedRouter && (
+        <RouterAPIAccessDialog
+          key={`${selectedRouter.id}:${apiContext.tenantId}:${apiContext.projectId}`}
+          router={selectedRouter}
+          canCreate={selectedRouter.access?.can_use ?? selectedCanEdit}
+          onClose={() => setApiAccessOpen(false)}
         />
       )}
       <ShareResourceModal
@@ -1027,9 +1033,32 @@ export function RoutersPage() {
     </div>
   );
 }
+function SystemOneRoutingSettings({ value, onChange }: { value: RouterDecisionSettings; onChange: (value: RouterDecisionSettings) => void }) {
+  const { apiContext, isContextReady } = useAuth();
+  const paging = useCursorPage(apiContext);
+  const connections = useQuery({ queryKey: ["system-one-routing-providers", apiContext, paging.cursor], queryFn: ({signal}) => api.providerConnectionsPage(apiContext, {protocol: "system_one", cursor: paging.cursor}, signal), enabled: isContextReady });
+  const provider = useQuery({ queryKey: ["provider-connection", apiContext, value.provider_connection_id], queryFn: ({signal}) => api.providerConnection(apiContext, value.provider_connection_id, signal), enabled: isContextReady && Boolean(value.provider_connection_id) });
+  return <div className="grid gap-3 mt-4">
+    <Field label={t("Decision Provider")}><select className="select" value={value.provider_connection_id} onChange={event => onChange({...value, provider_connection_id: event.target.value, model: "", model_source: "catalog"})}>
+      <option value="">{t("Choose a System One Provider")}</option>
+      {value.provider_connection_id && !(connections.data?.items ?? []).some(row => row.id === value.provider_connection_id) && <option value={value.provider_connection_id}>{provider.data?.name || value.provider_connection_id}</option>}
+      {(connections.data?.items ?? []).filter(row => ["system_one", "system-one"].includes(row.upstream_provider)).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+    </select></Field>
+    <CursorPageControls page={paging.page} hasMore={Boolean(connections.data?.next_cursor)} busy={connections.isFetching} onPrevious={paging.previous} onNext={() => paging.next(connections.data?.next_cursor)} />
+    <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={value.model_source === "explicit"} onChange={event => onChange({...value, model: "", model_source: event.target.checked ? "explicit" : "catalog"})} />{t("Specify an unlisted model ID")}</label>
+    {value.model_source === "explicit" ? <Field label={t("Decision model ID")} hint={t("Some services omit callable models from their catalog. An explicit ID does not verify availability or override a disabled model.")}><input className="input" aria-label={t("Decision model ID")} value={value.model} maxLength={128} onChange={event => onChange({...value, model: event.target.value})} /></Field> : <Field label={t("Decision model")}><select className="select" value={value.model} onChange={event => onChange({...value, model: event.target.value})}>
+      <option value="">{t("Choose a decision model")}</option>
+      {(provider.data?.models ?? []).filter(row => ["detected", "confirmed"].includes(row.status)).map(row => <option key={row.id} value={row.upstream_model_id}>{row.upstream_model_id}{row.discovery_source === "explicit" ? " · " + t("Explicit model") : ""}</option>)}
+    </select></Field>}
+    {(connections.isError || provider.isError) && <p role="alert">{t("Decision Provider could not be loaded.")} <button className="btn" onClick={() => {void connections.refetch(); if(value.provider_connection_id) void provider.refetch();}}>{t("Retry")}</button></p>}
+    <p className="text-xs text-muted">{t("Sends up to 4,000 characters of the latest user text to this Provider. Decisions may incur upstream charges. Only eligible Pools can be selected; failures fall back to Pool priority without replaying inference.")}</p>
+    <p className="text-xs text-muted">{t("Use the Auto model for intelligent routing. Explicit Pool model names remain pinned.")}</p>
+  </div>;
+}
 
 function strategyExplanation(strategy: string) {
   const descriptions: Record<string, string> = {
+    system_one: "Use a native System One decision to choose among eligible Pools; fall back to Pool priority on failure.",
     manual_priority: t("Try Model Pools in the order shown. Each Pool uses its own Source fallback before the Router tries the next Pool."),
     lowest_cost_pool: t("Choose the Pool with the lowest currently available Source price, then let that Pool select its Source."),
     lowest_latency_pool: t("Choose the Pool with the fastest recent Source latency, then let that Pool select its Source."),
@@ -1144,7 +1173,7 @@ function TraceDetails({ trace }: { trace: RouterTraceRecord }) {
   return (
     <div className={`router-trace-details ${trace.status === "failed" ? "is-error" : ""}`}>
       <strong>{trace.status === "failed" ? t("Why this request failed") : t("Selected route")}</strong>
-      <p>{trace.status === "failed" ? trace.error_code || t("The resolver did not return an error code.") : `${trace.selected_pool || t("Unknown Pool")} → ${trace.selected_source || t("Unknown Source")}`}</p>
+      <p>{trace.status === "failed" ? trace.error_code || t("The resolver did not return an error code.") : `${trace.selected_pool || "Unknown Pool"} → ${trace.selected_source || "Unknown Source"}`}</p>
       <dl><div><dt>{t("Model")}</dt><dd>{trace.model || "–"}</dd></div><div><dt>{t("Fallbacks")}</dt><dd>{trace.fallback_count}</dd></div><div><dt>{t("Latency")}</dt><dd>{trace.latency_ms}{" "}{t("ms")}</dd></div></dl>
     </div>
   );
@@ -1226,121 +1255,4 @@ function RouterModalFrame({
       </div>
     </div>
   );
-}
-
-function RouterCredentialsDialog({
-  credentials,
-  onClose,
-}: {
-  credentials: RouterCredentials;
-  onClose: () => void;
-}) {
-  useLocale();
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-3 sm:p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg border border-line bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-lg font-semibold text-ink">
-              <KeyRound className="shrink-0" size={18} />{t("Router access")}</div>
-            <div className="mt-1 break-all text-sm text-muted">{t("OpenAI-compatible gateway credentials for")}{" "}
-              {credentials.router_name}
-            </div>
-          </div>
-          <button className="btn h-8 shrink-0 px-2" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
-        <div className="max-h-[calc(90vh-73px)] overflow-auto p-4 sm:p-5">
-          <div className="grid gap-4">
-            <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-              <CopyRow
-                label={t("Base URL")}
-                value={credentials.gateway_api_base_url}
-              />
-              <CopyRow label={t("Router ID")} value={credentials.router_id} />
-              <CopyRow label={t("Model")} value={credentials.recommended_model} />
-              <CopyRow label={t("Available models")} value={(credentials.available_models ?? [credentials.recommended_model]).join(", ")} />
-              <CopyRow label={t("Strategy")} value={credentials.router_strategy} />
-            </div>
-
-            <SecretRow label={t("API key")} value={credentials.gateway_api_key} />
-
-            <SnippetBlock title={t(".env")} text={credentials.env} />
-            <SnippetBlock title={t("curl")} text={credentials.curl} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CopyRow({ label, value }: { label: string; value: string }) {
-  useLocale();
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-2 rounded-md border border-line bg-slate-50 p-2">
-      <div className="min-w-0">
-        <div className="text-xs font-semibold uppercase text-muted">
-          {label}
-        </div>
-        <code className="mt-1 block truncate font-mono text-xs text-slate-800">
-          {value || "-"}
-        </code>
-      </div>
-      <button
-        className="btn h-8 w-8 shrink-0 p-0"
-        onClick={() => void copy(value)}
-        disabled={!value}
-      >
-        <Copy size={14} />
-      </button>
-    </div>
-  );
-}
-
-function SecretRow({ label, value }: { label: string; value: string }) {
-  useLocale();
-  return (
-    <div className="min-w-0 rounded-md border border-line bg-slate-950 p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="min-w-0 text-xs font-semibold uppercase text-slate-400">
-          {label}
-        </div>
-        <button
-          className="btn h-8 w-8 shrink-0 border-slate-700 bg-slate-900 p-0 text-slate-100 hover:bg-slate-800"
-          onClick={() => void copy(value)}
-          disabled={!value}
-        >
-          <Copy size={14} />
-        </button>
-      </div>
-      <code className="block break-all font-mono text-xs leading-5 text-slate-100">
-        {value || "-"}
-      </code>
-    </div>
-  );
-}
-
-function SnippetBlock({ title, text }: { title: string; text: string }) {
-  useLocale();
-  return (
-    <div className="min-w-0 overflow-hidden rounded-md border border-line">
-      <div className="flex items-center justify-between gap-3 border-b border-line bg-slate-50 px-3 py-2">
-        <div className="min-w-0 text-sm font-medium text-ink">{title}</div>
-        <button
-          className="btn h-8 shrink-0 px-2"
-          onClick={() => void copy(text)}
-        >
-          <Copy size={14} />{t("Copy")}</button>
-      </div>
-      <pre className="max-h-72 overflow-auto whitespace-pre bg-slate-950 p-4 font-mono text-xs leading-5 text-slate-100">
-        {text}
-      </pre>
-    </div>
-  );
-}
-
-async function copy(value: string) {
-  await navigator.clipboard.writeText(value || "");
-  toast.success(t("Copied"));
 }

@@ -80,3 +80,17 @@ class GatewayImageOperation(BaseModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["tenant", "principal", "key_digest"], name="gateway_image_idempotency")]
+
+
+class GatewayDecisionOperation(BaseModel):
+    """Dispatch fence and quota reservation; never store state, answers or credentials."""
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    principal = models.CharField(max_length=80)
+    key_digest = models.CharField(max_length=64)
+    state = models.CharField(max_length=16, default="pending")
+    reserved_tokens = models.PositiveIntegerField(default=0)
+    reserved_amount = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    gateway_log = models.ForeignKey(GatewayRequestLog, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["tenant", "principal", "key_digest"], name="gateway_decision_dispatch")]

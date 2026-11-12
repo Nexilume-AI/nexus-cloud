@@ -1,9 +1,7 @@
 """Personal Router capability issuance and live enforcement; secrets never persist."""
 from datetime import timedelta
 import hashlib
-import json
 import secrets
-import shlex
 import uuid
 from django.db import transaction
 from django.utils import timezone
@@ -11,6 +9,7 @@ from django.utils.crypto import constant_time_compare
 from rest_framework import exceptions
 from apps.audit.services import write_audit_log
 from apps.routers.models import Router
+from apps.routers.credential_examples import router_credential_examples
 from .models import PersonalRouterCredential
 from .resource_catalog import PersonalResourceCatalog
 
@@ -20,6 +19,7 @@ CATALOG_ROUTES = {"openai-compatible-models", "openai-compatible-models-slash",
                   "gateway-model-info", "gateway-model-info-slash",
                   "gateway-model-info-unversioned", "gateway-model-info-unversioned-slash"}
 CALL_ROUTES = {"gateway-chat-completions", "openai-compatible-chat-completions",
+               "gateway-systemone", "gateway-systemone-slash",
                "openai-compatible-chat-completions-slash", "openai-compatible-responses",
                "openai-compatible-responses-slash", "claude-compatible-messages",
                "claude-compatible-messages-slash", "router-invoke"}
@@ -56,6 +56,14 @@ def current_credential(request):
     return _current(request, value)[0] if value is not None else None
 
 
+def effective_model_names(credential):
+    """Exported keys follow the Router; delegated Tool Setup grants stay scoped."""
+    from apps.routers.services import router_output_model_names
+    if credential.issued_for == "exported":
+        return router_output_model_names(router=credential.router)
+    return credential.model_names
+
+
 def authenticate(request, token):
     try:
         selector, secret = token[len(PREFIX):].split(".")
@@ -88,9 +96,12 @@ def prepare_request(*, request, tenant, payload):
         _denied()
     if payload.get("router_id") and str(payload["router_id"]) != str(row.router_id):
         raise exceptions.PermissionDenied("This credential cannot call another Router.")
-    if payload.get("model") not in row.model_names:
+    if payload.get("model") not in effective_model_names(row):
         raise exceptions.PermissionDenied("This model is not included in the Router credential.")
-    if payload.get("_nexus_operation", "chat.completions") not in {"chat.completions", "responses"}:
+    operations = {"chat.completions", "responses"}
+    if row.issued_for == "exported":
+        operations.add("systemone")
+    if payload.get("_nexus_operation", "chat.completions") not in operations:
         raise exceptions.PermissionDenied("This operation is not included in the Router credential.")
     payload["router_id"] = str(row.router_id)
 
@@ -118,19 +129,14 @@ def export_router_credentials(*, request, router_id):
         token_hash=hashlib.sha256(token.encode("ascii")).hexdigest(), expires_at=timezone.now() + timedelta(days=90))
     base = request.build_absolute_uri("/api/v1/openai/v1").rstrip("/")
     invoke_url = request.build_absolute_uri(f"/api/v1/routers/{router.pk}/invoke/")
-    payload = json.dumps({"model": models[0], "messages": [{"role": "user", "content": "hello"}]})
-    def curl(url):
-        return "curl " + shlex.quote(url) + " -H " + shlex.quote("Authorization: Bearer " + token) + \
-            " -H 'Content-Type: application/json' -d " + shlex.quote(payload)
     _audit(request, router, "routers.credentials.export", row)
     return {"router_id": str(router.pk), "router_name": router.name, "router_strategy": router.strategy,
         "gateway_api_base_url": base, "gateway_chat_completions_url": base + "/chat/completions",
         "gateway_models_url": base + "/models", "router_invoke_url": invoke_url,
         "gateway_api_key": token, "gateway_api_key_id": str(row.pk),
         "gateway_authorization_header": "Bearer " + token, "recommended_model": models[0],
-        "available_models": models, "expires_at": row.expires_at, "credential_type": "personal_router",
-        "env": "OPENAI_BASE_URL=" + base + "\nOPENAI_API_KEY=" + token + "\n",
-        "curl": curl(base + "/chat/completions"), "invoke_curl": curl(invoke_url)}
+        "available_models": models, "model_scope": "router", "expires_at": row.expires_at, "credential_type": "personal_router",
+        **router_credential_examples(base_url=base, api_key=token, model=models[0], invoke_url=invoke_url)}
 
 
 def list_credentials(*, request, router_id):
@@ -149,7 +155,10 @@ def list_credentials(*, request, router_id):
             raise exceptions.ValidationError("Credential cursor is unavailable; reload the list.")
         query = query.filter(Q(created_at__lt=anchor.created_at) | Q(created_at=anchor.created_at, pk__lt=anchor.pk))
     rows = list(query.order_by("-created_at", "-pk")[:101])
-    items = [{"id": str(row.pk), "prefix": PREFIX + row.pk.hex[:8], "models": row.model_names,
+    from apps.routers.services import router_output_model_names
+    models = router_output_model_names(router=router)
+    items = [{"id": str(row.pk), "prefix": PREFIX + row.pk.hex[:8],
+             "models": models if row.issued_for == "exported" else row.model_names,
              "created_at": row.created_at, "expires_at": row.expires_at, "last_used_at": row.last_used_at,
              "status": "revoked" if row.revoked_at else "expired" if row.expires_at <= now else "active"}
             for row in rows[:100]]

@@ -77,7 +77,10 @@ def release_gateway_charge_reservation(**kwargs):
 
 
 def finalize_gateway_success(**kwargs):
-    return _current().finalize(**kwargs)
+    result = _current().finalize(**kwargs)
+    from apps.routers.aggregate_auto import remember
+    remember(kwargs.get('deployment'))
+    return result
 
 
 def apply_success_side_effects(**kwargs):

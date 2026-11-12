@@ -1,4 +1,6 @@
 import type {
+  AgentAPIAccess,
+  ProviderLoginSession,
   AlertEvent,
   AlertRule,
   AccountProfile,
@@ -73,6 +75,7 @@ import type {
   RouterAggregationCandidate,
   RouterChildBinding,
   RouterCredentials,
+  RouterAPIAccess,
   RouterDeployment,
   RouterModelGroupBinding,
   RouterOutput,
@@ -100,6 +103,7 @@ export type ApiContext = {
 };
 
 export type PublicBootstrap = {
+  privacy?: BrowserPrivacyInfo;
   product_name: string;
   anonymous_access: boolean;
   authentication_mode: "on_demand";
@@ -120,6 +124,16 @@ export type PublicBootstrap = {
     label: string;
     description: string;
   }>;
+};
+
+export type BrowserPrivacyInfo = {
+  notice_version: string;
+  operator: string;
+  contact_email: string;
+  session_idle_seconds: number;
+  session_renews_on_request: boolean;
+  remember_seconds: number;
+  cookies: Array<{ name: string; purpose: string; seconds: number; http_only: boolean; secure?: boolean; same_site: string }>;
 };
 
 type WebLoginResponse = {
@@ -364,11 +378,11 @@ export const api = {
       method: "POST", body: JSON.stringify({ token, password, password_confirm: passwordConfirm }),
     }),
 
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, rememberMe = false) =>
     request<WebLoginResponse>("/api/v1/auth/login/", {
       method: "POST",
       headers: { "X-Nexus-Client": "web" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember_me: rememberMe }),
     }),
 
   logout: (ctx: ApiContext) =>
@@ -501,6 +515,14 @@ export const api = {
       ctx,
     ),
 
+  startProviderLogin: (ctx: ApiContext, providerId: string) =>
+    request<ProviderLoginSession>(`/api/v1/provider-connections/${providerId}/login/`,
+      { method: "POST", body: JSON.stringify({}) }, ctx),
+
+  providerLoginStatus: (ctx: ApiContext, providerId: string, sessionId: string) =>
+    request<ProviderLoginSession>(`/api/v1/provider-connections/${providerId}/login/${sessionId}/`,
+      { method: "POST", body: JSON.stringify({}) }, ctx),
+
   refreshProviderConnectionModel: (
     ctx: ApiContext,
     providerId: string,
@@ -511,6 +533,10 @@ export const api = {
       { method: "POST", body: JSON.stringify({}) },
       ctx,
     ),
+
+  addExplicitProviderModel: (ctx: ApiContext, providerId: string, model: string) =>
+    request<ProviderConnection>(`/api/v1/provider-connections/${providerId}/models/explicit/`,
+      { method: "POST", body: JSON.stringify({ upstream_model_id: model }) }, ctx),
 
 
 
@@ -931,7 +957,7 @@ export const api = {
   updateRouter: (
     ctx: ApiContext,
     routerId: string,
-    body: { name?: string; strategy?: string; model_group_ids?: string[] },
+    body: { name?: string; strategy?: string; model_group_ids?: string[]; decision_config?: {provider_connection_id: string; model: string; timeout_ms?: number; model_source?: "catalog" | "explicit"} },
   ) =>
     request<Router>(
       `/api/v1/routers/${routerId}/`,
@@ -1062,6 +1088,14 @@ export const api = {
       { method: "POST" },
       ctx,
     ),
+
+  getRouterAPIAccess: (ctx: ApiContext, routerId: string) =>
+    request<RouterAPIAccess>(`/api/v1/routers/${routerId}/api-access/`, { cache: "no-store" }, ctx),
+
+  ensureRouterAPIAccess: (ctx: ApiContext, routerId: string, body: {
+    action: "ensure" | "rotate"; expected_id?: string; confirm_rotation?: boolean;
+  }) => request<RouterAPIAccess>(`/api/v1/routers/${routerId}/api-access/`,
+    { method: "POST", body: JSON.stringify(body), cache: "no-store" }, ctx),
 
   testRouter: (
     ctx: ApiContext,
@@ -1411,8 +1445,8 @@ export const api = {
       { "X-Nexus-Agent-Display-Token": displayToken },
     ),
 
-  agentInteractor: (ctx: ApiContext, agentId: string) =>
-    request<AgentInteractor>(`/api/v1/agents/${agentId}/interactor/`, {}, ctx),
+  agentInteractor: (ctx: ApiContext, agentId: string, runId = "") =>
+    request<AgentInteractor>(`/api/v1/agents/${agentId}/interactor/${runId ? `?run_id=${encodeURIComponent(runId)}` : ""}`, {}, ctx),
 
   agentProjectContextGrant: (ctx: ApiContext, agentId: string) =>
     request<AgentInteractor["project_context"]>(`/api/v1/agents/${agentId}/project-context-grant/`, {}, ctx),
@@ -1426,7 +1460,7 @@ export const api = {
   createPrivateAgentRun: async (
     ctx: ApiContext,
     agentId: string,
-    input: { content?: string; arguments?: Record<string, unknown>; attachments?: Array<{ asset_id: string }>; files?: string[]; audio?: string[]; execution_profile_id?: string; reasoning_effort?: string },
+    input: { user_resource_ids?: string[]; content?: string; arguments?: Record<string, unknown>; attachments?: Array<{ asset_id: string }>; files?: string[]; audio?: string[]; execution_profile_id?: string; reasoning_effort?: string },
     toolName = "",
   ) => {
     type StartResponse = {
@@ -1455,7 +1489,7 @@ export const api = {
     ctx: ApiContext,
     runId: string,
     displayToken: string,
-    input: { content?: string; arguments?: Record<string, unknown>; attachments?: Array<{ asset_id: string }>; files?: string[]; audio?: string[]; execution_profile_id?: string; reasoning_effort?: string },
+    input: { user_resource_ids?: string[]; content?: string; arguments?: Record<string, unknown>; attachments?: Array<{ asset_id: string }>; files?: string[]; audio?: string[]; execution_profile_id?: string; reasoning_effort?: string },
   ) => {
     type ResumeResponse = {
       run: AgentPrivateRun;
@@ -1887,6 +1921,14 @@ export const api = {
       { method: "POST" },
       ctx,
     ),
+
+  getAgentAPIAccess: (ctx: ApiContext, agentId: string) =>
+    request<AgentAPIAccess>(`/api/v1/agents/${agentId}/api-access/`, { cache: "no-store" }, ctx),
+
+  updateAgentAPIAccess: (ctx: ApiContext, agentId: string, body: {
+    action: "ensure" | "rotate" | "revoke"; expected_id?: string; confirm_rotation?: boolean;
+  }) => request<AgentAPIAccess>(`/api/v1/agents/${agentId}/api-access/`,
+    { method: "POST", cache: "no-store", body: JSON.stringify(body) }, ctx),
 
   agentMobileBindings: (ctx: ApiContext, agentId: string) =>
     request<AgentMobileBinding[]>(

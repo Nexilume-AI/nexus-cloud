@@ -218,7 +218,9 @@ def create_deployment_from_provider_runtime(*, request, tenant: Tenant, data: di
     offer = prepare_runtime_model_offer_for_use(
         offer=offer,
         actor=request.user,
-        allow_degraded=False,
+        # Explicit models are an administrator declaration, not a successful
+        # inference probe. Keep that status visible while permitting first use.
+        allow_degraded=(offer.metadata or {}).get("discovery_source") == "explicit",
     )
 
     provider = provider_account.provider
@@ -237,8 +239,8 @@ def create_deployment_from_provider_runtime(*, request, tenant: Tenant, data: di
             "visibility": data.get("visibility") or Deployment.VISIBILITY_PRIVATE,
             "project": runtime.project,
             "pricing_rate": data.get("pricing_rate") or offer.price_per_1k_tokens or 0,
-            "health_status": Deployment.HEALTH_HEALTHY,
-            "health_reason": "",
+            "health_status": offer.health_status,
+            "health_reason": offer.health_reason,
             "created_by": request.user,
         },
     )

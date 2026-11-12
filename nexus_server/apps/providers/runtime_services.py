@@ -138,6 +138,7 @@ def refresh_provider_runtime_model_offer(*, request, runtime_id: str, offer_id: 
     now = timezone.now()
     advertised = offer.upstream_model_id in discover_runtime_model_ids(runtime=runtime)
     declared_contract = getattr(runtime, "_discovered_model_contracts", {}).get(offer.upstream_model_id)
+    explicit = (offer.metadata or {}).get("discovery_source") == "explicit"
     probe = probe_runtime_model(runtime=runtime, upstream_model_id=offer.upstream_model_id) if advertised else None
     with transaction.atomic():
         current_runtime = (
@@ -167,7 +168,7 @@ def refresh_provider_runtime_model_offer(*, request, runtime_id: str, offer_id: 
                 )
             _apply_model_probe(offer, probe, now)
             offer.last_discovered_at = now
-        else:
+        elif not explicit:
             offer.status = ProviderRuntimeModelOffer.STATUS_UNAVAILABLE
             offer.health_status = ProviderRuntimeModelOffer.HEALTH_UNHEALTHY
             offer.health_reason = "No longer advertised by the Provider Runtime model catalog."
@@ -484,7 +485,7 @@ def refresh_runtime_model_offers(
         current.model_offers.exclude(status__in=[
             ProviderRuntimeModelOffer.STATUS_DISABLED,
             SoftDeleteModel.STATUS_DELETED,
-        ]).exclude(upstream_model_id__in=seen).update(
+        ]).filter(Q(metadata__discovery_source__isnull=True) | ~Q(metadata__discovery_source="explicit")).exclude(upstream_model_id__in=seen).update(
             status=ProviderRuntimeModelOffer.STATUS_UNAVAILABLE,
             health_status=ProviderRuntimeModelOffer.HEALTH_UNHEALTHY,
             health_reason="No longer advertised by the Provider Runtime model catalog.",
@@ -651,6 +652,14 @@ def discover_runtime_model_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
         headers["Authorization"] = f"Bearer {key}"
     request = Request(url, headers=headers, method="GET")
     payload = _read_provider_catalog(request)
+    from apps.gateway.system_one import PROVIDER_NAMES, catalog_rows
+    account = runtime.source_provider_account
+    system_one = account is not None and account.provider.name in PROVIDER_NAMES
+    if system_one:
+        try:
+            payload = {"data": catalog_rows(payload)}
+        except (ValueError, TypeError) as exc:
+            raise ProviderRuntimeError("System One model catalog is invalid; known models retained.") from exc
     rows = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
         raise ProviderRuntimeError("Provider model catalog must return a data array.")
@@ -659,7 +668,7 @@ def discover_runtime_model_ids(*, runtime: ProviderRuntimeAccount) -> list[str]:
     from .model_info import read_optional_info
     capacities = {str(row.get("id") or "").strip(): normalize(row) for row in rows if isinstance(row, dict)}
     runtime._discovered_model_capacities = capacities
-    if getattr(settings, "NEXUS_PROVIDER_MODEL_INFO_ENABLED", True) and any(
+    if not system_one and getattr(settings, "NEXUS_PROVIDER_MODEL_INFO_ENABLED", True) and any(
             any(values.get(field) is None for field in (*LIMITS, "reasoning_supported", "reasoning_efforts", "supported_openai_params"))
             for values in capacities.values()):
         extra = read_optional_info(base_url, headers)
@@ -747,7 +756,7 @@ def probe_runtime_model(*, runtime: ProviderRuntimeAccount, upstream_model_id: s
 
     contract = getattr(runtime, "_discovered_model_contracts", {}).get(upstream_model_id)
     if contract and "chat.completions" not in contract.get("operations", []):
-        return True, "Catalog reachable. Image generation is not probed automatically to avoid charges."
+        return True, "Catalog reachable. Non-chat operations are not probed automatically to avoid charges; inference credentials remain unverified."
     base_url = (runtime.internal_api_url or "").rstrip("/")
     if not base_url:
         return False, "Provider Runtime API URL is unavailable."

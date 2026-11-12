@@ -48,6 +48,9 @@ def authorize_router(*, request, tenant, router):
     _authorize_pools(request, tenant, current)
     for output in current.outputs.filter(status="active", enabled=True).select_related("model_group"):
         if output.model_group is None:
+            from apps.routers.decision_routing import is_auto_output
+            if is_auto_output(output):
+                continue  # Every bound Pool was freshly checked above.
             raise exceptions.NotFound("Reconnect this Router to a real Model Pool.")
         PersonalDeploymentIntegration().validate_model_group(request=request, group=output.model_group)
     if current.router_type == Router.TYPE_AGGREGATION:
@@ -61,6 +64,9 @@ def authorize_router(*, request, tenant, router):
             _authorize_pools(request, tenant, child)
             output = binding.child_output
             if output.model_group_id is None:
+                from apps.routers.decision_routing import is_auto_output
+                if is_auto_output(output):
+                    continue  # _authorize_pools checked the child's full set.
                 raise exceptions.NotFound("Reconnect this Router to a real Model Pool.")
             PersonalDeploymentIntegration().validate_model_group(request=request, group=output.model_group)
 

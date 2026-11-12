@@ -91,6 +91,8 @@ def list_provider_connections(*, request, account_id: str | None = None, queryse
         except (TypeError, ValueError, AttributeError):
             pass
         queryset = queryset.filter(target)
+    if getattr(request, "query_params", {}).get("protocol") == "system_one":
+        queryset = queryset.filter(provider__name__in=["system_one", "system-one"])
     if queryset_only:
         return _catalog_connections(queryset, request, tenant)
     accounts = list(visible_provider_accounts(queryset).distinct().order_by("name", "account_id"))

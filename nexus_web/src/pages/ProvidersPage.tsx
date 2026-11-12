@@ -536,6 +536,19 @@ function RuntimeInspector({
   const [editingOffer, setEditingOffer] = useState<ProviderRuntimeModelOffer | null>(null);
   const [referenceOffer, setReferenceOffer] = useState<ProviderRuntimeModelOffer | null>(null);
   const [editProviderOpen, setEditProviderOpen] = useState(false);
+  const [explicitModelOpen, setExplicitModelOpen] = useState(false);
+  const [explicitModel, setExplicitModel] = useState("");
+  const addExplicitModel = useMutation({
+    mutationFn: () => api.addExplicitProviderModel(apiContext, provider.id, explicitModel.trim()),
+    onSuccess: () => {
+      setExplicitModelOpen(false); setExplicitModel("");
+      void queryClient.invalidateQueries({ queryKey: ["provider-connections"] });
+      void queryClient.invalidateQueries({ queryKey: ["provider-connection"] });
+      toast.success(t("Explicit model added"));
+    },
+    onError: errorToast("Could not add model"),
+  });
+  const isDecisionProvider = ["system_one", "system-one"].includes(provider.upstream_provider);
   const execution = useProviderExecutionSetup(provider.engine);
   const refresh = useMutation({
     mutationFn: () => api.providerConnectionAction(apiContext, provider.id, "models/refresh"),
@@ -634,7 +647,7 @@ function RuntimeInspector({
     else if (recommendedAction === "start") lifecycle.mutate("start");
     else if (recommendedAction === "health") lifecycle.mutate("health");
     else if (recommendedAction === "refresh") refresh.mutate();
-    else if (recommendedAction === "use_source") onUseSources();
+    else if (recommendedAction === "use_source") { if (isDecisionProvider) navigate("/routers"); else onUseSources(); }
     else if (recommendedAction === "publish") onPublish();
   }
 
@@ -645,7 +658,7 @@ function RuntimeInspector({
     start: "Start provider",
     health: t("Review health"),
     refresh: "Refresh models",
-    use_source: "Use in source",
+    use_source: isDecisionProvider ? t("Configure intelligent routing") : "Use in source",
     publish: t("Publish models"),
     operational: "Operational",
   };
@@ -689,8 +702,8 @@ function RuntimeInspector({
                   <RefreshCw size={15} />{" "}{t("Refresh models")}</button>
               )}
               {recommendedAction !== "use_source" && (
-                <button onClick={() => onUseSources()} disabled={!sourceEligibleOffers.length}>
-                  <Plus size={15} />{" "}{t("Use in source")}</button>
+                <button onClick={() => isDecisionProvider ? navigate("/routers") : onUseSources()} disabled={!isDecisionProvider && !sourceEligibleOffers.length}>
+                  <Plus size={15} />{" "}{t(isDecisionProvider ? "Configure intelligent routing" : "Use in source")}</button>
               )}
               {publicationEnabled && recommendedAction !== "publish" && (
                 <button onClick={onPublish} disabled={!hasPublishableOffers}>
@@ -750,6 +763,7 @@ function RuntimeInspector({
               size={15}
               className={refresh.isPending ? "animate-spin" : ""}
             />{" "}{t("Refresh models")}</button>
+          {provider.engine === "direct_api" && provider.access?.can_edit !== false && <button className="btn" onClick={() => setExplicitModelOpen(true)}><Plus size={15} />{t("Add explicit model")}</button>}
         </div>
         {provider.models.length ? (
           <div className="provider-offer-table" data-publishing={publicationEnabled} role="table" aria-label={t("Provider models")}>
@@ -767,6 +781,7 @@ function RuntimeInspector({
                 <div role="cell" data-label="Model">
                   <strong>{offer.upstream_model_id}</strong>
                   <small>{humanStatus(offer.status)}</small>
+                  {offer.discovery_source === "explicit" && <small>{t("Explicit model")}</small>}
                 </div>
                 <div role="cell" data-label="Nexus model">
                   {offer.canonical_model_key || offer.upstream_model_id}
@@ -827,6 +842,12 @@ function RuntimeInspector({
         offer={editingOffer}
         onClose={() => setEditingOffer(null)}
       />
+      <NexilumeDialog open={explicitModelOpen} title={t("Add explicit model")} onClose={() => setExplicitModelOpen(false)} busy={addExplicitModel.isPending}
+        description={t("Add a callable model that is missing from the upstream catalog. It stays available after catalog refresh; inference is verified only when called.")}
+        footer={<DialogActions onClose={() => setExplicitModelOpen(false)} onSubmit={() => addExplicitModel.mutate()} disabled={!explicitModel.trim() || addExplicitModel.isPending} label={t(addExplicitModel.isPending ? "Adding…" : "Add model")} />}>
+        <Field label={t("Upstream model ID")}><input className="input" autoFocus maxLength={128} placeholder="decision-model-preview" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></Field>
+        <p className="mt-3 text-sm text-muted">{t("The Provider connection supplies credentials and protocol. Choose this model in Router settings, or use it as a Source in a Model Pool.")}</p>
+      </NexilumeDialog>
       <NexilumeDialog open={!!referenceOffer} title={referenceOffer?.upstream_model_id || t("Model capabilities")} onClose={() => setReferenceOffer(null)}>
         {referenceOffer && <SourceModelReference key={provider.id + referenceOffer.id} providerId={provider.id} offerId={referenceOffer.id} />}
       </NexilumeDialog>
@@ -960,7 +981,7 @@ function CreateAccountDialog({
         name: form.name.trim(),
         ownership,
         engine: form.engine,
-        upstream_provider: form.engine === "cliproxyapi" ? form.provider : form.engine === "codex_proxy" ? "openai" : "openai-compatible",
+        upstream_provider: form.engine === "cliproxyapi" ? form.provider : form.engine === "codex_proxy" ? "openai" : form.provider === "system_one" ? "system_one" : "openai-compatible",
         url: form.engine === "direct_api" ? form.url : "",
         key: form.engine === "direct_api" ? form.key : "",
       }),
@@ -1020,6 +1041,13 @@ function CreateAccountDialog({
         <ProviderExecutionSetup engine={form.engine} status={execution} />
         {form.engine === "direct_api" ? (
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("API protocol")}>
+              <select className="select" value={form.provider} onChange={event => setForm(current => ({ ...current, provider: event.target.value }))}>
+                <option value="openai">{t("OpenAI compatible")}</option>
+                <option value="system_one">{t("System One · native decisions")}</option>
+              </select>
+              {form.provider === "system_one" && <p className="text-xs text-muted">{t("Uses /systemone, not Chat Completions. Choose a decision Provider in Router settings; decisions may incur upstream charges.")}</p>}
+            </Field>
             <Field label={t("API base URL")}>
               <input
                 className="input"

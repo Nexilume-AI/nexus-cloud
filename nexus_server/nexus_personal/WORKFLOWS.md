@@ -13,6 +13,10 @@ checks or Run isolation. Never expose a test-only unauthenticated runner.
 
 ## Providers and model routing
 
+For rule-based Auto selection, native System One decisions and upgrade steps,
+see [Community Auto routing](../docs/community-system-one.md). Both modes are
+included in this source tree and preserve specified-model calls.
+
 1. Connect your own Provider through the Personal console. A Direct API needs
    its upstream credentials; a supported login proxy needs explicit sign-in.
    Keep credentials out of source, images, command arguments and diagnostics.

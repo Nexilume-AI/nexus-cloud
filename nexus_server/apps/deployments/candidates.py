@@ -22,9 +22,8 @@ def source_candidates_backend():
 
 
 def output_has_available_source(*, tenant: Tenant, output: RouterOutput) -> bool:
-    if output.model_group_id is None or output.model_group is None:
-        return False
-    return bool(model_group_deployment_candidates(tenant=tenant, group=output.model_group))
+    from apps.routers.decision_routing import output_groups
+    return any(model_group_deployment_candidates(tenant=tenant, group=group) for group in output_groups(output))
 
 
 def model_group_deployment_candidates(*, tenant: Tenant, group: ModelGroup, provider_name: str = "") -> list[Deployment]:

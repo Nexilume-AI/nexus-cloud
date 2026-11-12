@@ -200,6 +200,7 @@ docker compose -f deploy/community/compose.yaml run --rm --no-deps --entrypoint 
 | Linux 原生安装 | [Linux 指南](nexus_server/nexus_personal/LINUX.md) |
 | Windows、执行环境、HTTPS/WSS | [运维指南](nexus_server/nexus_personal/HOST.md) |
 | 模型、Agent、设备流程 | [工作流](nexus_server/nexus_personal/WORKFLOWS.md) |
+| 规则路由、System One 智能路由与原生调用 | [Community 路由指南](nexus_server/docs/community-system-one.md) |
 | Relay 与详细安装参考 | [完整指南](README_GUIDE.md) |
 | 升级注意事项 | [Release notes](RELEASE_NOTES.md) |
 

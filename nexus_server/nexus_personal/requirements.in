@@ -22,3 +22,6 @@ jsonschema>=4.25,<5.0
 pywebpush==2.0.3
 openpyxl>=3.1.5,<4.0
 PyYAML>=6.0.3,<7.0
+httpx==0.28.1
+httpx-sse==0.4.3
+sse-starlette==3.4.11

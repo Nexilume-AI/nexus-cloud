@@ -6,9 +6,16 @@ from .claude_compat import ClaudeMessagesView, ClaudeModelsView
 from .openai_compat import OpenAIChatCompletionsView, OpenAIModelsView, OpenAIResponsesView
 from .views import ChatCompletionsView
 from .image_views import OpenAIImagesView
+from .model_info import ModelInfoView
+from .system_one_urls import urlpatterns as system_one_urls
 
 
 urlpatterns = [
+    *system_one_urls,
+    path("openai/model/info", ModelInfoView.as_view(), name="gateway-model-info-unversioned"),
+    path("openai/model/info/", ModelInfoView.as_view(), name="gateway-model-info-unversioned-slash"),
+    path("openai/v1/model/info", ModelInfoView.as_view(), name="gateway-model-info"),
+    path("openai/v1/model/info/", ModelInfoView.as_view(), name="gateway-model-info-slash"),
     *[path(f"openai/v1/images/{endpoint}{slash}", OpenAIImagesView.as_view(operation=operation))
       for endpoint, operation in [("generations", "images.generate"), ("edits", "images.edit"), ("variations", "images.variation")]
       for slash in ("", "/")],

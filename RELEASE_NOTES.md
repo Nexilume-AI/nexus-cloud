@@ -1,5 +1,33 @@
 # Nexus Cloud source release notes
 
+## 2026-11-12 — Community System One and Aggregate Auto
+
+Community now contains the complete runnable implementation, rather than only
+hosted patch evidence: native Provider discovery/explicit models, System One
+protocol and dispatch, Router credentials, UI configuration, migrations, Auto
+rules and Decision Model selection. `model="auto"` selects eligible models;
+explicit model names keep their existing direct routes. Decision failures fall
+back to rules, with credential-scoped successful tool continuation.
+
+Personal native rejection keeps the original 403/409 response, including replay
+protection. Auto checks the actual candidate against restricted Tool Setup
+credentials before selection. No Enterprise or Desktop package is required.
+The shared transport dependencies and Windows/Linux hash locks are included.
+
+Upgrade and configuration: [Community routing guide](nexus_server/docs/community-system-one.md).
+The earlier `docs/patches/2026-11-12-aggregate-auto-routing.patch` is historical;
+current Community users must not apply it.
+
+Validation from the public source checkout: 63 backend tests with a clean
+Personal migration graph, 10 frontend regressions, Community production build,
+no pending Router/Gateway model migrations, and standalone server wheel build.
+The wheel contains the adapters and migrations, declares the new dependencies,
+and excludes private packages and test hosts. HTTP integration uses deterministic
+local upstream fixtures; no new paid upstream acceptance or production deployment
+is claimed by this Community source update. The existing Vite large-chunk
+advisory remains.
+
+
 ## v2026.10.05-beta.1 — 2026-10-05
 
 First tagged Beta of the public Cloud + Web source tree. Includes the Provider

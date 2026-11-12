@@ -251,6 +251,7 @@ Choose the edition for your deployment:
 | Native Linux installation | [Linux guide](nexus_server/nexus_personal/LINUX.md) |
 | Native Windows, execution and HTTPS/WSS | [Operator guide](nexus_server/nexus_personal/HOST.md) |
 | Complete a model/Agent/device workflow | [Workflows](nexus_server/nexus_personal/WORKFLOWS.md) |
+| Rules / System One Auto routing and native decisions | [Community routing](nexus_server/docs/community-system-one.md) |
 | Configure router-facing Relay | [Relay setup](README_GUIDE.md#included-relay-server) |
 | Review compatibility before upgrading | [Release notes](RELEASE_NOTES.md) |
 | Source layout, provenance and detailed setup | [Installation reference](README_GUIDE.md) |
