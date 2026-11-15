@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/v1/routers/<uuid:router_id>/credentials/", RouterCredentialListView.as_view(), name="personal-router-credentials"),
     path("api/v1/routers/<uuid:router_id>/credentials/<uuid:credential_id>/revoke/", RouterCredentialRevokeView.as_view(), name="personal-router-credential-revoke"),
     path("api/v1/public/bootstrap/", PersonalBootstrapView.as_view(), name="public-bootstrap"),
+    path("api/v1/auth/relay/", include("apps.accounts.relay_urls")),
     path("api/v1/auth/login/", LoginView.as_view(), name="login"),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="logout"),
     path("api/v1/auth/whoami/", WhoAmIView.as_view(), name="whoami"),

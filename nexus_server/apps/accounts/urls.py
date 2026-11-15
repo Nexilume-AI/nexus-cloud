@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.urls import path
+from django.urls import include, path
 
 from .views import (
     GitHubOAuthCallbackView,
@@ -14,6 +14,7 @@ from .views import (
 
 
 urlpatterns = [
+    path("relay/", include("apps.accounts.relay_urls")),
     path("login/", LoginView.as_view(), name="login"),
     path("google/start/", GoogleOAuthStartView.as_view(), name="google-oauth-start"),
     path("google/callback/", GoogleOAuthCallbackView.as_view(), name="google-oauth-callback"),

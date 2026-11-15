@@ -89,3 +89,24 @@ class PasswordResetToken(BaseModel):
     def mark_used(self) -> None:
         self.used_at = timezone.now()
         self.save(update_fields=["used_at", "updated_at"])
+
+
+class RelayDevice(BaseModel):
+    """Model-scoped device grant. Never authenticates as a general Cloud API key."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    user_code_hash = models.CharField(max_length=64, unique=True)
+    device_code_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=16, default="pending", db_index=True)
+    approval_expires_at = models.DateTimeField()
+    last_poll_at = models.DateTimeField(null=True)
+    tenant_id = models.CharField(max_length=64, blank=True)
+    password_hash = models.CharField(max_length=64, blank=True)
+    manifest = models.JSONField(default=list)
+    registrations = models.JSONField(default=dict)
+    access_hash = models.CharField(max_length=64, null=True, unique=True)
+    refresh_hash = models.CharField(max_length=64, null=True, unique=True)
+    access_expires_at = models.DateTimeField(null=True)
+    refresh_expires_at = models.DateTimeField(null=True)
+    expires_at = models.DateTimeField(null=True)
+    revoked_at = models.DateTimeField(null=True)
