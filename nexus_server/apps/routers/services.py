@@ -484,7 +484,7 @@ def list_aggregation_candidates(*, request, router_id: str) -> list[dict[str, An
     }
     candidates = (
         visible_routers(user=request.user, tenant=router.tenant)
-        .filter(router_type=Router.TYPE_EXECUTION)
+        .filter(router_type__in=[Router.TYPE_EXECUTION, Router.TYPE_AGGREGATION]).exclude(pk=router.pk)
         .prefetch_related("outputs__model_group", "model_group_bindings")
         .order_by("name", "created_at")
     )
@@ -492,7 +492,8 @@ def list_aggregation_candidates(*, request, router_id: str) -> list[dict[str, An
     for child in candidates:
         can_use = can_use_router(user=request.user, router=child)
         outputs = list(router_integration().candidate_outputs(request=request, queryset=child.outputs.exclude(status=SoftDeleteModel.STATUS_DELETED).order_by("-is_default", "created_at")))
-        mapping_output = execution_router_mapping_output(outputs=outputs)
+        mapping_output = (next((item for item in outputs if item.enabled and item.status == "active"), None)
+                          if child.router_type == Router.TYPE_AGGREGATION else execution_router_mapping_output(outputs=outputs))
         models: list[dict[str, Any]] = []
         for output in outputs:
             code, message = aggregation_candidate_output_state(
@@ -511,6 +512,9 @@ def list_aggregation_candidates(*, request, router_id: str) -> list[dict[str, An
                     "already_bound": str(output.id) in bound_output_ids,
                 }
             )
+        if child.router_type == Router.TYPE_AGGREGATION:
+            usable = {item["output_id"] for item in models if item["available"] and not item["already_bound"]}
+            mapping_output = next((item for item in outputs if str(item.pk) in usable), None)
         if not can_use:
             code = "ROUTER_PERMISSION_REQUIRED"
             message = "Router use permission is required before it can be aggregated."
@@ -541,13 +545,19 @@ def list_aggregation_candidates(*, request, router_id: str) -> list[dict[str, An
                         f"Default model {mapping_output.model_name} is unavailable. "
                         f"Move {healthy_alternatives[0]} to first position in this Execution Router and apply its Pool order."
                     )
-        already_bound = str(child.id) in bound_router_names
+        from .cascade import validate_graph
+        try:
+            validate_graph(router.tenant_id, edge=(router.pk, child.pk))
+        except exceptions.ValidationError as exc:
+            code, message = "ROUTER_GRAPH_INVALID", str(exc.detail)
+        already_bound = str(child.id) in bound_router_names and child.router_type == Router.TYPE_EXECUTION
         if not code and already_bound:
             code = "EXECUTION_ROUTER_ALREADY_MAPPED"
             message = f"Already mapped as {bound_router_names[str(child.id)]}. Remove that mapping before replacing it."
         rows.append(
             {
                 "router_id": str(child.id),
+                "router_type": child.router_type,
                 "name": child.name,
                 "status": child.status,
                 "available": not code,
@@ -571,12 +581,14 @@ def aggregation_candidate_output_state(*, user, tenant: Tenant, output: RouterOu
     child = output.router
     if not can_use_router(user=user, router=child):
         return "ROUTER_PERMISSION_REQUIRED", "Router use permission is required before this output can be aggregated."
-    if child.router_type != Router.TYPE_EXECUTION:
-        return "EXECUTION_OUTPUT_UNRESOLVED", "Only Execution Router outputs can be added to an Aggregation Router."
+    if child.tenant_id != tenant.pk:
+        return "ROUTER_PERMISSION_REQUIRED", "Router cascades must stay in one Organization."
+    if child.router_type not in (Router.TYPE_EXECUTION, Router.TYPE_AGGREGATION):
+        return "EXECUTION_OUTPUT_UNRESOLVED", "Unsupported Router type."
     if child.status != Router.STATUS_DEPLOYED:
         return "EXECUTION_ROUTER_NOT_DEPLOYED", "Deploy this Execution Router before using its output."
     from .decision_routing import is_auto_output
-    if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
+    if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.router.router_type == Router.TYPE_EXECUTION and output.model_group_id is None and not is_auto_output(output)):
         return "EXECUTION_OUTPUT_UNRESOLVED", "Reconnect this output to a real Model Pool in the Execution Router."
     if not output_has_available_source(tenant=tenant, output=output):
         return "EXECUTION_MODEL_UNAVAILABLE", "The backing Model Pool has no available Source."
@@ -585,7 +597,7 @@ def aggregation_candidate_output_state(*, user, tenant: Tenant, output: RouterOu
 
 def resolve_aggregation_candidate_output(*, request, router: Router, output_id: str) -> RouterOutput:
     visible_child_ids = visible_routers(user=request.user, tenant=router.tenant).filter(
-        router_type=Router.TYPE_EXECUTION
+        router_type__in=[Router.TYPE_EXECUTION, Router.TYPE_AGGREGATION]
     ).values_list("id", flat=True)
     output = (
         RouterOutput.objects.select_related("router", "model_group")
@@ -601,7 +613,7 @@ def resolve_aggregation_candidate_output(*, request, router: Router, output_id: 
         .order_by("-is_default", "created_at")
     )
     mapping_output = execution_router_mapping_output(outputs=mapping_outputs)
-    if mapping_output is None or mapping_output.id != output.id:
+    if output.router.router_type == Router.TYPE_EXECUTION and (mapping_output is None or mapping_output.id != output.id):
         raise exceptions.ValidationError(
             "Select the Execution Router's single default model output; Aggregation does not route between its outputs."
         )
@@ -620,6 +632,7 @@ def resolve_aggregation_candidate_output(*, request, router: Router, output_id: 
 @transaction.atomic
 def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -> RouterChildBinding:
     router = get_mutable_router(request=request, router_id=router_id)
+    Tenant.objects.select_for_update().get(pk=router.tenant_id)
     router = Router.objects.select_for_update().get(id=router.id)
     from .aggregate_auto import enabled as auto_enabled
     if auto_enabled(router) and data.get('exposed_model_name') == 'auto':
@@ -635,14 +648,12 @@ def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -
     )
     if child_output.router_id == router.id:
         raise exceptions.ValidationError("A Router cannot aggregate its own output.")
-    if child_output.router.router_type != Router.TYPE_EXECUTION:
-        raise exceptions.ValidationError("An Aggregation Router can only use Execution Router outputs.")
     if child_output.router.status != Router.STATUS_DEPLOYED:
         raise exceptions.ValidationError("Deploy the child Router before aggregating its output.")
-    if child_output.router.child_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True).exists():
-        raise exceptions.ValidationError("Router nesting is limited to two levels; an Aggregation Router cannot be a child.")
+    from .cascade import validate_graph
+    validate_graph(router.tenant_id, edge=(router.pk, child_output.router_id))
     from .decision_routing import is_auto_output
-    if child_output.model_group_id is None and not is_auto_output(child_output):
+    if child_output.router.router_type == Router.TYPE_EXECUTION and child_output.model_group_id is None and not is_auto_output(child_output):
         raise exceptions.ValidationError("The child Router output is not connected to a Model Pool.")
     active_bindings = router.child_bindings.filter(
         status=SoftDeleteModel.STATUS_ACTIVE,
@@ -650,7 +661,7 @@ def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -
     )
     if active_bindings.filter(exposed_model_name=data["exposed_model_name"]).exists():
         raise exceptions.ValidationError("This Aggregation model name is already mapped to an Execution Router.")
-    if active_bindings.filter(child_output__router=child_output.router).exists():
+    if child_output.router.router_type == Router.TYPE_EXECUTION and active_bindings.filter(child_output__router=child_output.router).exists():
         raise exceptions.ValidationError("This Execution Router is already mapped in this Aggregation Router.")
     priority = data.get("priority")
     if priority is None:
@@ -677,6 +688,9 @@ def add_router_child_binding(*, request, router_id: str, data: dict[str, Any]) -
             "deleted_at": None,
         },
     )
+    from .cascade import sync_outputs, validate_graph
+    validate_graph(router.tenant_id)
+    sync_outputs(router)
     log_write(
         request=request,
         action="routers.children.add",
@@ -696,6 +710,7 @@ def update_router_child_binding(
     *, request, router_id: str, binding_id: str, data: dict[str, Any]
 ) -> RouterChildBinding:
     router = get_mutable_router(request=request, router_id=router_id)
+    Tenant.objects.select_for_update().get(pk=router.tenant_id)
     router = Router.objects.select_for_update().get(id=router.id)
     binding = router.child_bindings.exclude(status=SoftDeleteModel.STATUS_DELETED).filter(id=binding_id).first()
     if binding is None:
@@ -706,13 +721,14 @@ def update_router_child_binding(
     if next_enabled and auto_enabled(router) and next_model_name == 'auto':
         raise exceptions.ValidationError('auto is reserved while automatic model routing is enabled.')
     if next_enabled:
+        resolve_aggregation_candidate_output(request=request, router=router, output_id=str(binding.child_output_id))
         other_active = router.child_bindings.filter(
             status=SoftDeleteModel.STATUS_ACTIVE,
             enabled=True,
         ).exclude(id=binding.id)
         if other_active.filter(exposed_model_name=next_model_name).exists():
             raise exceptions.ValidationError("This Aggregation model name is already mapped to an Execution Router.")
-        if other_active.filter(child_output__router=binding.child_output.router).exists():
+        if binding.child_output.router.router_type == Router.TYPE_EXECUTION and other_active.filter(child_output__router=binding.child_output.router).exists():
             raise exceptions.ValidationError("This Execution Router is already mapped in this Aggregation Router.")
     for field in ("exposed_model_name", "enabled", "priority", "weight"):
         if field in data:
@@ -721,6 +737,9 @@ def update_router_child_binding(
         binding.save()
     except IntegrityError as exc:
         raise exceptions.ValidationError("This child Router output is already mapped to that model name.") from exc
+    from .cascade import sync_outputs, validate_graph
+    validate_graph(router.tenant_id)
+    sync_outputs(router)
     log_write(
         request=request,
         action="routers.children.update",
@@ -737,6 +756,8 @@ def remove_router_child_binding(*, request, router_id: str, binding_id: str) -> 
     if binding is None:
         raise RouterNotFound("Child Router binding not found.")
     binding.delete()
+    from .cascade import sync_outputs
+    sync_outputs(router)
     log_write(
         request=request,
         action="routers.children.remove",
@@ -750,6 +771,8 @@ def validate_aggregation_bindings(*, router: Router, bindings: list[RouterChildB
         raise exceptions.ValidationError("Child Router outputs require an Aggregation Router.")
     if router.model_group_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True).exists():
         raise exceptions.ValidationError("A Router cannot combine local Model Pools with child Router outputs.")
+    from .cascade import validate_graph
+    validate_graph(router.tenant_id)
     seen_model_names: set[str] = set()
     seen_child_router_ids: set[str] = set()
     for binding in bindings:
@@ -757,26 +780,24 @@ def validate_aggregation_bindings(*, router: Router, bindings: list[RouterChildB
         if binding.exposed_model_name in seen_model_names:
             raise exceptions.ValidationError("Each Aggregation model name must map to exactly one Execution Router.")
         child_router_id = str(output.router_id)
-        if child_router_id in seen_child_router_ids:
+        if output.router.router_type == Router.TYPE_EXECUTION and child_router_id in seen_child_router_ids:
             raise exceptions.ValidationError("Each Execution Router can be mapped only once in an Aggregation Router.")
         seen_model_names.add(binding.exposed_model_name)
         seen_child_router_ids.add(child_router_id)
         if output.router_id == router.id:
             raise exceptions.ValidationError("A Router cannot aggregate its own output.")
         from .decision_routing import is_auto_output
-        if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
+        if output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.router.router_type == Router.TYPE_EXECUTION and output.model_group_id is None and not is_auto_output(output)):
             raise exceptions.ValidationError(f"Child output {binding.exposed_model_name} is unavailable.")
         if output.router.status != Router.STATUS_DEPLOYED:
             raise exceptions.ValidationError(f"Child Router for {binding.exposed_model_name} is not deployed.")
-        if output.router.router_type != Router.TYPE_EXECUTION:
-            raise exceptions.ValidationError("Router nesting is limited to two levels.")
         mapping_output = execution_router_mapping_output(
             outputs=list(
                 output.router.outputs.exclude(status=SoftDeleteModel.STATUS_DELETED)
                 .order_by("-is_default", "created_at")
             )
         )
-        if mapping_output is None or mapping_output.id != output.id:
+        if output.router.router_type == Router.TYPE_EXECUTION and (mapping_output is None or mapping_output.id != output.id):
             raise exceptions.ValidationError(
                 "Aggregation mappings must use each Execution Router's single default model output."
             )

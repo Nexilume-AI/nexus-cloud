@@ -1772,6 +1772,7 @@ export type RouterAggregationCandidateModel = {
 
 export type RouterAggregationCandidate = {
   router_id: string;
+  router_type?: "execution" | "aggregation";
   name: string;
   status: string;
   available: boolean;

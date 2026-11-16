@@ -91,8 +91,9 @@ class PersonalRouterIntegration:
             if not self.can_use_router(user=request.user, router=binding.child_output.router):
                 raise exceptions.NotFound("Execution Router is no longer available.")
             if binding.child_output.model_group_id is None:
-                from apps.routers.decision_routing import is_auto_output, output_groups
-                if not is_auto_output(binding.child_output):
+                from apps.routers.decision_routing import is_auto_output
+                from apps.routers.cascade import output_groups
+                if binding.child_output.router.router_type != "aggregation" and not is_auto_output(binding.child_output):
                     raise exceptions.ValidationError("Reconnect the Execution output to a real Model Pool.")
                 ids = [group.pk for group in output_groups(binding.child_output)]
             else:

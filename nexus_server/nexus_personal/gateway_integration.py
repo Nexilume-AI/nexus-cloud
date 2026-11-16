@@ -48,6 +48,8 @@ def authorize_router(*, request, tenant, router):
     _authorize_pools(request, tenant, current)
     for output in current.outputs.filter(status="active", enabled=True).select_related("model_group"):
         if output.model_group is None:
+            if current.router_type == Router.TYPE_AGGREGATION:
+                continue
             from apps.routers.decision_routing import is_auto_output
             if is_auto_output(output):
                 continue  # Every bound Pool was freshly checked above.
@@ -56,11 +58,13 @@ def authorize_router(*, request, tenant, router):
     if current.router_type == Router.TYPE_AGGREGATION:
         for binding in current.child_bindings.filter(status="active", enabled=True).select_related("child_output__router"):
             child = binding.child_output.router
-            if child.router_type != Router.TYPE_EXECUTION:
-                raise exceptions.NotFound("Aggregation target must be an Execution Router.")
+            if child.tenant_id != current.tenant_id:
+                raise exceptions.NotFound("Aggregation target must belong to this Organization.")
             # An offline owned child can remain mapped. It is excluded by the
             # original routing algorithm, not rewritten into a working target.
             PersonalResourceCatalog()._resource(request=request, resource_type="router", obj=child)
+            if child.router_type == Router.TYPE_AGGREGATION:
+                continue  # Its pools/children are checked by the bounded runtime walker.
             _authorize_pools(request, tenant, child)
             output = binding.child_output
             if output.model_group_id is None:

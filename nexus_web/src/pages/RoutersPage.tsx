@@ -444,7 +444,7 @@ export function RoutersPage() {
   function chooseChildRouter(candidate: RouterAggregationCandidate) {
     setChildRouterId(candidate.router_id);
     setChildOutputId(candidate.output_id);
-    setChildModelName(candidate.model_name);
+    setChildModelName(candidate.model_name === "auto" ? `${candidate.name}-auto` : candidate.model_name);
   }
 
   function openAggregationMapping() {
@@ -491,7 +491,7 @@ export function RoutersPage() {
   );
   const aggregationRouterUseCounts = childBindings.reduce((counts, binding) => {
     const routerId = binding.child_output.router_id;
-    counts.set(routerId, (counts.get(routerId) ?? 0) + 1);
+    if (!(aggregationCandidates.data ?? []).some(candidate => candidate.router_id === routerId && candidate.router_type === "aggregation")) counts.set(routerId, (counts.get(routerId) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
   const hasAggregationOneToOneConflict = aggregationCatalog.some(([, bindings]) => bindings.length !== 1)
@@ -506,7 +506,7 @@ export function RoutersPage() {
     ? selectedModelGroupIds.filter((id) => !visibleBoundModels.some((model) => model.id === id)).length
     : 0;
   const deployBlockedReason = selectedRouter?.router_type === "aggregation" && !childBindings.length
-    ? t("Add at least one Execution Router mapping before deployment.")
+    ? t("Add at least one Router mapping before deployment.")
     : selectedRouter?.router_type === "aggregation" && hasAggregationOneToOneConflict
       ? t("Repair legacy mappings so every API model and Execution Router has exactly one mapping.")
     : selectedRouter?.router_type === "execution" && !selectedModelGroupIds.length
@@ -605,7 +605,7 @@ export function RoutersPage() {
               <div className="router-identity">
                 <div className="router-identity-meta"><span>{selectedRouter.router_type === "aggregation" ? t("Aggregation Router") : t("Execution Router")}</span><StatusBadge status={selectedRouter.status} /><ResourceOwnershipBadge ownership={selectedRouter.ownership} /></div>
                 <h2 title={selectedRouter.name}>{selectedRouter.name}</h2>
-                <p>{selectedRouter.router_type === "aggregation" ? t("One API model maps to one Execution Router.") : t("Select a Model Pool, then let the Pool select its Source.")}</p>
+                <p>{selectedRouter.router_type === "aggregation" ? t("Connect model outputs across Routers, up to four levels.") : t("Select a Model Pool, then let the Pool select its Source.")}</p>
                 <small>{t("Updated")}{" "}{formatRouterTimestamp(selectedRouter.updated_at)}</small>
               </div>
               <div className="router-toolbar-actions">
@@ -693,7 +693,7 @@ export function RoutersPage() {
                 <span className="router-readiness-icon">{childBindings.length > 0 && !hasAggregationOneToOneConflict && aggregationUnavailableCount === 0 ? <CheckCircle2 size={20} /> : <CircleAlert size={20} />}</span>
                 <div>
                   <strong>{childBindings.length === 0 ? t("Add the first API model") : hasAggregationOneToOneConflict ? t("Repair duplicate mappings") : aggregationUnavailableCount > 0 ? t("{{0}} model{{1}} attention", { 0: aggregationUnavailableCount, 1: aggregationUnavailableCount === 1 ? " needs" : "s need" }) : selectedRouter.status === "deployed" ? t("API catalog is ready") : t("Ready to deploy")}</strong>
-                  <p>{childBindings.length === 0 ? t("Choose the Execution Router that should answer this model name.") : hasAggregationOneToOneConflict ? t("Every model name and Execution Router must appear once.") : aggregationUnavailableCount > 0 ? t("Open the affected model below to see what must be fixed.") : selectedRouter.status === "deployed" ? t("{{0}} model{{1}} available through this API.", { 0: aggregationCatalog.length, 1: aggregationCatalog.length === 1 ? " is" : "s are" }) : t("Deploy this catalog when the model list looks right.")}</p>
+                  <p>{childBindings.length === 0 ? t("Choose the Router output that should answer this model name.") : hasAggregationOneToOneConflict ? t("Each API model name must have one mapping.") : aggregationUnavailableCount > 0 ? t("Open the affected model below to see what must be fixed.") : selectedRouter.status === "deployed" ? t("{{0}} model{{1}} available through this API.", { 0: aggregationCatalog.length, 1: aggregationCatalog.length === 1 ? " is" : "s are" }) : t("Deploy this catalog when the model list looks right.")}</p>
                 </div>
                 <div>{childBindings.length === 0 || hasAggregationOneToOneConflict || aggregationUnavailableCount > 0 ? <span className="router-attention"><CircleAlert size={16} />{t("Needs attention")}</span> : selectedRouter.status !== "deployed" ? <span className="router-attention"><CircleAlert size={16} />{t("Draft")}</span> : <span className="router-operational"><CheckCircle2 size={16} />{t("Operational")}</span>}</div>
               </section>}
@@ -701,7 +701,7 @@ export function RoutersPage() {
               {routerView === "overview" && (topology.isError ? (
                 <div className="topology-empty is-error"><GitBranch size={22} /><div><h2>{t("Router Fabric unavailable")}</h2><p>{t("The API model catalog remains editable. Retry after the topology API recovers.")}</p></div></div>
               ) : topology.data?.routers.some((router) => router.id === selectedRouter.id) ? (
-                <NexilumeTopology data={topology.data} routerId={selectedRouter.id} trace={selectedTrace?.trace || dryRun?.trace} title={t("Aggregation Router fabric")} description={t("Each API model connects directly to one Execution Router and its Model Pool lineage.")} />
+                <NexilumeTopology data={topology.data} routerId={selectedRouter.id} trace={selectedTrace?.trace || dryRun?.trace} title={t("Aggregation Router fabric")} description={t("Each API model follows its Router path to a Model Pool.")} />
               ) : (
                 <RouterDecisionFallback router={selectedRouter} models={models.data ?? []} />
               ))}
@@ -711,8 +711,8 @@ export function RoutersPage() {
                   <div><h3>{t("Model mappings")}</h3></div>
                   <div className="flex items-center gap-2"><span className="router-selection-count">{aggregationCatalog.length} {aggregationCatalog.length === 1 ? t("model") : t("models")}</span>{childBindings.length > 0 && <button className="btn h-9 px-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add model")}</button>}</div>
                 </div>
-                <p className="router-strategy-note router-aggregation-note">{t("Clients choose a model name. That name forwards directly to one Execution Router.")}</p>
-                {aggregationCatalog.length === 0 ? <div className="router-empty-slot mt-4"><strong>{t("This API has no models yet")}</strong><span>{t("Add an Execution Router as the first model.")}</span><button className="btn btn-primary mx-auto mt-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add first model")}</button></div> : <div className="router-model-table" role="table" aria-label={t("Aggregation API models")}>
+                <p className="router-strategy-note router-aggregation-note">{t("Named models follow their mapping. Auto selects here; map a child Auto output to delegate explicitly.")}</p>
+                {aggregationCatalog.length === 0 ? <div className="router-empty-slot mt-4"><strong>{t("This API has no models yet")}</strong><span>{t("Add a Router output as the first model.")}</span><button className="btn btn-primary mx-auto mt-3" onClick={openAggregationMapping}><Plus size={14} />{t("Add first model")}</button></div> : <div className="router-model-table" role="table" aria-label={t("Aggregation API models")}>
                   <div role="row">
                     <span role="columnheader">{t("API model")}</span><span role="columnheader">{t("Execution Router")}</span><span role="columnheader">{t("Status")}</span><span role="columnheader">{t("Action")}</span>
                   </div>
@@ -799,7 +799,7 @@ export function RoutersPage() {
                 <label className={`cursor-pointer rounded-lg border p-4 ${createRouterType === "aggregation" ? "border-primary bg-primary/5" : "border-line"}`}>
                   <input className="sr-only" type="radio" name="router-type" value="aggregation" aria-label={t("Aggregation Router")} checked={createRouterType === "aggregation"} onChange={() => { setCreateRouterType("aggregation"); setCreatePoolId(""); }} />
                   <strong className="block text-sm text-ink">{t("Aggregation Router")}</strong>
-                  <span className="mt-1 block text-xs text-muted">{t("Combines outputs from deployed Execution Routers behind one API.")}</span>
+                  <span className="mt-1 block text-xs text-muted">{t("Combines outputs from deployed Routers behind one API.")}</span>
                 </label>
               </div>
             </fieldset>
@@ -827,7 +827,7 @@ export function RoutersPage() {
                 {(models.data ?? []).map((model) => <option key={model.id} value={model.id}>{model.display_name || model.name}</option>)}
               </select>
             </Field>}
-            <p className="router-inline-help">{createRouterType === "execution" ? t("After creation, configure only Model Pools and execution policy.") : t("After creation, map only deployed Execution Router outputs to downstream model names.")}{" "}{t("The Router remains a draft until you deploy it.")}</p>
+            <p className="router-inline-help">{createRouterType === "execution" ? t("After creation, configure only Model Pools and execution policy.") : t("After creation, map deployed Router outputs to API model names.")}{" "}{t("The Router remains a draft until you deploy it.")}</p>
             <button
               className="btn btn-primary w-fit"
               disabled={createRouter.isPending || !routerName.trim()}
@@ -842,7 +842,7 @@ export function RoutersPage() {
       {activeModal === "mapping" && selectedRouter?.router_type === "aggregation" && (
         <RouterModalFrame
           title={t("Add API model")}
-          description={t("{{0}} · connect one model name to one Execution Router.", { 0: selectedRouter.name })}
+          description={t("{{0}} · connect a model name to a Router output.", { 0: selectedRouter.name })}
           onClose={closeAggregationMapping}
           maxWidth="max-w-2xl"
         >
@@ -856,9 +856,9 @@ export function RoutersPage() {
             <section aria-labelledby="aggregation-router-step">
               <div className="flex items-start gap-3">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink font-mono text-xs font-semibold text-white">1</span>
-                <div><h3 id="aggregation-router-step" className="text-base font-semibold text-ink">{t("Choose an Execution Router")}</h3><p className="mt-1 text-sm text-muted">{t("Only deployed, callable Routers can be added.")}</p></div>
+                <div><h3 id="aggregation-router-step" className="text-base font-semibold text-ink">{t("Choose a Router")}</h3><p className="mt-1 text-sm text-muted">{t("Only deployed, callable Routers can be added.")}</p></div>
               </div>
-              {aggregationCandidates.isLoading ? <div className="router-diagnostic-empty mt-4"><Loader2 size={16} className="animate-spin" />{t("Loading Execution Routers…")}</div> : aggregationCandidates.isError ? <div className="router-diagnostic-empty is-error mt-4">{t("Execution Routers could not be loaded. Close this dialog and try again.")}</div> : availableAggregationCandidates.length === 0 ? <div className="router-empty-slot mt-4"><strong>{mappedAggregationCandidates.length > 0 && unavailableAggregationCandidates.length === 0 ? t("All available Routers are already added") : t("No Execution Router is ready")}</strong><span>{mappedAggregationCandidates.length > 0 && unavailableAggregationCandidates.length === 0 ? t("Create or deploy another Execution Router to add a model.") : t("Deploy an Execution Router with a healthy Model Pool, then return here.")}</span></div> : <div className="mt-4 grid gap-2" role="listbox" aria-label={t("Available Execution Routers")}>{availableAggregationCandidates.map((candidate) => <button key={candidate.router_id} type="button" role="option" aria-selected={childRouterId === candidate.router_id} className={`flex min-h-14 w-full items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-colors ${childRouterId === candidate.router_id ? "border-primary bg-primary/5" : "border-line bg-white hover:bg-slate-50"}`} onClick={() => chooseChildRouter(candidate)}><span className="min-w-0"><strong className="block truncate text-sm text-ink">{candidate.name}</strong><small className="mt-1 block text-xs text-muted">{t("Default model ·")}{" "}{candidate.model_name}</small></span><span className="shrink-0">{childRouterId === candidate.router_id ? <span className="router-operational"><CheckCircle2 size={15} />{t("Selected")}</span> : <StatusBadge status="available" />}</span></button>)}</div>}
+              {aggregationCandidates.isLoading ? <div className="router-diagnostic-empty mt-4"><Loader2 size={16} className="animate-spin" />{t("Loading Routers…")}</div> : aggregationCandidates.isError ? <div className="router-diagnostic-empty is-error mt-4">{t("Routers could not be loaded. Close this dialog and try again.")}</div> : availableAggregationCandidates.length === 0 ? <div className="router-empty-slot mt-4"><strong>{mappedAggregationCandidates.length > 0 && unavailableAggregationCandidates.length === 0 ? t("All available Routers are already added") : t("No Router is ready")}</strong><span>{mappedAggregationCandidates.length > 0 && unavailableAggregationCandidates.length === 0 ? t("Create or deploy another Execution Router to add a model.") : t("Deploy an Execution Router with a healthy Model Pool, then return here.")}</span></div> : <div className="mt-4 grid gap-2" role="listbox" aria-label={t("Available Routers")}>{availableAggregationCandidates.map((candidate) => <button key={candidate.router_id} type="button" role="option" aria-selected={childRouterId === candidate.router_id} className={`flex min-h-14 w-full items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-colors ${childRouterId === candidate.router_id ? "border-primary bg-primary/5" : "border-line bg-white hover:bg-slate-50"}`} onClick={() => chooseChildRouter(candidate)}><span className="min-w-0"><strong className="block truncate text-sm text-ink">{candidate.name}</strong><small className="mt-1 block text-xs text-muted">{t("Default model ·")}{" "}{candidate.model_name}</small></span><span className="shrink-0">{childRouterId === candidate.router_id ? <span className="router-operational"><CheckCircle2 size={15} />{t("Selected")}</span> : <StatusBadge status="available" />}</span></button>)}</div>}
               {mappedAggregationCandidates.length > 0 && <details className="mt-4 rounded-lg border border-line bg-slate-50"><summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">{t("Already added (")}{mappedAggregationCandidates.length})</summary><div className="grid gap-3 border-t border-line px-4 py-3">{mappedAggregationCandidates.map((candidate) => <div key={candidate.router_id} className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"><div><strong className="text-sm text-ink">{candidate.name}</strong><p className="mt-1 text-xs text-muted">{t("Available as")}{" "}{candidate.bound_model_name}.</p></div><StatusBadge status="mapped" /></div>)}</div></details>}
               {unavailableAggregationCandidates.length > 0 && <details className="mt-4 rounded-lg border border-line bg-slate-50"><summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">{t("Needs attention (")}{unavailableAggregationCandidates.length})</summary><div className="grid gap-3 border-t border-line px-4 py-3">{unavailableAggregationCandidates.map((candidate) => <div key={candidate.router_id} className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"><div><strong className="text-sm text-ink">{candidate.name}</strong><p className="mt-1 text-xs text-amber-700">{candidate.message || t("This Router is not ready to use.")}</p></div><StatusBadge status="unavailable" /></div>)}</div></details>}
             </section>
@@ -867,7 +867,8 @@ export function RoutersPage() {
               <div className="flex items-start gap-3">
                 <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full font-mono text-xs font-semibold ${selectedChildRouter ? "bg-ink text-white" : "bg-slate-200 text-muted"}`}>2</span>
                 <div className="min-w-0 flex-1"><h3 id="aggregation-name-step" className="text-base font-semibold text-ink">{t("Name the API model")}</h3><p className="mt-1 text-sm text-muted">{t("This is the model name callers will use. The Router default is filled in for you.")}</p>
-                  <label className="mt-4 block"><span className="mb-1 block text-sm font-medium text-ink">{t("API model name")}</span><input className="input" aria-label={t("API model name")} value={childModelName} onChange={(event) => setChildModelName(event.target.value)} disabled={!selectedChildRouter} placeholder={selectedChildRouter ? t("Enter a model name") : t("Choose an Execution Router first")} /></label>
+                  {selectedChildRouter?.router_type === "aggregation" && <label className="mt-4 block"><span className="mb-1 block text-sm font-medium text-ink">{t("Child model")}</span><select className="input" aria-label={t("Child model")} value={childOutputId} onChange={(event) => { const model = selectedChildRouter.models.find(item => item.output_id === event.target.value); if (model) { setChildOutputId(model.output_id); setChildModelName(model.model_name === "auto" ? `${selectedChildRouter.name}-auto` : model.model_name); } }}>{selectedChildRouter.models.map(model => <option key={model.output_id} value={model.output_id} disabled={!model.available || model.already_bound}>{model.model_name}{model.model_name === "auto" ? " · decide in child Router" : ""}</option>)}</select><p className="mt-2 text-xs text-muted">{t("Child Auto is used only through this named mapping, never by this Router's Auto selection.")}</p></label>}
+                  <label className="mt-4 block"><span className="mb-1 block text-sm font-medium text-ink">{t("API model name")}</span><input className="input" aria-label={t("API model name")} value={childModelName} onChange={(event) => setChildModelName(event.target.value)} disabled={!selectedChildRouter} placeholder={selectedChildRouter ? t("Enter a model name") : t("Choose a Router first")} /></label>
                   {selectedChildRouter && <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-slate-50 px-4 py-3 text-sm" aria-label={t("Mapping preview")}><strong className="break-words text-ink">{childModelName.trim() || t("API model")}</strong><ArrowRight size={15} className="text-muted" /><span className="break-words text-muted">{selectedChildRouter.name}</span></div>}
                 </div>
               </div>

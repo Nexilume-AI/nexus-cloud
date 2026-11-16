@@ -67,7 +67,7 @@ def supports_request(deployment, payload):
 
 
 def output_contract(*, tenant, output):
-    from apps.routers.decision_routing import output_groups
+    from apps.routers.cascade import output_groups
     contracts = [group_contract(tenant=tenant, group=group) for group in output_groups(output)]
     return {field: sorted({value for contract in contracts for value in contract[field]})
             for field in ("operations", "input_modalities", "output_modalities")}

@@ -526,10 +526,19 @@ def resolve_router_deployment_candidates(*, request, tenant: Tenant, router_id: 
     return resolve_router_routing(request=request, tenant=tenant, router_id=router_id, payload=payload).deployments
 
 
-def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: dict[str, Any]) -> RoutingResolution:
+def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: dict[str, Any],
+                           _path=(), _auto_owner=None, _entry=True) -> RoutingResolution:
     router = Router.objects.filter(tenant=tenant, id=router_id, status=Router.STATUS_DEPLOYED).first()
     if router is None:
         raise ModelNotFound("Router not found or not deployed.")
+    from apps.routers.cascade import MAX_ROUTER_DEPTH
+    if router.pk in _path or len(_path) >= MAX_ROUTER_DEPTH:
+        raise DeploymentNotAvailable("Router cascade cycle or depth limit exceeded.")
+    if not _entry:
+        from apps.routers.services import can_use_router
+        actor = request_actor_user(request) or getattr(getattr(request, "api_key", None), "created_by", None)
+        if actor is None or not can_use_router(user=actor, router=router):
+            raise exceptions.PermissionDenied("Use permission is required at every Router level.")
     gateway_integration().authorize_router(request=request, tenant=tenant, router=router)
     child_bindings = list(
         router.child_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True)
@@ -547,6 +556,7 @@ def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: 
             router=router,
             payload=payload,
             bindings=child_bindings,
+            _path=(*_path, router.pk), _auto_owner=_auto_owner, _entry=_entry,
         )
 
     outputs = list(
@@ -560,6 +570,9 @@ def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: 
         if selected_output is None:
             available = ", ".join(output.model_name for output in outputs)
             raise ModelNotFound(f"Model is not exported by this Router. Available models: {available}.")
+    from apps.routers.decision_routing import is_auto_output
+    if _auto_owner is not None and selected_output is not None and is_auto_output(selected_output):
+        raise DeploymentNotAvailable("An Auto decision cannot delegate to another Auto output; select an explicit model.")
     return resolve_execution_router(
         request=request,
         tenant=tenant,
@@ -676,10 +689,17 @@ def resolve_aggregation_router(
     router: Router,
     payload: dict[str, Any],
     bindings: list[RouterChildBinding],
+    _path=(), _auto_owner=None, _entry=True,
 ) -> RoutingResolution:
     requested_model = payload["model"]
     from apps.routers import aggregate_auto
     auto = requested_model == 'auto' and aggregate_auto.enabled(router)
+    if not _path:
+        _path = (router.pk,)
+    if auto and _auto_owner is not None:
+        raise DeploymentNotAvailable('Only one Router may own the Auto decision in a request.')
+    if auto:
+        _auto_owner = str(router.pk)
     matching = bindings if auto else [binding for binding in bindings if binding.exposed_model_name == requested_model]
     if not matching:
         available = ", ".join(dict.fromkeys(binding.exposed_model_name for binding in bindings))
@@ -690,7 +710,7 @@ def resolve_aggregation_router(
     source_failures: list[DeploymentNotAvailable] = []
     from apps.routers.decision_routing import is_auto_output
     for binding in matching:
-        if auto:
+        if auto and _entry:
             try:
                 enforce_api_key_policy(api_key=getattr(request, 'api_key', None), model=binding.exposed_model_name)
                 # Reuse the host's credential check for each actual candidate.
@@ -703,8 +723,6 @@ def resolve_aggregation_router(
                     raise
                 continue
         output = binding.child_output
-        if auto and (output.model_group_id is None or is_auto_output(output)):
-            continue  # No nested decision calls, including aliases to child Auto.
         child_router = output.router
         reason = ""
         child_resolution = None
@@ -712,18 +730,16 @@ def resolve_aggregation_router(
             reason = "router_depth_or_cycle_rejected"
         elif child_router.status != Router.STATUS_DEPLOYED:
             reason = "child_router_not_deployed"
-        elif output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.model_group_id is None and not is_auto_output(output)):
+        elif output.status != SoftDeleteModel.STATUS_ACTIVE or not output.enabled or (output.router.router_type == Router.TYPE_EXECUTION and output.model_group_id is None and not is_auto_output(output)):
             reason = "child_output_unavailable"
         else:
             try:
-                child_resolution = resolve_execution_router(
-                    request=request,
-                    tenant=tenant,
-                    router=child_router,
+                child_resolution = resolve_router_routing(
+                    request=request, tenant=tenant, router_id=str(child_router.pk),
                     payload={**payload, "model": output.model_name},
-                    output=output,
+                    _path=_path, _auto_owner=_auto_owner, _entry=False,
                 )
-            except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported) as exc:
+            except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported, exceptions.PermissionDenied) as exc:
                 reason = str(exc.detail if hasattr(exc, "detail") else exc)
                 if isinstance(exc, (RouterSourceUnavailable, RouterConfigurationRequired)):
                     source_failures.append(exc)
@@ -743,7 +759,7 @@ def resolve_aggregation_router(
         )
         if child_resolution:
             for deployment in child_resolution.deployments:
-                resolved.append((deployment, binding, child_resolution.trace))
+                resolved.append((deployment, binding, deepcopy(getattr(deployment, "_nexus_routing_trace", child_resolution.trace))))
 
     if not resolved:
         if source_failures:
@@ -772,14 +788,14 @@ def resolve_aggregation_router(
         deployment._nexus_routing_trace = trace_by_deployment_id[str(deployment.id)]
         if decision is not None:
             selected = next(b.exposed_model_name for d,b,_ in resolved if d.id == deployment.id)
-            deployment._nexus_routing_trace['router']['decision'] = {**decision, 'selected_model': selected}
+            deployment._nexus_routing_trace['router']['decision'] = {**decision, 'selected_model': selected, 'owner_router_id': str(router.pk)}
     return RoutingResolution(deployments=deployments, trace=trace_by_deployment_id[str(deployments[0].id)])
 
 
 def child_router_id_invalid(*, parent: Router, child: Router) -> bool:
     if parent.id == child.id:
         return True
-    return child.router_type != Router.TYPE_EXECUTION
+    return parent.tenant_id != child.tenant_id or child.router_type not in (Router.TYPE_EXECUTION, Router.TYPE_AGGREGATION)
 
 
 def build_aggregation_trace(
@@ -818,12 +834,7 @@ def build_aggregation_trace(
                 "type": "aggregation",
                 "model": requested_model,
             },
-            {
-                "router_id": str(selected_output.router_id),
-                "router": selected_output.router.name,
-                "type": "execution",
-                "model": selected_output.model_name,
-            },
+            *deepcopy(leaf_trace.get("path") or []),
         ],
         "aggregation": {
             "model": requested_model,
@@ -872,7 +883,7 @@ def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, An
                 and output.router.status == Router.STATUS_DEPLOYED
                 and output.status == SoftDeleteModel.STATUS_ACTIVE
                 and output.enabled
-                and output_has_available_source(tenant=tenant, output=output)
+                and output_has_available_source(tenant=tenant, output=output, _path=(router.pk,))
             )
             row["targets"].append(
                 {
@@ -887,7 +898,8 @@ def router_model_catalog(*, tenant: Tenant, router: Router) -> list[dict[str, An
                 row["model_contract"] = output_contract(tenant=tenant, output=output)
         from apps.routers.aggregate_auto import enabled
         if enabled(router):
-            rows['auto'] = {'id': 'auto', 'available': any(r['available'] for r in rows.values()),
+            auto_output = RouterOutput(router=router, model_name='auto', enabled=True, status='active')
+            rows['auto'] = {'id': 'auto', 'available': output_has_available_source(tenant=tenant, output=auto_output),
                 'router_type': 'aggregation', 'targets': [], 'code': '', 'message': '',
                 'model_contract': {'operations': ['chat.completions', 'responses'], 'input_modalities': ['text'], 'output_modalities': ['text']}}
         return list(rows.values())

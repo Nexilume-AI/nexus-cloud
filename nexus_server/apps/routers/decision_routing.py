@@ -19,6 +19,8 @@ def is_auto_output(output):
 
 def sync_auto_output(router):
     if router.router_type != "execution":
+        from .cascade import sync_outputs
+        sync_outputs(router)
         return
     name = auto_model_name(router)
     if router.strategy != "system_one":

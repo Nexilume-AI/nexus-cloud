@@ -23,18 +23,11 @@ def compatible_input_capacity(candidates):
 
 
 def router_groups(router, name):
-    from .services import child_router_id_invalid
     if router.router_type == router.TYPE_AGGREGATION:
-        from apps.routers.aggregate_auto import enabled
-        bindings = router.child_bindings.filter(status="active", enabled=True)
-        if not (name == 'auto' and enabled(router)):
-            bindings = bindings.filter(exposed_model_name=name)
-        bindings = bindings.select_related(
-            "child_output__router", "child_output__model_group")
-        return [binding.child_output.model_group for binding in bindings
-                if binding.child_output.status == "active" and binding.child_output.enabled
-                and binding.child_output.model_group_id and binding.child_output.router.status == "deployed"
-                and not child_router_id_invalid(parent=router, child=binding.child_output.router)]
+        from apps.routers.cascade import output_groups
+        from apps.routers.models import RouterOutput
+        # Virtual output supports pre-upgrade rows without mutating reads.
+        return output_groups(RouterOutput(router=router, model_name=name, enabled=True, status="active"))
     outputs = router.outputs.filter(status="active", enabled=True).select_related("model_group")
     if outputs.exists():
         return [output.model_group for output in outputs if output.model_name == name and output.model_group_id]
