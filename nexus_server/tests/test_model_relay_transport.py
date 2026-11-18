@@ -87,3 +87,22 @@ class ModelRelayTransportTests(TestCase):
             response=self.call(t.RelayTransportActivate,{'binding_id':str(b.pk)})
         self.assertEqual(response.status_code,400)
         update.assert_not_called()
+
+    def test_activation_verification_only_runs_after_commit(self):
+        b=self.prepare()
+        def update(**kwargs):
+            self.account.url=kwargs['data']['url'];self.account.save()
+        with patch.object(t,'open_provider_url',return_value=io.BytesIO(b'{"data":[{"id":"m"}]}')), patch.object(t,'update_provider_connection',side_effect=update), patch.object(t,'audit'), patch('apps.accounts.tasks.schedule_relay_verification') as schedule:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.call(t.RelayTransportActivate,{'binding_id':str(b.pk)}).status_code,200)
+                schedule.assert_not_called()
+            schedule.assert_called_once_with(str(b.pk),str(self.runtime.pk))
+
+    def test_revoked_binding_cannot_probe_and_queue_outage_uses_maintenance(self):
+        from apps.accounts.tasks import verify_relay_transport, schedule_relay_verification
+        b=self.prepare();b.status='revoked';b.save()
+        with patch('apps.providers.runtime_services.refresh_runtime_model_offers') as refresh:
+            self.assertTrue(verify_relay_transport(str(b.pk))['skipped']);refresh.assert_not_called()
+        with patch('apps.accounts.tasks.verify_relay_transport.delay',side_effect=OSError()), patch('apps.providers.runtime_services.provider_catalog_refresh_result') as recover:
+            schedule_relay_verification(str(b.pk),str(self.runtime.pk))
+            recover.assert_called_once_with(runtime_id=str(self.runtime.pk),failed=True)

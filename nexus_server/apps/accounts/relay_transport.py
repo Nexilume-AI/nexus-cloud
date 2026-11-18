@@ -162,4 +162,6 @@ class RelayTransportActivate(DeviceNative):
             else:receipt=device.registrations.get(spec['model'], {'model': spec['model']})
             device.registrations[spec['model']]={**receipt,'transport':'outbound',**describe(binding)}
         device.save(update_fields=['registrations','updated_at']);audit(request,device,'transport.activate')
+        from .tasks import schedule_relay_verification
+        transaction.on_commit(lambda: schedule_relay_verification(str(binding.pk), str(runtime.pk)))
         return Response(describe(binding))
