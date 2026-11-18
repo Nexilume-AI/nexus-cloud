@@ -32,6 +32,15 @@ class Spec(serializers.Serializer):
     model = serializers.RegexField(r"\A[^\s\x00-\x1f]{1,128}\Z")
     endpoint = serializers.URLField(max_length=1024)
     protocol = serializers.ChoiceField(choices=["system_one", "openai-compatible"])
+    transport = serializers.ChoiceField(choices=["outbound"], required=False)
+    provider_id = serializers.UUIDField(required=False)
+
+    def validate(self, data):
+        if data.get("provider_id"):
+            if data.get("transport") != "outbound":
+                raise serializers.ValidationError("Existing Provider binding requires outbound transport.")
+            data["provider_id"] = str(data["provider_id"])
+        return data
 
     def validate_endpoint(self, value):
         parsed = urlsplit(value)
@@ -226,11 +235,12 @@ class RelayApproval(BrowserApproval):
         return Response({"status": row.status})
 
 
-def device_auth(request):
+def device_auth(request, *, lock=True):
     value = request.headers.get("Authorization", "")
     if not value.startswith("Bearer nrelay_a_") or len(value) > 150:
         raise exceptions.AuthenticationFailed("Relay device access credential required.")
-    row = RelayDevice.objects.select_for_update().filter(access_hash=digest(value[7:])).first()
+    query = RelayDevice.objects.select_for_update() if lock else RelayDevice.objects
+    row = query.filter(access_hash=digest(value[7:])).first()
     active(row)
     if row.access_expires_at <= timezone.now():
         raise exceptions.AuthenticationFailed("Device access expired. Refresh first.")
@@ -240,7 +250,7 @@ def device_auth(request):
 
 class Registration(serializers.Serializer):
     model = serializers.CharField(max_length=128)
-    endpoint_api_key = serializers.RegexField(r"\A[^\s\x00-\x1f]{1,8192}\Z", write_only=True)
+    endpoint_api_key = serializers.RegexField(r"\A[^\s\x00-\x1f]{1,8192}\Z", write_only=True, required=False)
 
 
 class RelayModels(DeviceNative):
@@ -256,6 +266,13 @@ class RelayModels(DeviceNative):
         spec = next((s for s in row.manifest if s["model"] == data["model"]), None)
         if spec is None:
             raise exceptions.PermissionDenied("Model is outside the browser-approved device scope.")
+        if spec.get("transport") == "outbound":
+            from .relay_transport import prepare
+            result = prepare(scope_request(request, row), row, spec, data.get("endpoint_api_key"))
+            audit(request, row, "transport.prepare")
+            return Response(result)
+        if not data.get("endpoint_api_key"):
+            raise exceptions.ValidationError("Endpoint credential required.")
         from .relay_registration import register
         result = register(scope_request(request, row), row, spec, data["endpoint_api_key"])
         audit(request, row, "model.register")
@@ -267,6 +284,7 @@ def revoke(request, row):
     row.status, row.revoked_at = "revoked", timezone.now()
     row.access_hash, row.refresh_hash = None, None
     row.save()
+    row.model_bindings.update(status="revoked")
     disable_sources(row)
     audit(request, row, "revoke")
 

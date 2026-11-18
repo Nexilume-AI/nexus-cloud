@@ -110,3 +110,12 @@ class RelayDevice(BaseModel):
     refresh_expires_at = models.DateTimeField(null=True)
     expires_at = models.DateTimeField(null=True)
     revoked_at = models.DateTimeField(null=True)
+
+class RelayModelBinding(BaseModel):
+    device = models.ForeignKey(RelayDevice, on_delete=models.CASCADE, related_name="model_bindings")
+    provider = models.OneToOneField("providers.ProviderAccount", on_delete=models.CASCADE, related_name="relay_binding")
+    upstream_url = models.URLField(max_length=1024)
+    protocol = models.CharField(max_length=32)
+    status = models.CharField(max_length=16, default="prepared")
+    original = models.JSONField(default=dict)
+    models = models.JSONField(default=list)

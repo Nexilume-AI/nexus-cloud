@@ -212,3 +212,7 @@ Device tokens cannot authorize ordinary management or inference endpoints.
 
 Tests: `python -m django test tests.test_relay_devices
 nexus_personal.tests.test_relay_devices --settings=nexus_personal.tests.settings`.
+
+## Generic outbound transport
+
+SDK 0.53.0 adds streaming forwarding, reconnect and existing Provider adoption. See [Outbound model Relay](outbound-model-relay.md).

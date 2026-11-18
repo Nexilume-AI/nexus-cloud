@@ -79,3 +79,23 @@ class PersonalRelayTests(ProviderHTTPFixture, TestCase):
         owner.is_active = False
         owner.save(update_fields=["is_active"])
         self.assertGreaterEqual(self.device.get(self.base + "models/").status_code, 400)
+
+    def test_outbound_new_provider_staged_activation(self):
+        from unittest.mock import patch
+        from apps.accounts.models import RelayModelBinding
+        self.approve()
+        row=RelayDevice.objects.get(pk=self.start['device_id'])
+        upstream=f'http://127.0.0.1:{self.upstream.server_port}/v1'
+        row.manifest[0].update(endpoint=upstream,transport='outbound');row.save(update_fields=['manifest'])
+        first=self.device.post(self.base+'models/',{'model':'personal-model','endpoint_api_key':'local-provider-test-key'},format='json')
+        self.assertEqual(first.status_code,200,first.data)
+        self.assertEqual(first.data['status'],'prepared')
+        binding=RelayModelBinding.objects.get(pk=first.data['binding_id'])
+        self.assertEqual(Deployment.objects.filter(provider_runtime__source_provider_account=binding.provider).count(),0)
+        # The real HTTP fixture represents the already-authenticated broker.
+        with patch('apps.accounts.relay_transport.endpoint',return_value=upstream):
+            activated=self.device.post(self.base+'transport/activate/',{'binding_id':str(binding.pk)},format='json')
+        self.assertEqual(activated.status_code,200,activated.data)
+        row.refresh_from_db();self.assertIn('router_id',row.registrations['personal-model'])
+        self.assertEqual(self.device.post(self.base+'revoke/',{},format='json').status_code,200)
+        binding.refresh_from_db();self.assertEqual(binding.status,'revoked')

@@ -1,8 +1,12 @@
 from django.urls import path
 from . import relay_devices as v
 from .relay_page import page
+from . import relay_transport as t
 
 urlpatterns = [
+    path("transport/session/", t.RelayTransportSession.as_view()),
+    path("transport/authorize/", t.RelayTransportAuthorize.as_view()),
+    path("transport/activate/", t.RelayTransportActivate.as_view()),
     path("page/", page),
     path("start/", v.RelayStart.as_view()),
     path("token/", v.RelayToken.as_view()),

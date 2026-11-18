@@ -79,7 +79,9 @@ def disable_sources(device):
     # Only the exact immutable resources created by this grant; no name matching.
     from apps.deployments.models import Deployment
     from apps.providers.models import ProviderAccount, ProviderRuntimeAccount
-    receipts = list(device.registrations.values())
+    # Existing Providers attached for transport are not owned by this grant.
+    # Revocation blocks their Relay immediately, without rewriting user resources.
+    receipts = [r for r in device.registrations.values() if r.get("source_id") and not r.get("transport")]
     Deployment.objects.filter(tenant_id=device.tenant_id, id__in=[r["source_id"] for r in receipts], status="active").update(status="disabled")
     ProviderAccount.objects.filter(tenant_id=device.tenant_id, id__in=[r["provider_id"] for r in receipts], status="active").update(status="disabled")
     ProviderRuntimeAccount.objects.filter(tenant_id=device.tenant_id, id__in=[r["runtime_id"] for r in receipts], status="active").update(status="stopped")
