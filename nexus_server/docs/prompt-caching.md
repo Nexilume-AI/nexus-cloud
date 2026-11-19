@@ -112,28 +112,45 @@ reuse.
 
 ## Validation and release status (2026-11-19)
 
-- Four-level authenticated HTTP fixture: Chat and native Responses, JSON and SSE,
-  controls/breakpoints preserved, one receipt per request.
-- Real HTTP/WebSocket Relay fixture: request and response bytes preserved,
-  including segmented SSE and a long prefix.
-- Hosted ledger tests: mixed TTL/read/write pricing, Source fallback, one cascade
-  debit, Marketplace revenue and historical micro-amount rounding regressions.
-- Real public Responses requests: 27,830 input tokens; cold read count 0, followed
-  by two requests reporting 27,648 cached tokens (99.35%). The final call streamed.
-  Observed durations: 12.856, 8.578 and 6.734 seconds. These three samples are
-  compatibility evidence, not a latency benchmark.
-- The selected Source was configured at zero price; all three live audit records
-  correctly report zero charge. This does **not** demonstrate positive monetary
-  savings. Nonzero tariffs are verified in isolated ledger tests.
-- The tested upstream rejected explicit `prompt_cache_options` with HTTP 400.
-  It reported zero writes for implicit caching. Positive real write usage is
-  **not verified**; mixed-TTL write accounting is covered by controlled fixtures.
+The hosted Cloud rollout is complete. The additive `gateway.0006` and
+`providers.0023` migrations were applied after a full database backup. Web,
+Worker and Beat are running, and the public bootstrap returns HTTP 200.
+The previously deployed Auto token estimator and capacity fallback remain intact.
+Production prices and Key permissions were not changed.
 
-Production deployment is intentionally pending at the owner's request. No live
-Cloud code, schema, pricing, Key permissions or service restart was changed for
-this release. Existing production behavior was used only for the public cache
-hit checks. New public request-field acceptance and new persisted receipts still
-need a post-deployment smoke test. When deployment is approved, run the additive
-`gateway` and `providers` migrations before loading the new Web/Worker code.
+- The exact patch merged with live code passed **35 PostgreSQL tests**, including
+  cache controls, mixed-TTL read/write pricing, cascade single settlement, pool
+  rounding and Auto eligibility/fallback. The migration drift check passed.
+- Six real public Router calls passed: cold JSON, repeated JSON and repeated SSE
+  for each protocol. Both paths traverse an aggregate and an execution Router.
+
+| Protocol / model | Input tokens | Repeated cached tokens | Hit ratio |
+| --- | ---: | ---: | ---: |
+| Responses / gpt-6.1-sol | 27,838 | 27,648 | 99.32% |
+| Chat / deepseek-flash | 28,665 | 28,416 | 99.13% |
+
+Every API usage record matches its persisted cache receipt: input/output counts,
+disjoint cached/write/ordinary input counts, configured tariff snapshot and
+charged amount. Each call creates exactly one success receipt, exposed by the
+Router trace serializer. These Sources have zero configured prices, so all six
+platform charges are correctly zero and produce no debit. This is not evidence
+of nonzero monetary savings. A separate PostgreSQL test verifies a **0.015190**
+nonzero mixed-TTL charge and exactly one wallet debit through three Routers.
+
+DeepSeek in this test uses a direct upstream; it is not a Relay test. Separate
+MiniMax provider Relay probes also passed all three calls: 28,831 input tokens,
+128 cached tokens on the first call, and 28,800 (99.89%) on repeated JSON and
+SSE calls. These prove real cache usage across the public Relay, separately
+from Router wallet settlement. Actual
+HTTP/WebSocket fixture tests also verify exact Relay byte preservation and
+four-level authenticated cascade preservation for Chat/Responses and JSON/SSE.
+
+The previously tested upstream rejected explicit `prompt_cache_options` with
+HTTP 400. Positive real explicit writes are **not verified**; controlled fixtures
+cover mixed-TTL write accounting. Do not interpret implicit cache-read hits as
+proof of an explicit write API. Observed timings are compatibility evidence, not
+a latency benchmark.
+
+See [sanitized validation results](prompt-cache-validation-2026-11-19.json).
 
 Reference: [OpenAI prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching).

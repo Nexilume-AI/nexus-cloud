@@ -1,9 +1,18 @@
 {
   "date": "2026-11-19",
-  "production_deployed": false,
-  "model": "gpt-6.1-sol",
-  "public_protocol": "Responses",
-  "public_samples": [
+  "production_deployed": true,
+  "real_explicit_cache_controls": "upstream HTTP 400: prompt_cache_options not supported",
+  "positive_real_cache_writes_verified": false,
+  "positive_tariff_ledger_validation": "isolated tests; not a real-money discount measurement",
+  "relay_validation": "Real public MiniMax provider Relay samples below; separate from Router billing samples. HTTP/WebSocket fixtures additionally verify exact request/response and SSE byte preservation.",
+  "limitations": [
+    "Live Router Sources are configured at zero price; no measured nonzero monetary savings.",
+    "Positive real explicit cache writes are not verified; upstream rejected prompt_cache_options in the earlier test.",
+    "No cache affinity guarantee when auto changes Source.",
+    "Latency observations are not a benchmark.",
+    "The separate Relay provider probes do not validate Router wallet settlement."
+  ],
+  "pre_deployment_samples": [
     {
       "stream": false,
       "http": 200,
@@ -41,13 +50,250 @@
       "debit_entries": 0
     }
   ],
-  "real_explicit_cache_controls": "upstream HTTP 400: prompt_cache_options not supported",
-  "positive_real_cache_writes_verified": false,
-  "positive_tariff_ledger_validation": "isolated tests; not a real-money discount measurement",
-  "relay_validation": "actual loopback HTTP/WebSocket byte preservation, JSON and SSE",
-  "limitations": [
-    "No production schema or code change",
-    "No cache affinity guarantee when auto changes Source",
-    "Latency observations are not a benchmark"
+  "production_migrations": [
+    "gateway.0006_gatewayrequestlog_cache_usage",
+    "providers.0023_prompt_cache_write_prices"
+  ],
+  "auto_capacity_fix_preserved": true,
+  "services": {
+    "web": "active",
+    "worker": "active",
+    "beat": "active",
+    "public_bootstrap_http": 200
+  },
+  "predeployment_postgresql_tests": {
+    "passed": 35,
+    "migration_drift": false,
+    "nonzero_mixed_ttl_charge": "0.015190",
+    "production_prices_changed": false
+  },
+  "public_samples": [
+    {
+      "protocol": "responses",
+      "model": "gpt-6.1-sol",
+      "stream": false,
+      "http": 200,
+      "seconds": 12.96,
+      "input_tokens": 27838,
+      "output_tokens": 10,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "managed upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    },
+    {
+      "protocol": "responses",
+      "model": "gpt-6.1-sol",
+      "stream": false,
+      "http": 200,
+      "seconds": 7.292,
+      "input_tokens": 27838,
+      "output_tokens": 10,
+      "cached_tokens": 27648,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "managed upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    },
+    {
+      "protocol": "responses",
+      "model": "gpt-6.1-sol",
+      "stream": true,
+      "http": 200,
+      "seconds": 6.894,
+      "input_tokens": 27838,
+      "output_tokens": 10,
+      "cached_tokens": 27648,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "managed upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    },
+    {
+      "protocol": "chat/completions",
+      "model": "deepseek-flash",
+      "stream": false,
+      "http": 200,
+      "seconds": 1.865,
+      "input_tokens": 28665,
+      "output_tokens": 29,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "direct upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    },
+    {
+      "protocol": "chat/completions",
+      "model": "deepseek-flash",
+      "stream": false,
+      "http": 200,
+      "seconds": 1.722,
+      "input_tokens": 28665,
+      "output_tokens": 27,
+      "cached_tokens": 28416,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "direct upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    },
+    {
+      "protocol": "chat/completions",
+      "model": "deepseek-flash",
+      "stream": true,
+      "http": 200,
+      "seconds": 1.837,
+      "input_tokens": 28665,
+      "output_tokens": 44,
+      "cached_tokens": 28416,
+      "cache_write_tokens": 0,
+      "passed": true,
+      "transport": "direct upstream",
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0,
+      "router_levels": 2,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      }
+    }
+  ],
+  "public_relay_samples": [
+    {
+      "model": "MiniMax-M3",
+      "index": 0,
+      "stream": false,
+      "http": 200,
+      "seconds": 22.1,
+      "transport": "11 SDK MiniMax Relay",
+      "scope": "provider transport, not Router billing",
+      "usage": {
+        "total_tokens": 28864,
+        "total_characters": 0,
+        "prompt_tokens": 28831,
+        "completion_tokens": 33,
+        "completion_tokens_details": {
+          "reasoning_tokens": 25
+        },
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        }
+      },
+      "content_ok": true,
+      "passed": true
+    },
+    {
+      "model": "MiniMax-M3",
+      "index": 1,
+      "stream": false,
+      "http": 200,
+      "seconds": 3.803,
+      "transport": "11 SDK MiniMax Relay",
+      "scope": "provider transport, not Router billing",
+      "usage": {
+        "total_tokens": 28850,
+        "total_characters": 0,
+        "prompt_tokens": 28831,
+        "completion_tokens": 19,
+        "completion_tokens_details": {
+          "reasoning_tokens": 11
+        },
+        "prompt_tokens_details": {
+          "cached_tokens": 28800
+        }
+      },
+      "content_ok": true,
+      "passed": true
+    },
+    {
+      "model": "MiniMax-M3",
+      "index": 2,
+      "stream": true,
+      "http": 200,
+      "seconds": 3.3,
+      "transport": "11 SDK MiniMax Relay",
+      "scope": "provider transport, not Router billing",
+      "usage": {
+        "total_tokens": 28856,
+        "total_characters": 0,
+        "prompt_tokens": 28831,
+        "completion_tokens": 25,
+        "completion_tokens_details": {
+          "reasoning_tokens": 17
+        },
+        "prompt_tokens_details": {
+          "cached_tokens": 28800
+        }
+      },
+      "content_ok": true,
+      "passed": true
+    }
   ]
 }
