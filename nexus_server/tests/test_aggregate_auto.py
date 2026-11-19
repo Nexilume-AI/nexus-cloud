@@ -17,9 +17,11 @@ class AggregateAutoTests(SimpleTestCase):
         self.router.child_bindings = Mock()
         self.router.child_bindings.filter.return_value.order_by.return_value = [r[1] for r in self.rows]
         self.catalog=patch('apps.gateway.models_dev.snapshot',return_value={});self.catalog.start();self.addCleanup(self.catalog.stop)
-        self.compat=patch.object(auto,'compatible',return_value=True);self.compat.start();self.addCleanup(self.compat.stop)
-        self.fields=patch('apps.gateway.model_info.source_fields',return_value={});self.fields.start();self.addCleanup(self.fields.stop)
-        self.contract=patch('apps.gateway.capabilities.deployment_contract',return_value={'operations':['chat.completions']});self.contract.start();self.addCleanup(self.contract.stop)
+        self.budget=patch('apps.routers.decision_budget.input_limit',return_value=8192);self.budget.start();self.addCleanup(self.budget.stop)
+        self.compat=patch('apps.routers.auto_eligibility.inspect_candidate',return_value={'eligible':True,'reasons':[],'capacity':{}});self.compat.start();self.addCleanup(self.compat.stop)
+        self.fields=patch('apps.routers.auto_eligibility.source_fields',return_value={});self.fields.start();self.addCleanup(self.fields.stop)
+        self.harness_fields=patch('apps.gateway.model_info.source_fields',return_value={});self.harness_fields.start();self.addCleanup(self.harness_fields.stop)
+        self.contract=patch('apps.routers.auto_eligibility.deployment_contract',return_value={'operations':['chat.completions'],'input_modalities':['text'],'output_modalities':['text']});self.contract.start();self.addCleanup(self.contract.stop)
 
     def rank(self):return auto.rank(self.request,self.router,self.payload,self.rows)
 
@@ -71,7 +73,7 @@ class AggregateAutoTests(SimpleTestCase):
 
     def test_metadata_filters_capacity_and_effort(self):
         self.compat.stop()
-        with patch('apps.gateway.capabilities.supports_request',return_value=True),patch('apps.gateway.model_info.source_fields',return_value={'context_window':{'value':1000},'max_output_tokens':{'value':20},'reasoning_efforts':{'value':['low']}}):
+        with patch('apps.routers.auto_eligibility.source_fields',return_value={'context_window':{'value':1000},'max_output_tokens':{'value':20},'reasoning_efforts':{'value':['low']}}):
             self.assertTrue(auto.compatible(NS(),{**self.payload,'max_tokens':10,'reasoning_effort':'low'},{}))
             self.assertFalse(auto.compatible(NS(),{**self.payload,'max_tokens':21},{}))
             self.assertFalse(auto.compatible(NS(),{**self.payload,'max_tokens':10,'reasoning_effort':'high'},{}))

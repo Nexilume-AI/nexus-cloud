@@ -86,7 +86,7 @@ def rank(request, router, payload, rows):
     groups = {}
     for row in rows:
         groups.setdefault(row[1].exposed_model_name, []).append(row)
-    complex_task = bool(re.search(r'prove|proof|architecture|race condition|deadlock|debug|optimi[sz]|证明|架构|死锁|调试|优化', task_text(payload), re.I))
+    complex_task = bool(re.search(r'prove|proof|architecture|race condition|deadlock|debug|optimi[sz]|璇佹槑|鏋舵瀯|姝婚攣|璋冭瘯|浼樺寲', task_text(payload), re.I))
     def score(name):
         candidates = groups[name]
         priority = preference_order.index(name) if preference_order else min(r[1].priority for r in candidates)
@@ -125,14 +125,20 @@ def rank(request, router, payload, rows):
             key = decrypt_secret(account.encrypted_key)
             if not key:
                 raise ValueError('Missing decision credential')
+            from .decision_budget import input_limit
+            trace['decision_input'] = {}
             selected = decide(base_url=runtime.internal_api_url, key=key, model=config['model'],
                 state=harness.state(payload, key=key), choices=choices, timeout=min(8, max(.5, config.get('timeout_ms',8000)/1000)),
-                instructions=harness.INSTRUCTIONS)
+                instructions=harness.INSTRUCTIONS,
+                max_input_tokens=input_limit(runtime, config['model']),
+                diagnostics=trace['decision_input'])
             chosen = targets[selected]
             names.remove(chosen); names.insert(0, chosen)
             trace.update(reason='decision_model')
-        except (ProviderClientError, exceptions.APIException, InvalidToken, ValueError, TypeError, KeyError):
+        except (ProviderClientError, exceptions.APIException, InvalidToken, ValueError, TypeError, KeyError) as exc:
             trace.update(status='fallback', reason='decision_unavailable_or_invalid')
+            if isinstance(exc, ProviderClientError):
+                trace['decision_error'] = {'code': exc.error_code, 'details': exc.error_details or {}}
     trace['latency_ms'] = round((time.monotonic()-started)*1000,2)
     trace['selected_model'] = names[0]
     ordered = [row for name in names for row in groups[name]]

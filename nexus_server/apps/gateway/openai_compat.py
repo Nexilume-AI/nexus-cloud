@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+import threading
 from collections.abc import Iterator
 from typing import Any
 
@@ -22,7 +23,7 @@ from apps.common.request_context import get_tenant_from_request
 
 from .serializers import ChatCompletionRequestSerializer, ResponseCreateRequestSerializer
 from .services import chat_completions, router_model_catalog, stream_chat_completions
-from .views import openai_stream_chunks
+from .views import openai_stream_chunks, chat_stream_response
 
 
 class OpenAICompatibilityError(exceptions.APIException):
@@ -43,15 +44,7 @@ class OpenAIChatCompletionsView(APIView):
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
         if payload.get("stream"):
-            from django.http import StreamingHttpResponse
-
-            response = StreamingHttpResponse(
-                openai_stream_chunks(request=request, payload=payload),
-                content_type="text/event-stream",
-            )
-            response["Cache-Control"] = "no-cache"
-            response["X-Accel-Buffering"] = "no"
-            return response
+            return chat_stream_response(request=request, payload=payload)
         return Response(chat_completions(request=request, payload=payload))
 
 
@@ -69,8 +62,13 @@ class OpenAIResponsesView(APIView):
         from .responses_native import gateway_payload, stream_chunks
         chat_payload = gateway_payload(response_payload)
         if response_payload.get("stream"):
+            from apps.common.streaming import AsyncStreamBridge
+            request._nexus_stream_cancelled = threading.Event()
+            chunks = stream_chunks(request=request, payload=chat_payload)
+            if hasattr(getattr(request, "_request", request), "scope"):
+                chunks = AsyncStreamBridge(chunks, cancel=request._nexus_stream_cancelled.set, heartbeat_seconds=10)
             response = StreamingHttpResponse(
-                async_stream_iterator(stream_chunks(request=request, payload=chat_payload)),
+                chunks,
                 content_type="text/event-stream",
             )
             response["Cache-Control"] = "no-cache"
@@ -336,11 +334,22 @@ def next_stream_chunk(iterator: Iterator[str]) -> str | object:
 
 
 async def async_stream_iterator(iterator: Iterator[str]):
-    while True:
-        chunk = await sync_to_async(next_stream_chunk, thread_sensitive=True)(iterator)
-        if chunk is _STREAM_DONE:
-            break
-        yield chunk
+    try:
+        while True:
+            chunk = await sync_to_async(next_stream_chunk, thread_sensitive=True)(iterator)
+            if chunk is _STREAM_DONE:
+                break
+            yield chunk
+    finally:
+        close = getattr(iterator, "close", None)
+        if close is not None:
+            await sync_to_async(close, thread_sensitive=True)()
+
+
+def stream_for_request(request, iterator):
+    """Keep SSE incremental under ASGI, retaining the native WSGI iterator."""
+    raw_request = getattr(request, "_request", request)
+    return async_stream_iterator(iterator) if hasattr(raw_request, "scope") else iterator
 
 
 def apply_api_key_context(request) -> None:

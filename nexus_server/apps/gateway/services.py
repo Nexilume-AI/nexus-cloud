@@ -378,38 +378,12 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
             final_usage: dict[str, Any] = {}
             finish_reason = ""
             first_chunk_sent = False
-            try:
-                deployment._nexus_latency = {'router_preflight_ms': round((time.monotonic() - gateway_started) * 1000, 2)}
-                capacity_started = time.monotonic()
-                try:
-                    capacity_reservation = reserve_provider_capacity_for_deployment(
-                        request=request,
-                        deployment=deployment,
-                        provider_payload=provider_payload,
-                    )
-                except ProviderCapacityUnavailable:
-                    capacity_unavailable = True
-                    continue
-                deployment._nexus_latency['capacity_check_ms'] = round((time.monotonic() - capacity_started) * 1000, 2)
-                upstream = OpenAICompatibleClient().stream_chat_completions(deployment=deployment, payload=provider_payload)
-                try:
-                    for event in upstream:
-                        gateway_integration().observe_stream(request=request, event=event)
-                        if event.done:
-                            continue
-                        if event.raw is not None:
-                            first_chunk_sent = True
-                        if event.text_delta:
-                            text_parts.append(event.text_delta)
-                        if event.finish_reason:
-                            finish_reason = event.finish_reason
-                        if event.usage:
-                            final_usage = event.usage
-                        yield event
-                finally:
-                    close = getattr(upstream, "close", None)
-                    if close is not None:
-                        close()
+            attempt_recorded = False
+            disconnected = False
+            cancelled = getattr(request, '_nexus_stream_cancelled', None)
+
+            def settle_stream():
+                nonlocal reservation, capacity_reservation, attempt_recorded
                 gateway_integration().complete_stream(request=request)
                 provider_response = build_stream_provider_response(
                     deployment=deployment,
@@ -450,6 +424,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                 )
                 reservation = None
                 capacity_reservation = None
+                attempt_recorded = True
                 attribute_agent_model_usage(
                     request=request,
                     tenant=tenant,
@@ -457,8 +432,56 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     actual_usage=final_usage or None,
                     event_id=f"gateway:{gateway_log.id}",
                 )
+
+            try:
+                if cancelled is not None and cancelled.is_set():
+                    raise GeneratorExit
+                deployment._nexus_latency = {'router_preflight_ms': round((time.monotonic() - gateway_started) * 1000, 2)}
+                capacity_started = time.monotonic()
+                try:
+                    capacity_reservation = reserve_provider_capacity_for_deployment(
+                        request=request,
+                        deployment=deployment,
+                        provider_payload=provider_payload,
+                    )
+                except ProviderCapacityUnavailable:
+                    capacity_unavailable = True
+                    continue
+                deployment._nexus_latency['capacity_check_ms'] = round((time.monotonic() - capacity_started) * 1000, 2)
+                upstream = OpenAICompatibleClient().stream_chat_completions(deployment=deployment, payload=provider_payload)
+                try:
+                    for event in upstream:
+                        if cancelled is not None and cancelled.is_set():
+                            raise GeneratorExit
+                        gateway_integration().observe_stream(request=request, event=event)
+                        if event.done:
+                            continue
+                        if event.raw is not None:
+                            first_chunk_sent = True
+                        if event.text_delta:
+                            text_parts.append(event.text_delta)
+                        if event.finish_reason:
+                            finish_reason = event.finish_reason
+                        if event.usage:
+                            final_usage = event.usage
+                        yield event
+                finally:
+                    close = getattr(upstream, "close", None)
+                    if close is not None:
+                        close()
+                settle_stream()
                 return
+            except GeneratorExit:
+                disconnected = True
+                if final_usage and finish_reason and not attempt_recorded:
+                    deployment._nexus_upstream_failure = {'origin': 'nexus', 'stage': 'client_disconnect',
+                        'upstream_result': 'completed', 'usage_complete': True, 'retry_safe': False}
+                    settle_stream()
+                raise
             except (ProviderClientError, StreamFramingError) as exc:
+                if cancelled is not None and cancelled.is_set():
+                    disconnected = True
+                    return
                 if first_chunk_sent:
                     mark_provider_capacity_used(
                         reservation=capacity_reservation,
@@ -467,6 +490,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                 release_provider_capacity(reservation=capacity_reservation)
                 capacity_reservation = None
                 last_provider_error = exc
+                deployment._nexus_upstream_failure = exc.error_details or {}
                 update_provider_account_quota_from_error(request=request, deployment=deployment, error=exc)
                 if exc.affects_health and exc.error_code != "PROVIDER_RESPONSE_TOO_LARGE":
                     mark_deployment_runtime_failure(deployment=deployment, reason=str(exc))
@@ -482,6 +506,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     latency_ms=elapsed_ms(started),
                     cost=Decimal("0"),
                 )
+                attempt_recorded = True
                 record_failed_pool_usage_for_deployment(
                     request=request,
                     tenant=tenant,
@@ -492,6 +517,21 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     yield ProviderStreamEvent(error_code=exc.error_code, error_message=str(exc), error_details=exc.error_details)
                     return
                 continue
+            finally:
+                if disconnected and not attempt_recorded:
+                    # A closed client is not proof that an upstream POST failed.
+                    # Record once, release admission in the outer finally, never
+                    # retry or poison Provider health. Unknown usage stays unknown.
+                    deployment._nexus_upstream_failure = {
+                        'origin': 'nexus', 'stage': 'client_disconnect',
+                        'upstream_result': 'unknown', 'usage_complete': bool(final_usage),
+                        'output_started': first_chunk_sent, 'retry_safe': False}
+                    failure_log = write_failure_log(request=request, tenant=tenant, api_key=api_key,
+                        router=router, fallback_count=count_previous_provider_failures(request=request),
+                        deployment=deployment, model=payload['model'], error_code='CLIENT_DISCONNECTED',
+                        latency_ms=elapsed_ms(started), cost=Decimal('0'))
+                    record_failed_pool_usage_for_deployment(request=request, tenant=tenant,
+                        deployment=deployment, gateway_request_log=failure_log)
         if last_provider_error is not None:
             yield ProviderStreamEvent(error_code=last_provider_error.error_code, error_message=str(last_provider_error),
                                       error_details=last_provider_error.error_details)
@@ -1454,6 +1494,9 @@ def routing_trace_for_deployment(deployment: Deployment | None) -> dict[str, Any
     if not isinstance(base, dict):
         base = {}
     trace = deepcopy(base)
+    failure = getattr(deployment, '_nexus_upstream_failure', None)
+    if failure:
+        trace['failure'] = failure
     timing = getattr(deployment, '_nexus_latency', None)
     if isinstance(timing, dict):
         trace['timing_ms'] = {key: value for key, value in timing.items()

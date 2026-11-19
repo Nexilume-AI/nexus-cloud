@@ -1,0 +1,398 @@
+{
+  "date": "2026-11-19",
+  "production_deployed": true,
+  "regressions": {
+    "production_staged_source": 65,
+    "community": 73
+  },
+  "scope": "Decision-only capacity fitting, SSE heartbeat, disconnect audit and sanitized upstream errors; existing cache/capacity protections retained.",
+  "limitations": [
+    "Synthetic marker retrieval is a transport/capacity check, not a reasoning-quality benchmark.",
+    "The configured decision endpoint reported no capacity; production used the 4096-token conservative reference budget. Known-capacity and overflow branches are covered by regression tests.",
+    "GPT near 921035 input tokens passed; the million-token Responses request still failed upstream without a recognized reason.",
+    "One separate short Responses cache probe failed upstream; it was retained as a failed sample, not retried automatically.",
+    "Live Source tariffs are zero. Token accounting and configured billing consistency were verified, not nonzero monetary savings.",
+    "The first intended disconnect probe completed before a heartbeat; only disconnect_during_wait validates client cancellation.",
+    "Disconnected upstream usage is unknown until a final usage result is observed; no fabricated success or automatic replay."
+  ],
+  "cases": [
+    {
+      "case": "pro_1m",
+      "model": "deepseek-v4-pro",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 55.861,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "success",
+      "seconds": 120.412,
+      "heartbeats": 6,
+      "max_line_gap_seconds": 55.862,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 999624,
+      "output_tokens": 115,
+      "cached_tokens": 0,
+      "error_code": "",
+      "failure": null
+    },
+    {
+      "case": "pro_near",
+      "model": "deepseek-v4-pro",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 5.266,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "success",
+      "seconds": 126.598,
+      "heartbeats": 11,
+      "max_line_gap_seconds": 10.006,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 1046903,
+      "output_tokens": 130,
+      "cached_tokens": 491648,
+      "error_code": "",
+      "failure": null
+    },
+    {
+      "case": "auto_near",
+      "model": "auto",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 58.914,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "success",
+      "seconds": 113.715,
+      "heartbeats": 5,
+      "max_line_gap_seconds": 58.914,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 1046929,
+      "output_tokens": 109,
+      "cached_tokens": 0,
+      "error_code": "",
+      "failure": null,
+      "auto": {
+        "algorithm": "system_one",
+        "status": "selected",
+        "reason": "decision_model",
+        "selected_model": "deepseek-flash",
+        "latency_ms": 1150.13,
+        "decision_input": {
+          "tokenizer": "o200k_base_reference",
+          "capacity_known": false,
+          "context_tokens": 4096,
+          "task_truncated": false,
+          "input_budget_tokens": 3584,
+          "estimated_input_tokens": 631
+        }
+      }
+    },
+    {
+      "case": "auto_responses_near",
+      "model": "auto",
+      "protocol": "responses",
+      "http": 200,
+      "headers_seconds": 55.923,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "success",
+      "seconds": 74.485,
+      "heartbeats": 1,
+      "max_line_gap_seconds": 55.923,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 1047057,
+      "output_tokens": 102,
+      "cached_tokens": 523264,
+      "error_code": "",
+      "failure": null,
+      "auto": {
+        "algorithm": "system_one",
+        "status": "selected",
+        "reason": "decision_model",
+        "selected_model": "deepseek-flash",
+        "latency_ms": 1562.02,
+        "decision_input": {
+          "tokenizer": "o200k_base_reference",
+          "capacity_known": false,
+          "context_tokens": 4096,
+          "task_truncated": false,
+          "input_budget_tokens": 3584,
+          "estimated_input_tokens": 631
+        }
+      }
+    },
+    {
+      "case": "auto_over",
+      "model": "auto",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 30.983,
+      "markers_found": [
+        false,
+        false,
+        false
+      ],
+      "outcome": "rejected",
+      "seconds": 30.984,
+      "heartbeats": 0,
+      "max_line_gap_seconds": 30.983,
+      "receipt_count": 1,
+      "status": "failed",
+      "actual_input_tokens": 0,
+      "output_tokens": 0,
+      "cached_tokens": null,
+      "error_code": "PROVIDER_REQUEST_REJECTED",
+      "failure": {
+        "stage": "upstream_http",
+        "origin": "upstream",
+        "reason": "context_length_exceeded",
+        "retry_safe": false,
+        "upstream_code": "invalid_request_error",
+        "upstream_status": 400,
+        "requested_tokens": 1052303,
+        "context_limit_tokens": 1048576
+      },
+      "auto": {
+        "algorithm": "system_one",
+        "status": "fallback",
+        "reason": "capacity_estimate_fallback",
+        "selected_model": "deepseek-flash",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "case": "gpt_near",
+      "model": "gpt-6.1-sol",
+      "protocol": "responses",
+      "http": 200,
+      "headers_seconds": 2.817,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "success",
+      "seconds": 15.245,
+      "heartbeats": 1,
+      "max_line_gap_seconds": 9.997,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 921035,
+      "output_tokens": 55,
+      "cached_tokens": 0,
+      "error_code": "",
+      "failure": null
+    },
+    {
+      "case": "gpt_1m",
+      "model": "gpt-6.1-sol",
+      "protocol": "responses",
+      "http": 200,
+      "headers_seconds": 3.139,
+      "markers_found": [
+        false,
+        false,
+        false
+      ],
+      "outcome": "rejected",
+      "seconds": 3.465,
+      "heartbeats": 0,
+      "max_line_gap_seconds": 3.139,
+      "receipt_count": 1,
+      "status": "failed",
+      "actual_input_tokens": 0,
+      "output_tokens": 0,
+      "cached_tokens": null,
+      "error_code": "PROVIDER_STREAM_FAILED",
+      "failure": {
+        "stage": "responses_event",
+        "origin": "upstream",
+        "reason": "unknown",
+        "retry_safe": false
+      }
+    },
+    {
+      "case": "disconnect_pro",
+      "model": "deepseek-v4-pro",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 3.436,
+      "markers_found": [
+        true,
+        true,
+        true
+      ],
+      "outcome": "completed_before_abort",
+      "seconds": 7.046,
+      "heartbeats": 0,
+      "max_line_gap_seconds": 3.437,
+      "note": "Upstream completed before the first heartbeat; this is not a disconnect test.",
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 999624,
+      "output_tokens": 107,
+      "cached_tokens": 999552,
+      "error_code": "",
+      "failure": null
+    },
+    {
+      "case": "disconnect_during_wait",
+      "model": "deepseek-v4-pro",
+      "protocol": "chat/completions",
+      "http": 200,
+      "headers_seconds": 35.386,
+      "client_aborted": true,
+      "outcome": "aborted",
+      "seconds": 37.386,
+      "receipt_count": 1,
+      "status": "failed",
+      "actual_input_tokens": 0,
+      "output_tokens": 0,
+      "cached_tokens": null,
+      "error_code": "CLIENT_DISCONNECTED",
+      "failure": {
+        "stage": "client_disconnect",
+        "origin": "nexus",
+        "retry_safe": false,
+        "output_started": false,
+        "usage_complete": false,
+        "upstream_result": "unknown"
+      }
+    },
+    {
+      "case": "decision_multibyte_truncation",
+      "model": "auto",
+      "protocol": "chat/completions",
+      "http": 200,
+      "outcome": "success",
+      "seconds": 4.074,
+      "heartbeats": 0,
+      "receipt_count": 1,
+      "status": "success",
+      "actual_input_tokens": 30050,
+      "output_tokens": 38,
+      "cached_tokens": 0,
+      "error_code": "",
+      "failure": null,
+      "auto": {
+        "algorithm": "system_one",
+        "status": "selected",
+        "reason": "decision_model",
+        "selected_model": "deepseek-flash",
+        "latency_ms": 2171.74,
+        "decision_input": {
+          "tokenizer": "o200k_base_reference",
+          "capacity_known": false,
+          "context_tokens": 4096,
+          "task_truncated": true,
+          "input_budget_tokens": 3584,
+          "estimated_input_tokens": 3584
+        }
+      }
+    }
+  ],
+  "cache_supplement": [
+    {
+      "protocol": "responses",
+      "model": "gpt-6.1-sol",
+      "index": 0,
+      "seconds": 9.038,
+      "input_tokens": 27833,
+      "output_tokens": 10,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "receipt_count": 1,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      },
+      "passed": true
+    },
+    {
+      "protocol": "responses",
+      "model": "gpt-6.1-sol",
+      "index": 1,
+      "seconds": 11.569,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "receipt_count": 1,
+      "checks": {
+        "token_conservation": false,
+        "usage_matches_receipt": false,
+        "input_output_match": false,
+        "configured_prices_present": false,
+        "amount_matches": false,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      },
+      "passed": false
+    },
+    {
+      "protocol": "chat/completions",
+      "model": "deepseek-flash",
+      "index": 0,
+      "seconds": 4.431,
+      "input_tokens": 28666,
+      "output_tokens": 25,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "receipt_count": 1,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      },
+      "passed": true
+    },
+    {
+      "protocol": "chat/completions",
+      "model": "deepseek-flash",
+      "index": 1,
+      "seconds": 1.675,
+      "input_tokens": 28666,
+      "output_tokens": 27,
+      "cached_tokens": 28416,
+      "cache_write_tokens": 0,
+      "receipt_count": 1,
+      "checks": {
+        "token_conservation": true,
+        "usage_matches_receipt": true,
+        "input_output_match": true,
+        "configured_prices_present": true,
+        "amount_matches": true,
+        "single_settlement": true,
+        "trace_exposes_cache": true
+      },
+      "passed": true
+    }
+  ],
+  "single_receipts": 14
+}

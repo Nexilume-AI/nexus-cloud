@@ -315,16 +315,9 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
                         timing.setdefault('first_text_ms', round((time.monotonic() - started) * 1000, 2))
                         timing['last_text_ms'] = round((time.monotonic() - started) * 1000, 2)
                     if event.raw and event.raw.get("error"):
-                        error = event.raw["error"]
-                        # Codes are provider-controlled too: only expose known
-                        # diagnostic categories, never arbitrary message/data.
-                        upstream_code = error.get("code") if isinstance(error, dict) else None
-                        known = {"PROVIDER_STREAM_FRAME_TOO_LARGE", "PROVIDER_RESPONSE_TOO_LARGE",
-                                 "PROVIDER_TIMEOUT", "context_length_exceeded", "rate_limit_exceeded"}
-                        details = {"origin": "upstream", "stage": "upstream_event", "retry_safe": False}
-                        if isinstance(upstream_code, str) and upstream_code in known:
-                            details["upstream_code"] = upstream_code
-                        raise ProviderClientError("Provider reported a streaming failure; the request was not replayed.",
+                        from .upstream_errors import diagnostic
+                        message, details = diagnostic(event.raw, stage="upstream_event")
+                        raise ProviderClientError(message + " No request was replayed.",
                                                   error_code="PROVIDER_STREAM_FAILED", safe_to_retry=False,
                                                   affects_health=False, error_details=details)
                     completed = completed or event.done
@@ -508,6 +501,13 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
         except Exception:  # noqa: BLE001 - best-effort upstream error extraction.
             body = ""
         message = provider_error_message(status_code=exc.code, body=body)
+        from .upstream_errors import diagnostic
+        try:
+            raw_error = json.loads(body)
+        except (ValueError, TypeError):
+            raw_error = {}
+        explanation, details = diagnostic(raw_error, stage="upstream_http", status=exc.code)
+        message += " " + explanation
         code = error_code_for_response(status_code=exc.code, body=body)
         rejected_input = exc.code in {400, 413, 422}
         if rejected_input:
@@ -519,6 +519,7 @@ class OpenAICompatibleAdapter(BaseProviderAdapter):
             retry_after_seconds=retry_after_seconds(exc),
             safe_to_retry=False if rejected_input else None,
             affects_health=not (rejected_input or exc.code == 429 or code == "PROVIDER_QUOTA_EXHAUSTED"),
+            error_details=details,
         )
 
 
@@ -729,7 +730,10 @@ def iter_responses_sse(response) -> Iterator[ProviderStreamEvent]:
             if not isinstance(kind, str) or not kind.startswith("response.") and kind != "error":
                 raise ProviderClientError("Source returned a non-Responses event.", error_code="PROVIDER_RESPONSES_INVALID", safe_to_retry=False, affects_health=False)
             if kind in {"response.failed", "error"}:
-                raise ProviderClientError("Provider reported a Responses failure; no request was replayed.", error_code="PROVIDER_STREAM_FAILED", safe_to_retry=False, affects_health=False)
+                from .upstream_errors import diagnostic
+                message, details = diagnostic(raw.get("response", raw), stage="responses_event")
+                raise ProviderClientError(message + " No request was replayed.", error_code="PROVIDER_STREAM_FAILED",
+                                          safe_to_retry=False, affects_health=False, error_details=details)
             if kind in {"response.completed", "response.incomplete"}:
                 from .responses_native import validate_response
                 result = validate_response(raw.get("response"))

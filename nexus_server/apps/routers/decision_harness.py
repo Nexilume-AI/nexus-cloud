@@ -77,7 +77,12 @@ def state(payload, *, key=""):
     if key:
         task = task.replace(key, "[redacted]")
     task = re.sub(r"(?i)\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]+", "[redacted]", task)
-    return {"task": task[:4000], "evaluation": "new_task"}
+    # Keep the actual instruction when a document and task share one message.
+    # This is a decision-only excerpt; inference still receives the full input.
+    if len(task) > 4000:
+        marker = "\n[...middle omitted for routing...]\n"
+        task = task[:1500] + marker + task[-(4000 - 1500 - len(marker)):]
+    return {"task": task, "evaluation": "new_task"}
 
 
 def aggregate_order(router, rows):

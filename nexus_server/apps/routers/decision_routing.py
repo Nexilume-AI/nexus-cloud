@@ -123,13 +123,18 @@ def select_pools(*, router, pools, payload, request=None):
         choices = {route: harness.description(name=pool['group'].display_name or pool['group'].name,
                     index=order.index(str(pool['id'])), count=len(order), sources=pool['deployments'], catalog=catalog,
                     payload=payload, hint=pool['binding'].routing_hint) for route, pool in targets.items()}
+        from .decision_budget import input_limit
+        trace['decision_input'] = {}
         choice = decide(base_url=runtime.internal_api_url, key=key, model=config["model"], state=harness.state(payload, key=key),
-                        choices=choices, timeout=min(8, max(.5, config.get("timeout_ms", 8000) / 1000)), instructions=harness.INSTRUCTIONS)
+                        choices=choices, timeout=min(8, max(.5, config.get("timeout_ms", 8000) / 1000)), instructions=harness.INSTRUCTIONS,
+                        max_input_tokens=input_limit(runtime, config['model']), diagnostics=trace['decision_input'])
         index = pools.index(targets[choice])
         trace.update(status="selected", reason="decision_model", selected_pool_id=str(pools[index]["id"]))
         pools = [pools[index], *pools[:index], *pools[index + 1:]]
-    except (ProviderClientError, exceptions.APIException, InvalidToken, ValueError, TypeError, KeyError):
+    except (ProviderClientError, exceptions.APIException, InvalidToken, ValueError, TypeError, KeyError) as exc:
         trace.update(status="fallback", reason="decision_unavailable_or_invalid")
+        if isinstance(exc, ProviderClientError):
+            trace['decision_error'] = {'code': exc.error_code, 'details': exc.error_details or {}}
     trace["latency_ms"] = int((time.monotonic() - started) * 1000)
     if state_key:
         for pool in pools:
