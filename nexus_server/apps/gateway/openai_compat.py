@@ -374,6 +374,7 @@ def openai_error(*, exc: Exception, detail: Any) -> dict[str, Any]:
             "message": openai_error_message(detail),
             "type": openai_error_type(exc),
             "code": openai_error_code(exc),
+            **({"details": exc.error_details} if getattr(exc, "error_details", None) else {}),
         }
     }
 

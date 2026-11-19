@@ -720,6 +720,7 @@ def resolve_aggregation_router(
     resolved: list[tuple[Deployment, RouterChildBinding, dict[str, Any]]] = []
     source_failures: list[DeploymentNotAvailable] = []
     permission_failures: list[exceptions.APIException] = []
+    auto_capacity_failures = []
     from apps.routers.decision_routing import is_auto_output
     for binding in matching:
         if auto and _entry:
@@ -753,6 +754,9 @@ def resolve_aggregation_router(
                 )
             except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported, exceptions.PermissionDenied, RouterChildPermissionDenied) as exc:
                 reason = str(exc.detail if hasattr(exc, "detail") else exc)
+                from apps.routers.auto_eligibility import AutoCandidatesUnavailable
+                if isinstance(exc, AutoCandidatesUnavailable):
+                    auto_capacity_failures.append(exc)
                 if isinstance(exc, (RouterSourceUnavailable, RouterConfigurationRequired)):
                     source_failures.append(exc)
                 if isinstance(exc, (exceptions.PermissionDenied, RouterChildPermissionDenied)):
@@ -782,6 +786,10 @@ def resolve_aggregation_router(
             raise next((exc for exc in source_failures if isinstance(exc, RouterSourceUnavailable)), source_failures[0])
         if permission_failures:
             raise RouterChildPermissionDenied()
+        if auto_capacity_failures:
+            from apps.routers.auto_eligibility import AutoCandidatesUnavailable
+            raise AutoCandidatesUnavailable([candidate for exc in auto_capacity_failures
+                for candidate in exc.error_details['excluded_candidates']])
         raise DeploymentNotAvailable("Aggregation Router has no available child Router output for this model.")
 
     decision = None

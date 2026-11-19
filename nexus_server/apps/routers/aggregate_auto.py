@@ -42,27 +42,8 @@ def remember(deployment):
 
 
 def compatible(source, payload, catalog):
-    from apps.gateway.model_info import source_fields
-    from apps.gateway.capabilities import supports_request
-    if not supports_request(source, payload):
-        return False
-    fields = {k: v.get('value') for k,v in source_fields(source, catalog).items() if isinstance(v,dict)}
-    # Conservative UTF-8 byte bound; no image token estimate is claimed.
-    size = len(json.dumps({'messages': payload.get('messages', []), 'tools': payload.get('tools', [])}, ensure_ascii=False).encode())
-    output = payload.get('max_completion_tokens', payload.get('max_tokens', 512)) or 512
-    if fields.get('context_window') is not None and size + output > fields['context_window']:
-        return False
-    if fields.get('max_input_tokens') is not None and size > fields['max_input_tokens']:
-        return False
-    if fields.get('max_output_tokens') is not None and output > fields['max_output_tokens']:
-        return False
-    if payload.get('tools') and fields.get('supports_function_calling') is False:
-        return False
-    effort = payload.get('reasoning_effort')
-    levels = fields.get('reasoning_efforts')
-    if effort and levels is not None and effort not in levels:
-        return False
-    return True
+    from .auto_eligibility import inspect_candidate
+    return inspect_candidate(source, payload, catalog)['eligible']
 
 
 def rank(request, router, payload, rows):
@@ -71,10 +52,23 @@ def rank(request, router, payload, rows):
     from . import decision_harness as harness
     preference_order = harness.aggregate_order(router, rows) if router.strategy == 'system_one' else []
     catalog = models_dev.snapshot()
-    rows = [r for r in rows if compatible(r[0], payload, catalog)]
+    from apps.gateway.request_tokens import RequestTokens
+    from .auto_eligibility import AutoCandidatesUnavailable, inspect_candidate
+    tokens = RequestTokens(payload)
+    eligible, assessments = [], []
+    for row in rows:
+        result = inspect_candidate(row[0], payload, catalog, tokens=tokens)
+        assessments.append({'model': row[1].exposed_model_name,
+                            'source_id': str(getattr(row[0], 'pk', '')), **result})
+        if result['eligible']:
+            eligible.append(row)
+    rows = eligible
     if not rows:
-        from apps.gateway.capabilities import ModelOperationUnsupported
-        raise ModelOperationUnsupported('No authorized Auto candidate supports this request capacity and capabilities.')
+        import logging
+        failure = AutoCandidatesUnavailable(assessments)
+        logging.getLogger(__name__).warning('Auto candidates rejected router=%s request_id=%s diagnostics=%s',
+            router.pk, getattr(request, 'request_id', ''), failure.error_details)
+        raise failure
     groups = {}
     for row in rows:
         groups.setdefault(row[1].exposed_model_name, []).append(row)
@@ -86,6 +80,7 @@ def rank(request, router, payload, rows):
         return (priority, latency, name) if complex_task else (latency, priority, name)
     names = sorted(groups, key=score)
     trace = {'algorithm': router.strategy, 'status': 'selected', 'reason': 'complex_task_priority' if complex_task else 'fastest_eligible', 'candidate_models': names}
+    trace['candidate_assessments'] = assessments
     state_key = continuity_key(request, router, payload)
     continuation = any(m.get('role') == 'tool' for m in payload.get('messages', [])[-1:])
     try:

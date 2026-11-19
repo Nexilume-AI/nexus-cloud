@@ -20,3 +20,4 @@ jsonschema>=4.25,<5.0
 pywebpush==2.0.3
 openpyxl>=3.1.5,<4.0
 PyYAML>=6.0.3,<7.0
+tiktoken>=0.12,<1.0

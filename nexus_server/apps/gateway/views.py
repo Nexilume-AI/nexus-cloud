@@ -35,12 +35,12 @@ def openai_stream_chunks(*, request, payload):
     try:
         for event in stream_chat_completions(request=request, payload=payload):
             if event.error_code:
-                yield sse_data({"error": {"code": event.error_code, "message": event.error_message}})
+                yield sse_data({"error": {"code": event.error_code, "message": event.error_message, "details": event.error_details}})
                 break
             if event.raw is not None:
                 yield sse_data(event.raw)
     except exceptions.APIException as exc:
-        yield sse_data({"error": {"code": str(getattr(exc, "default_code", "GATEWAY_ERROR")).upper(), "message": str(exc.detail)}})
+        yield sse_data({"error": {"code": str(getattr(exc, "default_code", "GATEWAY_ERROR")).upper(), "message": str(exc.detail), "details": getattr(exc, "error_details", None)}})
     yield "data: [DONE]\n\n"
 
 

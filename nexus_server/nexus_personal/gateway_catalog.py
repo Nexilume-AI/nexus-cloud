@@ -74,6 +74,6 @@ def response_events(*, events):
         yield from events
     except exceptions.APIException as exc:
         yield ProviderStreamEvent(error_code=str(getattr(exc, "default_code", "GATEWAY_ERROR")).upper(),
-                                  error_message=str(exc.detail))
+                                  error_message=str(exc.detail), error_details=getattr(exc, 'error_details', None))
     finally:
         events.close()

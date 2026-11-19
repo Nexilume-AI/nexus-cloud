@@ -59,4 +59,6 @@ def unified_exception_handler(exc: Exception, context: dict[str, Any]):
 
     detail = response.data.get("detail") if isinstance(response.data, dict) and "detail" in response.data else response.data
     response.data = error_response(_error_code(exc), _message(detail), request_id)
+    if getattr(exc, "error_details", None):
+        response.data["error"]["details"] = exc.error_details
     return response

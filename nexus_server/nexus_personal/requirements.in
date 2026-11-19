@@ -25,3 +25,4 @@ PyYAML>=6.0.3,<7.0
 httpx==0.28.1
 httpx-sse==0.4.3
 sse-starlette==3.4.11
+tiktoken>=0.12,<1.0
