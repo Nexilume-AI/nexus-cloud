@@ -66,17 +66,17 @@ class OpenAIResponsesView(APIView):
         serializer = ResponseCreateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         response_payload = serializer.validated_data
-        chat_payload = responses_payload_to_chat_payload(response_payload)
-        chat_payload["_nexus_operation"] = "responses"
+        from .responses_native import gateway_payload, stream_chunks
+        chat_payload = gateway_payload(response_payload)
         if response_payload.get("stream"):
             response = StreamingHttpResponse(
-                async_stream_iterator(responses_stream_chunks(request=request, payload=chat_payload)),
+                async_stream_iterator(stream_chunks(request=request, payload=chat_payload)),
                 content_type="text/event-stream",
             )
             response["Cache-Control"] = "no-cache"
             response["X-Accel-Buffering"] = "no"
             return response
-        return Response(chat_completion_to_response(chat_completions(request=request, payload=chat_payload)))
+        return Response(chat_completions(request=request, payload=chat_payload))
 
 
 class OpenAIModelsView(APIView):
@@ -193,8 +193,8 @@ def response_usage(usage: dict[str, Any]) -> dict[str, int]:
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
-        "input_tokens_details": {"cached_tokens": 0},
-        "output_tokens_details": {"reasoning_tokens": 0},
+        "input_tokens_details": dict(usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {"cached_tokens": 0}),
+        "output_tokens_details": dict(usage.get("output_tokens_details") or usage.get("completion_tokens_details") or {"reasoning_tokens": 0}),
     }
 
 

@@ -29,7 +29,7 @@ class PersonalProviderModelSerializer(serializers.ModelSerializer):
         model = ProviderRuntimeModelOffer
         fields = ["id", "canonical_model_id", "canonical_model_key", "upstream_model_id", "status", "discovery_source",
                   "health_status", "health_reason", "capabilities", "last_discovered_at", "last_health_check_at",
-                  "price_per_1k_tokens", "input_price_per_1k_tokens", "output_price_per_1k_tokens", "image_pricing", "source_ids"]
+                  "price_per_1k_tokens", "input_price_per_1k_tokens", "output_price_per_1k_tokens", "cached_input_price_per_1k_tokens", "cache_write_price_per_1k_tokens", "cache_write_30m_price_per_1k_tokens", "cache_write_12h_price_per_1k_tokens", "image_pricing", "source_ids"]
 
 
 class PersonalProviderConnectionListSerializer(serializers.ListSerializer):

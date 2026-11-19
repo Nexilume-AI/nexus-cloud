@@ -32,6 +32,7 @@ class ProviderResponse:
     reasoning_output_tokens: int = 0
     operation: str = "chat.completions"
     image_count: int = 0
+    cache_usage: dict[str, Any] | None = None
 
 
 @dataclass
@@ -693,13 +694,15 @@ def provider_error_message(*, status_code: int, body: str) -> str:
 
 
 def build_response(*, raw: dict[str, Any], model: str, started: float) -> ProviderResponse:
+    from .prompt_cache import cache_usage
     usage = raw.get("usage") if isinstance(raw.get("usage"), dict) else {}
     request_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
     response_tokens = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
     total_tokens = int(usage.get("total_tokens") or request_tokens + response_tokens)
     input_details = usage.get("prompt_tokens_details") or usage.get("input_tokens_details") or {}
     output_details = usage.get("completion_tokens_details") or usage.get("output_tokens_details") or {}
-    cached_input_tokens = min(max(int(input_details.get("cached_tokens") or 0), 0), request_tokens)
+    cache_data = cache_usage(usage, request_tokens)
+    cached_input_tokens = cache_data["cached_tokens"]
     reasoning_output_tokens = min(max(int(output_details.get("reasoning_tokens") or 0), 0), response_tokens)
     latency_ms = elapsed_ms(started)
     return ProviderResponse(
@@ -711,6 +714,7 @@ def build_response(*, raw: dict[str, Any], model: str, started: float) -> Provid
         latency_ms=latency_ms,
         cached_input_tokens=cached_input_tokens,
         reasoning_output_tokens=reasoning_output_tokens,
+        cache_usage=cache_data,
     )
 
 

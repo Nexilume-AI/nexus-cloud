@@ -62,8 +62,11 @@ def upstream_payload(payload, model):
             for part in item["content"]:
                 if part.get("type") in {"input_image", "image_url"}:
                     image = next(images)
+                    breakpoint = part.get("prompt_cache_breakpoint")
                     part.clear()
                     part.update(type="input_image", image_url=image["url"], detail=image.get("detail", "auto"))
+                    if breakpoint is not None:
+                        part["prompt_cache_breakpoint"] = breakpoint
                 elif part.get("type") == "text":
                     part["type"] = "input_text"
     return body

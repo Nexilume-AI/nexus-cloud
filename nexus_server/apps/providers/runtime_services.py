@@ -282,6 +282,9 @@ def update_provider_runtime_model_offer(*, request, runtime_id: str, offer_id: s
         "input_price_per_1k_tokens",
         "output_price_per_1k_tokens",
         "cached_input_price_per_1k_tokens",
+        "cache_write_price_per_1k_tokens",
+        "cache_write_30m_price_per_1k_tokens",
+        "cache_write_12h_price_per_1k_tokens",
         "reasoning_output_price_per_1k_tokens",
         "daily_limit",
         "monthly_limit",
@@ -2313,12 +2316,14 @@ def provider_usage_raw_amount(
     request_tokens: int,
     response_tokens: int,
     cached_input_tokens: int = 0,
+    cache: dict | None = None,
     reasoning_output_tokens: int = 0,
 ) -> tuple[Decimal, dict[str, Decimal]]:
     return invoke_provider_commerce(
         "provider_usage_raw_amount", contribution=contribution,
         request_tokens=request_tokens, response_tokens=response_tokens,
         cached_input_tokens=cached_input_tokens, reasoning_output_tokens=reasoning_output_tokens,
+        **({"cache": cache} if cache is not None else {}),
     )
 
 
@@ -2329,6 +2334,7 @@ def settle_provider_usage_charge(
     request_tokens: int,
     response_tokens: int,
     cached_input_tokens: int = 0,
+    cache: dict | None = None,
     reasoning_output_tokens: int = 0,
     amount_override: Decimal | None = None,
 ) -> dict[str, Any]:
@@ -2336,6 +2342,7 @@ def settle_provider_usage_charge(
         "settle_provider_usage_charge", consumer_tenant=consumer_tenant, contribution=contribution,
         request_tokens=request_tokens, response_tokens=response_tokens,
         cached_input_tokens=cached_input_tokens, reasoning_output_tokens=reasoning_output_tokens,
+        **({"cache": cache} if cache is not None else {}),
         amount_override=amount_override,
     )
 
@@ -2406,6 +2413,7 @@ def record_pool_usage(
     response_tokens: int,
     total_tokens: int,
     cached_input_tokens: int = 0,
+    cache: dict | None = None,
     reasoning_output_tokens: int = 0,
     settlement: dict[str, Any] | None = None,
     capacity_reservation: ProviderCapacityReservation | None = None,
@@ -2415,6 +2423,7 @@ def record_pool_usage(
         gateway_request_log=gateway_request_log, request_tokens=request_tokens,
         response_tokens=response_tokens, total_tokens=total_tokens,
         cached_input_tokens=cached_input_tokens, reasoning_output_tokens=reasoning_output_tokens,
+        **({"cache": cache} if cache is not None else {}),
         settlement=settlement, capacity_reservation=capacity_reservation,
     )
 

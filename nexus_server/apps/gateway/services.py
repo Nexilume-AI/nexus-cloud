@@ -260,6 +260,7 @@ def chat_completions(*, request, payload: dict[str, Any]) -> dict[str, Any]:
                     request_tokens=response.request_tokens,
                     response_tokens=response.response_tokens,
                     cached_input_tokens=response.cached_input_tokens,
+                    cache=response.cache_usage,
                     reasoning_output_tokens=response.reasoning_output_tokens,
                 )
                 gateway_log = finalize_gateway_success(
@@ -431,6 +432,7 @@ def stream_chat_completions(*, request, payload: dict[str, Any]) -> Iterator[Pro
                     request_tokens=provider_response.request_tokens,
                     response_tokens=provider_response.response_tokens,
                     cached_input_tokens=provider_response.cached_input_tokens,
+                    cache=provider_response.cache_usage,
                     reasoning_output_tokens=provider_response.reasoning_output_tokens,
                 )
                 gateway_log = finalize_gateway_success(
@@ -1309,9 +1311,11 @@ def build_stream_provider_response(
     if response_tokens <= 0:
         response_tokens = max(len(text.split()), 1 if text else 0)
     total_tokens = int(usage.get("total_tokens") or request_tokens + response_tokens) if usage else request_tokens + response_tokens
+    from .prompt_cache import cache_usage
+    cache_data = cache_usage(usage, request_tokens)
     input_details = usage.get("prompt_tokens_details") or usage.get("input_tokens_details") or {} if usage else {}
     output_details = usage.get("completion_tokens_details") or usage.get("output_tokens_details") or {} if usage else {}
-    cached_input_tokens = min(max(int(input_details.get("cached_tokens") or 0), 0), request_tokens)
+    cached_input_tokens = cache_data["cached_tokens"]
     reasoning_output_tokens = min(max(int(output_details.get("reasoning_tokens") or 0), 0), response_tokens)
     raw = {
         "id": f"chatcmpl_{uuid.uuid4().hex}",
@@ -1329,6 +1333,8 @@ def build_stream_provider_response(
             "prompt_tokens": request_tokens,
             "completion_tokens": response_tokens,
             "total_tokens": total_tokens,
+            "prompt_tokens_details": input_details,
+            "completion_tokens_details": output_details,
         },
     }
     return ProviderResponse(
@@ -1340,6 +1346,7 @@ def build_stream_provider_response(
         latency_ms=latency_ms,
         cached_input_tokens=cached_input_tokens,
         reasoning_output_tokens=reasoning_output_tokens,
+        cache_usage=cache_data,
     )
 
 

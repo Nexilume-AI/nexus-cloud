@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-19",
+  "production_deployed": false,
+  "model": "gpt-6.1-sol",
+  "public_protocol": "Responses",
+  "public_samples": [
+    {
+      "stream": false,
+      "http": 200,
+      "seconds": 12.856,
+      "input_tokens": 27830,
+      "output_tokens": 7,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0
+    },
+    {
+      "stream": false,
+      "http": 200,
+      "seconds": 8.578,
+      "input_tokens": 27830,
+      "output_tokens": 18,
+      "cached_tokens": 27648,
+      "cache_write_tokens": 0,
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0
+    },
+    {
+      "stream": true,
+      "http": 200,
+      "seconds": 6.734,
+      "input_tokens": 27830,
+      "output_tokens": 7,
+      "cached_tokens": 27648,
+      "cache_write_tokens": 0,
+      "configured_platform_charge": "0.000000",
+      "success_receipts": 1,
+      "debit_entries": 0
+    }
+  ],
+  "real_explicit_cache_controls": "upstream HTTP 400: prompt_cache_options not supported",
+  "positive_real_cache_writes_verified": false,
+  "positive_tariff_ledger_validation": "isolated tests; not a real-money discount measurement",
+  "relay_validation": "actual loopback HTTP/WebSocket byte preservation, JSON and SSE",
+  "limitations": [
+    "No production schema or code change",
+    "No cache affinity guarantee when auto changes Source",
+    "Latency observations are not a benchmark"
+  ]
+}

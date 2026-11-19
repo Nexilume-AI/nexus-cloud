@@ -282,7 +282,9 @@ def finalize(*, request, tenant, api_key, router, fallback_count, deployment, re
     if (str(tenant.pk) != str(row.tenant_id) or api_key is not None or cost != 0 or attempt.request_id != row.pk
             or attempt.source_id != deployment.pk or attempt.state != "responded"):
         raise exceptions.NotFound("Gateway completion context is unavailable.")
+    from apps.gateway.prompt_cache import receipt
     log = GatewayRequestLog.objects.create(**_log_fields(request, tenant, router, deployment, requested_model),
+        cache_usage=receipt(provider_response, getattr(deployment, "runtime_model_offer", None)),
         status="success", image_count=provider_response.image_count,
         request_tokens=provider_response.request_tokens, response_tokens=provider_response.response_tokens,
         total_tokens=provider_response.total_tokens, fallback_count=fallback_count, latency_ms=provider_response.latency_ms)

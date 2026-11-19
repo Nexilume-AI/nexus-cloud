@@ -51,6 +51,7 @@ class GatewayRequestLog(BaseModel):
     request_tokens = models.PositiveIntegerField(default=0)
     response_tokens = models.PositiveIntegerField(default=0)
     total_tokens = models.PositiveIntegerField(default=0)
+    cache_usage = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES)
     error_code = models.CharField(max_length=64, blank=True)
     fallback_count = models.PositiveIntegerField(default=0)

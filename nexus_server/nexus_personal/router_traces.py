@@ -89,6 +89,7 @@ def _serialize_rows(request, router, rows):
             "latency_ms": log.latency_ms, "fallback_count": log.fallback_count,
             "request_tokens": log.request_tokens, "response_tokens": log.response_tokens,
             "total_tokens": log.total_tokens, "image_count": log.image_count,
+            "cache_usage": log.cache_usage,
             "selected_pool_id": str(group.pk) if group else None,
             "selected_pool": (group.display_name or group.name) if group else None,
             "selected_source_id": str(source.pk) if source else None,
