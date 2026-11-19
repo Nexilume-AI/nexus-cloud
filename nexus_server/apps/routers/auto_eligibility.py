@@ -11,6 +11,28 @@ class AutoCandidatesUnavailable(ModelOperationUnsupported):
         super().__init__('No authorized Auto candidate supports this request capacity and capabilities. ' + summary)
 
 
+def capacity_fallback_budget(assessment):
+    """Usable input budget, only when uncertain input size is the sole obstacle.
+
+    An explicit output budget larger than the entire context is a known
+    mismatch, regardless of the input tokenizer. Unknown capacity is not zero.
+    """
+    reasons = assessment['reasons']
+    capacity = assessment['capacity']
+    if (not reasons or capacity.get('estimated') is not True or
+            any(r['code'] not in ('context_window_exceeded', 'max_input_tokens_exceeded') for r in reasons)):
+        return None
+    limits = []
+    if capacity.get('context_window') is not None:
+        remaining = capacity['context_window'] - capacity['output_tokens']
+        if remaining < 0:
+            return None
+        limits.append(remaining)
+    if capacity.get('max_input_tokens') is not None:
+        limits.append(capacity['max_input_tokens'])
+    return min(limits) if limits else None
+
+
 def inspect_candidate(source, payload, catalog, *, tokens=None):
     fields = {k: v.get('value') for k, v in source_fields(source, catalog).items() if isinstance(v, dict)}
     options = request_options(payload)

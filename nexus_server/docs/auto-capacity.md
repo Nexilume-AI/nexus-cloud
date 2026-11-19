@@ -28,7 +28,24 @@ model capacities are not treated as zero. Explicitly unsupported modalities and
 operations are still rejected. Separate HTTP/request-size policies are unchanged.
 
 Each considered candidate has a `candidate_assessments` entry in the Auto routing
-trace. If all candidates fail, the HTTP 400 error (or SSE error event after stream
+trace. Candidates that fit the estimate are preferred. If none fit, Auto can try
+**one** otherwise-authorized and capable source whose only failed checks are
+estimated input/context capacity. It picks the largest usable input budget:
+the smaller of `context_window - output_tokens` and `max_input_tokens`, when
+known. It leaves the entire request unchanged and lets the upstream validate it.
+It does not fan out to other models or run another Decision Model request.
+
+This fallback never relaxes permissions, capabilities, reasoning levels, an
+explicit output limit, or an output budget exceeding the entire context window.
+A previous tool-continuation pin cannot force a smaller source in this fallback.
+The trace uses `reason: capacity_estimate_fallback` and records
+`capacity_fallback.upstream_validation_required: true`. The selected assessment
+retains its original `eligible: false` estimate and reasons, with
+`admitted_by_capacity_fallback: true` to distinguish admission from estimated fit.
+Upstream errors remain errors; fallback does not promise the request fits.
+
+If no normally eligible or capacity-fallback candidate remains, the HTTP 400
+error (or SSE error event after stream
 headers) retains code `MODEL_OPERATION_UNSUPPORTED` and adds:
 
 ```json
@@ -38,13 +55,13 @@ headers) retains code `MODEL_OPERATION_UNSUPPORTED` and adds:
     "model": "public-model-alias",
     "eligible": false,
     "reasons": [{
-      "code": "context_window_exceeded",
-      "required_tokens": 100128,
-      "limit_tokens": 64000
+      "code": "max_output_tokens_exceeded",
+      "required_tokens": 8192,
+      "limit_tokens": 4096
     }],
     "capacity": {
       "input_tokens": 100000,
-      "output_tokens": 128,
+      "output_tokens": 8192,
       "tokenizer": "o200k_base",
       "tokenizer_match": "reference",
       "estimated": true,

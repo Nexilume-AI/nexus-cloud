@@ -53,15 +53,29 @@ def rank(request, router, payload, rows):
     preference_order = harness.aggregate_order(router, rows) if router.strategy == 'system_one' else []
     catalog = models_dev.snapshot()
     from apps.gateway.request_tokens import RequestTokens
-    from .auto_eligibility import AutoCandidatesUnavailable, inspect_candidate
+    from .auto_eligibility import AutoCandidatesUnavailable, inspect_candidate, capacity_fallback_budget
     tokens = RequestTokens(payload)
-    eligible, assessments = [], []
+    eligible, assessments, capacity_fallbacks = [], [], []
     for row in rows:
         result = inspect_candidate(row[0], payload, catalog, tokens=tokens)
         assessments.append({'model': row[1].exposed_model_name,
                             'source_id': str(getattr(row[0], 'pk', '')), **result})
         if result['eligible']:
             eligible.append(row)
+        else:
+            budget = capacity_fallback_budget(result)
+            if budget is not None:
+                capacity_fallbacks.append((budget, row, assessments[-1]))
+    capacity_fallback = None
+    if not eligible and capacity_fallbacks:
+        # Input counts are estimates, not proof that the upstream will reject.
+        # Try one authorized, otherwise-capable source with the most input
+        # headroom. Neither a Decision Model nor a previous pin can override it.
+        _, chosen, assessment = max(capacity_fallbacks, key=lambda item: item[0])
+        eligible = [chosen]
+        assessment['admitted_by_capacity_fallback'] = True
+        capacity_fallback = {'selected_model': assessment['model'], 'source_id': assessment['source_id'],
+                             'upstream_validation_required': True}
     rows = eligible
     if not rows:
         import logging
@@ -81,6 +95,8 @@ def rank(request, router, payload, rows):
     names = sorted(groups, key=score)
     trace = {'algorithm': router.strategy, 'status': 'selected', 'reason': 'complex_task_priority' if complex_task else 'fastest_eligible', 'candidate_models': names}
     trace['candidate_assessments'] = assessments
+    if capacity_fallback:
+        trace.update(status='fallback', reason='capacity_estimate_fallback', capacity_fallback=capacity_fallback)
     state_key = continuity_key(request, router, payload)
     continuation = any(m.get('role') == 'tool' for m in payload.get('messages', [])[-1:])
     try:
@@ -88,7 +104,7 @@ def rank(request, router, payload, rows):
     except Exception:
         previous = None
     started = time.monotonic()
-    if previous in groups:
+    if previous in groups and not capacity_fallback:
         names.remove(previous); names.insert(0, previous)
         trace.update(reason='tool_continuation', status='retained')
     elif router.strategy == 'system_one' and len(names) > 1:
