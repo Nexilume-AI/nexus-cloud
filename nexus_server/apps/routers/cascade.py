@@ -5,6 +5,42 @@ from .models import Router, RouterChildBinding, RouterOutput
 MAX_ROUTER_DEPTH = 4  # Includes the final Execution Router.
 
 
+def can_delegate_output(*, actor, tenant, router, model, binding_id, path):
+    """Authorize one internal edge without granting direct access to its child.
+
+    The caller must still be entitled to the entry Router. The parent owner
+    supplies the dependency permission, checked live at every edge. Request
+    identity, API-key scope, billing and audit always remain with the caller.
+    """
+    from apps.tenancy.models import Membership
+    from .services import can_manage_router, can_use_router
+    if not binding_id or not path or not actor or not actor.is_active:
+        return False
+    entry = Router.objects.filter(pk=path[0], tenant=tenant, status="deployed", deleted_at__isnull=True).first()
+    if entry is None or not can_use_router(user=actor, router=entry):
+        return False
+    binding = RouterChildBinding.objects.select_related("router__created_by", "child_output").filter(
+        pk=binding_id, router_id=path[-1], router__tenant=tenant,
+        router__status="deployed", router__deleted_at__isnull=True,
+        status="active", enabled=True, deleted_at__isnull=True,
+        child_output__router=router, child_output__router__tenant=tenant,
+        child_output__model_name=model, child_output__status="active",
+        child_output__enabled=True, child_output__deleted_at__isnull=True,
+    ).first()
+    if binding is None:
+        return False
+    owner = binding.router.created_by
+    if owner is None or not owner.is_active:
+        return False
+    # Membership removal must also revoke delegation even when the owner still
+    # appears as the historical creator of both Router records.
+    if not owner.is_superuser and not Membership.objects.filter(
+        user=owner, tenant=tenant, status="active", deleted_at__isnull=True,
+    ).exists():
+        return False
+    return can_manage_router(user=owner, router=binding.router) and can_use_router(user=owner, router=router)
+
+
 def active_bindings(router):
     return router.child_bindings.filter(status="active", enabled=True).select_related(
         "child_output__router", "child_output__model_group").order_by("priority", "created_at")

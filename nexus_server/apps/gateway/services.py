@@ -83,6 +83,12 @@ class RouterConfigurationRequired(DeploymentNotAvailable):
     default_code = "ROUTER_CONFIGURATION_REQUIRED"
 
 
+class RouterChildPermissionDenied(GatewayError):
+    status_code = status.HTTP_403_FORBIDDEN
+    default_code = "ROUTER_CHILD_PERMISSION_DENIED"
+    default_detail = "A configured child Router is not authorized. Ask the Aggregation Router owner to review its child access and bindings."
+
+
 def router_source_failure(pools: list[dict[str, Any]]) -> DeploymentNotAvailable:
     """Explain eligibility without exposing endpoints, credentials or probe bodies."""
     if not pools or all(pool.get("group") is None for pool in pools):
@@ -527,7 +533,7 @@ def resolve_router_deployment_candidates(*, request, tenant: Tenant, router_id: 
 
 
 def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: dict[str, Any],
-                           _path=(), _auto_owner=None, _entry=True) -> RoutingResolution:
+                           _path=(), _auto_owner=None, _entry=True, _binding_id=None) -> RoutingResolution:
     router = Router.objects.filter(tenant=tenant, id=router_id, status=Router.STATUS_DEPLOYED).first()
     if router is None:
         raise ModelNotFound("Router not found or not deployed.")
@@ -537,8 +543,11 @@ def resolve_router_routing(*, request, tenant: Tenant, router_id: str, payload: 
     if not _entry:
         from apps.routers.services import can_use_router
         actor = request_actor_user(request) or getattr(getattr(request, "api_key", None), "created_by", None)
-        if actor is None or not can_use_router(user=actor, router=router):
-            raise exceptions.PermissionDenied("Use permission is required at every Router level.")
+        from apps.routers.cascade import can_delegate_output
+        if actor is None or (not can_use_router(user=actor, router=router) and not can_delegate_output(
+                actor=actor, tenant=tenant, router=router, model=payload['model'],
+                binding_id=_binding_id, path=_path)):
+            raise RouterChildPermissionDenied()
     gateway_integration().authorize_router(request=request, tenant=tenant, router=router)
     child_bindings = list(
         router.child_bindings.filter(status=SoftDeleteModel.STATUS_ACTIVE, enabled=True)
@@ -708,6 +717,7 @@ def resolve_aggregation_router(
     candidate_rows: list[dict[str, Any]] = []
     resolved: list[tuple[Deployment, RouterChildBinding, dict[str, Any]]] = []
     source_failures: list[DeploymentNotAvailable] = []
+    permission_failures: list[exceptions.APIException] = []
     from apps.routers.decision_routing import is_auto_output
     for binding in matching:
         if auto and _entry:
@@ -737,12 +747,14 @@ def resolve_aggregation_router(
                 child_resolution = resolve_router_routing(
                     request=request, tenant=tenant, router_id=str(child_router.pk),
                     payload={**payload, "model": output.model_name},
-                    _path=_path, _auto_owner=_auto_owner, _entry=False,
+                    _path=_path, _auto_owner=_auto_owner, _entry=False, _binding_id=binding.pk,
                 )
-            except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported, exceptions.PermissionDenied) as exc:
+            except (DeploymentNotAvailable, ModelNotFound, ModelOperationUnsupported, exceptions.PermissionDenied, RouterChildPermissionDenied) as exc:
                 reason = str(exc.detail if hasattr(exc, "detail") else exc)
                 if isinstance(exc, (RouterSourceUnavailable, RouterConfigurationRequired)):
                     source_failures.append(exc)
+                if isinstance(exc, (exceptions.PermissionDenied, RouterChildPermissionDenied)):
+                    permission_failures.append(exc)
         candidate_rows.append(
             {
                 "binding_id": str(binding.id),
@@ -766,6 +778,8 @@ def resolve_aggregation_router(
             # Preserve the actionable leaf diagnosis instead of hiding it behind
             # another "no child output" error. Existing healthy fallback wins.
             raise next((exc for exc in source_failures if isinstance(exc, RouterSourceUnavailable)), source_failures[0])
+        if permission_failures:
+            raise RouterChildPermissionDenied()
         raise DeploymentNotAvailable("Aggregation Router has no available child Router output for this model.")
 
     decision = None

@@ -33,11 +33,18 @@ not silently switch to another model. Restore the alias or update the mapping.
   configurations created outside the management API.
 - The entry credential still limits entry Router, model aliases and operations.
   It cannot call a child Router directly just because a permitted parent maps it.
-- Every traversed child must still be deployed and callable by the authenticated
-  account. Restricted Router credentials use their validated owner; legacy API
-  keys use their issuer. Revocation and disabled outputs are rechecked on every
-  request, including tool continuations. Model Pool and Source authorization stays
-  with the existing edition-specific Gateway.
+- Every traversed child must still be deployed. The caller may have direct Use
+  permission, or use the exact bound output through the permitted entry Router.
+  For internal delegation, the parent owner must remain active, an Organization
+  member (or system administrator), authorized to manage the parent and use the
+  child. These checks run at every edge; no child permissions are granted to the
+  caller and no owner credentials replace the caller identity.
+- Revoking entry access, owner membership/access, or disabling/removing a binding
+  blocks the relevant path on the next request. An eligible fallback still works.
+  If all paths fail permission checks, the API reports HTTP 403 with
+  `ROUTER_CHILD_PERMISSION_DENIED`, not a misleading unavailable-model error.
+  Model Pool/Source authorization, API key restrictions and billing stay with
+  the existing edition-specific Gateway.
 
 ## Exactly one Auto decision owner
 
