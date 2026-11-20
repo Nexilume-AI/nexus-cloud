@@ -110,7 +110,7 @@ pinned and do not invoke the decision service. Auto can also be aggregated throu
 the existing default-output mapping. Disabling the policy disables Auto.
 
 Configuration contains only `provider_connection_id`, `model`, `model_source`, and a bounded
-`timeout_ms` (500–8000). No URL or plaintext key is accepted in Router config.
+`timeout_ms` (1000–60000, default 20000). No URL or plaintext key is accepted in Router config.
 Configuration requires Router management and Provider use permission. Dispatch
 rechecks Organization, Provider/Runtime/Offer status and Project scope. The model
 cannot add a target, authorize a resource, or bypass modality/health filters.

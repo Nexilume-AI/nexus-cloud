@@ -77,3 +77,21 @@ class AggregateAutoTests(SimpleTestCase):
             self.assertTrue(auto.compatible(NS(),{**self.payload,'max_tokens':10,'reasoning_effort':'low'},{}))
             self.assertFalse(auto.compatible(NS(),{**self.payload,'max_tokens':21},{}))
             self.assertFalse(auto.compatible(NS(),{**self.payload,'max_tokens':10,'reasoning_effort':'high'},{}))
+
+    def test_explicit_objective_fallback_does_not_confuse_price_and_speed(self):
+        from decimal import Decimal
+        from apps.gateway.provider_adapters import ProviderClientError
+        self.router.strategy = 'system_one'
+        self.router.decision_config = {'model': 'decision', 'routing_preference': 'cost'}
+        self.rows[0][0].pricing_rate = Decimal('.1')
+        self.rows[1][0].pricing_rate = Decimal('10')
+        with patch('apps.routers.decision_routing.resolve_provider', side_effect=ValueError('offline')):
+            rows, trace = self.rank()
+            self.assertEqual(rows[0][1].exposed_model_name, 'strong')  # cheap but slow
+            self.assertEqual(trace['routing_preference'], 'cost')
+            self.rows[0][0].pricing_rate, self.rows[1][0].pricing_rate = Decimal('10'), Decimal('.1')
+            rows, _ = self.rank(); self.assertEqual(rows[0][1].exposed_model_name, 'fast')
+            self.router.decision_config['routing_preference'] = 'performance'
+            rows, trace = self.rank()
+            self.assertEqual(rows[0][1].exposed_model_name, 'strong')
+            self.assertEqual(trace['routing_preference'], 'performance')

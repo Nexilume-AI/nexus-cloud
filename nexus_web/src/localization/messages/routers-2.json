@@ -109,5 +109,11 @@
   "Choose a Router first": "请先选择 Router",
   "Child model": "子路由模型",
   "Child Auto is used only through this named mapping, never by this Router's Auto selection.": "子路由 Auto 仅通过此命名映射调用，不参与当前 Router 的 Auto 选择。",
-  "Each API model name must have one mapping.": "每个 API 模型名称必须有且仅有一个映射。"
+  "Each API model name must have one mapping.": "每个 API 模型名称必须有且仅有一个映射。",
+  "Routing objective": "路由目标",
+  "Cost first": "成本优先",
+  "Performance first": "性能优先",
+  "Cost first prefers lower configured prices among capable models. Performance first prioritizes answer quality. Unknown prices are not treated as free.": "成本优先在能完成任务的模型中优先选择配置价格较低的模型。性能优先着重回答质量。未知价格不会按免费处理。",
+  "Decision input adapts to model capacity. Long tasks retain requirements and excerpts across the document; the final model receives the full request. Timeouts and failures use the Router fallback policy. Usage may incur charges.": "决策输入按模型容量动态调整。长任务保留关键要求及全文各处的摘录，最终模型仍接收完整请求。超时或失败时使用 Router 回退策略，调用可能产生费用。",
+  "Order strongest to fastest. This defines capability preference, not price. The routing objective controls the quality and cost tradeoff.": "从能力最强到速度最快排序。这代表能力偏好，不代表价格。路由目标决定质量与成本的取舍。"
 }

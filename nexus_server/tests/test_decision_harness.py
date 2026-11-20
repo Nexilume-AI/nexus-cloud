@@ -6,6 +6,20 @@ from apps.routers.inputs import DecisionConfigSerializer
 
 
 class DecisionHarnessTests(SimpleTestCase):
+    def test_performance_wire_policy_escalates_without_forcing_mechanical_work(self):
+        from apps.routers.decision_budget import fit
+        instruction=harness.instructions({'routing_preference':'performance'})
+        body, diagnostics=fit({'model':'decision', 'state':{'task':'Verify a FIFO'},
+            'questions':{'route':{'type':'choice','instructions':instruction,
+                'criteria':{'last':'stronger','first':'faster'}}}},4096)
+        actual=json.loads(body)['questions']['route']['instructions']
+        self.assertEqual(actual,instruction)
+        for rule in ['smaller is stronger', 'not JSON option order', 'correctness verification',
+                     'Ambiguous difficulty', 'clearly mechanical', 'task-specific capability evidence']:
+            self.assertIn(rule,actual)
+        self.assertFalse(diagnostics['task_truncated'])
+        self.assertNotIn('default to the strongest',harness.instructions({'routing_preference':'cost'}))
+
     def test_profiles_match_desktop(self):
         for n, expected in [(2, ['deep_reasoning','fast']), (3, ['deep_reasoning','balanced','fast']),
                             (4, ['deep_reasoning','advanced','balanced','fast']),
@@ -29,13 +43,13 @@ class DecisionHarnessTests(SimpleTestCase):
         self.assertIsNone(row['capabilities']['reasoningSupported'])
         self.assertIsNone(row['capabilities']['reasoningEfforts'])
 
-    def test_only_bounded_latest_user_text_sent(self):
+    def test_full_latest_user_text_prepared_for_capacity_fitting(self):
         result=harness.state({'messages':[{'role':'system','content':'system-private'}, {'role':'user','content':'first'},
             {'role':'user','content':[{'type':'text','text':'secret-decision-key sk-hidden Bearer confidential '+ 'x'*5000},
                                       {'type':'image_url','image_url':{'url':'private-image'}}]},
             {'role':'tool','content':'private-result'}], 'tools':[{'private':'schema'}]},key='secret-decision-key')
         self.assertEqual(result['evaluation'],'new_task')
-        self.assertEqual(len(result['task']),4000)
+        self.assertGreater(len(result['task']),5000)
         for text in ['secret-decision-key','sk-hidden','confidential','private','first']:
             self.assertNotIn(text,json.dumps(result))
 

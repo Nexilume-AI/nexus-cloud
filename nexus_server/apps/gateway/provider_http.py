@@ -213,6 +213,7 @@ def open_provider_url(
     public_https_only: bool = False,
     error_body_limit: int = 64 * 1024,
     timing: dict | None = None,
+    total_deadline=None,
 ):
     """Open one redirect-free, DNS-pinned Provider request."""
     timing = timing if timing is not None else {}
@@ -220,12 +221,17 @@ def open_provider_url(
     endpoint = resolve_provider_endpoint(url, allow_private=allow_private, allow_http=allow_http,
                                          public_https_only=public_https_only)
     timing['dns_ms'] = round((time.monotonic() - began) * 1000, 2)
+    if total_deadline is not None:
+        timeout = min(timeout, total_deadline.remaining())
     factory = _PinnedHTTPSConnection if endpoint.scheme == "https" else _PinnedHTTPConnection
     connection = None
     phase = "connect"
     try:
         if connect_timeout is None:
             connection = factory(endpoint, timeout)
+            if total_deadline is not None:
+                connection.connect()
+                total_deadline.watch(connection.sock)
         else:
             deadline = time.monotonic() + connect_timeout
             for attempt in range(2):
@@ -251,6 +257,8 @@ def open_provider_url(
         if not any(name.lower() == "user-agent" for name in request_headers):
             request_headers["User-Agent"] = PROVIDER_USER_AGENT
         phase = "send"
+        if total_deadline is not None:
+            total_deadline.remaining()
         connection.request(method.upper(), endpoint.path, body=body, headers=request_headers)
         timing['request_sent_ms'] = round((time.monotonic() - began) * 1000, 2)
         phase = "response"

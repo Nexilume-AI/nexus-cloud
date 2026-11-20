@@ -91,7 +91,7 @@ export function RoutersPage() {
     [],
   );
   const [policy, setPolicy] = useState("manual_priority");
-  const [decisionConfig, setDecisionConfig] = useState<RouterDecisionSettings>({ provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog" });
+  const [decisionConfig, setDecisionConfig] = useState<RouterDecisionSettings>({ provider_connection_id: "", model: "", timeout_ms: 20000, model_source: "catalog" });
   const [routerCode, setRouterCode] = useState(starterRouter);
   const [apiAccessOpen, setApiAccessOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<ShareResourceTarget | null>(

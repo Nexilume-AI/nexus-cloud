@@ -18,7 +18,7 @@ describe("inline System One connection", () => {
     expect(start).toHaveBeenCalledWith(context, "new", "start");
     expect(remembered[0]).toEqual({ ...config, needs_start: true });
     expect(remembered[1]).toEqual(config);
-    expect(config).toEqual({ provider_connection_id: "new", model: "decision-model-preview", timeout_ms: 3000, model_source: "explicit", model_order: ["strong", "fast"] });
+    expect(config).toEqual({ provider_connection_id: "new", model: "decision-model-preview", timeout_ms: 3000, model_source: "explicit", routing_preference: "cost", model_order: ["strong", "fast"] });
     expect(JSON.stringify([config, remembered])).not.toMatch(/test-secret|https:\/\//);
   });
   it("retries Start against the saved Provider without re-sending the key or creating duplicates", async () => {
@@ -61,4 +61,15 @@ describe("inline System One connection", () => {
     expect(decisionConnectionError(value)).toContain("API key");
     expect(decisionConnectionError({ ...value, model: "" })).toContain("model ID");
   });
+});
+
+
+it("retains the routing objective across connection creation and save retries", async () => {
+  vi.spyOn(api, "createProviderConnection").mockResolvedValue(provider);
+  vi.spyOn(api, "providerConnectionAction").mockResolvedValue(provider);
+  const value = { ...draft(), routing_preference: "performance" as const };
+  const result = await prepareDecisionConnection(context, value, { project_id: null }, vi.fn());
+  expect(result.routing_preference).toBe("performance");
+  expect(decisionSettingsPayload(result).routing_preference).toBe("performance");
+  expect(decisionSettingsPayload(draft()).routing_preference).toBe("cost");
 });

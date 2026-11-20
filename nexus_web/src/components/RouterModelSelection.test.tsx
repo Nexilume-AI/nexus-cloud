@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Router } from "../lib/types";
-import { RouterModelSelection, savedDecisionSettings } from "./RouterModelSelection";
+import { RouterModelSelection, savedDecisionSettings, RoutingObjectiveField } from "./RouterModelSelection";
 
 const router = {
   id: "router-test", name: "aggre", strategy: "system_one",
@@ -46,6 +46,15 @@ describe("Router model selection", () => {
     expect(router.decision_config?.model_order).toEqual(["strong", "removed", "fast"]);
   });
   it("supplies valid defaults for a new Router", () => {
-    expect(savedDecisionSettings({ ...router, decision_config: undefined, child_bindings: [] })).toEqual({ provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog" });
+    expect(savedDecisionSettings({ ...router, decision_config: undefined, child_bindings: [] })).toEqual({ provider_connection_id: "", model: "", timeout_ms: 20000, model_source: "catalog" });
   });
+});
+
+
+it("shows economic versus quality objectives without equating speed and price", () => {
+  const html = renderToStaticMarkup(<RoutingObjectiveField value="performance" onChange={() => {}} />);
+  expect(html).toContain('value="performance" selected=""');
+  expect(html).toContain('Cost first');
+  expect(html).toContain('Performance first');
+  expect(html).toContain('Unknown prices are not treated as free.');
 });

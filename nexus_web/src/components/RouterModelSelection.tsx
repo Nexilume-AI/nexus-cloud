@@ -17,7 +17,8 @@ import "./router-routing.css";
 export type { RouterDecisionSettings } from "../lib/routerDecisionConnection";
 
 export function savedDecisionSettings(router: Router): RouterDecisionSettings {
-  const config: RouterDecisionSettings = { provider_connection_id: "", model: "", timeout_ms: 8000, model_source: "catalog", ...router.decision_config };
+  const config: RouterDecisionSettings = { provider_connection_id: "", model: "", timeout_ms: 20000, model_source: "catalog", ...router.decision_config };
+  config.timeout_ms = Math.min(60000, Math.max(1000, config.timeout_ms));
   if (config.model_order) {
     const active = new Set((router.child_bindings ?? []).filter(row => row.status === "active").map(row => row.id));
     config.model_order = config.model_order.filter(id => active.has(id));
@@ -97,7 +98,7 @@ function RouterModelSelectionDialog({ router, onClose }: { router: Router; onClo
         <section className="router-routing-section"><h3>{t("Decision service")}</h3><SystemOneRoutingSettings value={config} onChange={setConfig} /></section>
         <section className="router-routing-section">
           <h3>{t("Model preference order")}</h3>
-          <p>{t("Order strongest to fastest. Simple tasks prefer Fast; harder tasks use a stronger model.")}</p>
+          <p>{t("Order strongest to fastest. This defines capability preference, not price. The routing objective controls the quality and cost tradeoff.")}</p>
           {rows.length ? <ol className="router-routing-order">{rows.map((row, index) => <li key={row.id}>
             <span className="router-routing-rank">{index + 1}</span><span className="router-routing-model"><strong>{row.exposed_model_name}</strong><small>{t(decisionRole(index, rows.length))}{!row.enabled && ` · ${t("Disabled")}`}</small></span>
             <div className="router-routing-move"><button className="btn" aria-label={t("Move {{0}} up", { 0: row.exposed_model_name })} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp size={15} /></button><button className="btn" aria-label={t("Move {{0}} down", { 0: row.exposed_model_name })} disabled={index === rows.length - 1} onClick={() => move(index, 1)}><ArrowDown size={15} /></button></div>
@@ -126,7 +127,7 @@ export function SystemOneRoutingSettings({ value, onChange, disabled = false }: 
   return <fieldset className="router-decision-fields" disabled={disabled}>
     <legend className="sr-only">{t("System One connection")}</legend>
     <div className="router-connection-switch" role="group" aria-label={t("Connection source")}>
-      <button type="button" aria-pressed={!fresh} onClick={() => { if (fresh) { const { new_connection: _draft, ...existing } = value; onChange({ ...(existingDraft.current ?? existing), timeout_ms: value.timeout_ms, model_order: value.model_order }); } }}>{t("Existing Provider")}</button>
+      <button type="button" aria-pressed={!fresh} onClick={() => { if (fresh) { const { new_connection: _draft, ...existing } = value; onChange({ ...(existingDraft.current ?? existing), timeout_ms: value.timeout_ms, model_order: value.model_order, routing_preference: value.routing_preference }); } }}>{t("Existing Provider")}</button>
       <button type="button" aria-pressed={Boolean(fresh)} onClick={() => { if (!fresh) { existingDraft.current = value; onChange({ ...value, model: "", new_connection: { name: "System One", url: "", key: "" } }); } }}>{t("New connection")}</button>
     </div>
     {fresh ? <>
@@ -153,9 +154,20 @@ export function SystemOneRoutingSettings({ value, onChange, disabled = false }: 
     {value.needs_start && <p className="router-routing-footnote" role="status">{t("Connection saved. Save routing again to retry starting it; the API key does not need to be entered again.")}</p>}
     {(connections.isError || provider.isError) && <p role="alert">{t("Decision Provider could not be loaded.")} <button className="btn" onClick={() => { void connections.refetch(); if (value.provider_connection_id) void provider.refetch(); }}>{t("Retry")}</button></p>}
     </>}
+    <RoutingObjectiveField value={value.routing_preference ?? "cost"} onChange={routing_preference => onChange({ ...value, routing_preference })} />
     <Field label={t("Decision timeout")}><select className="select" value={value.timeout_ms} onChange={event => onChange({ ...value, timeout_ms: Number(event.target.value) })}>
-      {Array.from(new Set([1000, 3000, 5000, 8000, value.timeout_ms])).sort((a, b) => a - b).map(ms => <option key={ms} value={ms}>{ms / 1000} s</option>)}
+      {Array.from(new Set([1000, 3000, 5000, 8000, 10000, 15000, 20000, 30000, 45000, 60000, value.timeout_ms])).sort((a, b) => a - b).map(ms => <option key={ms} value={ms}>{ms / 1000} s</option>)}
     </select></Field>
-    <p className="router-routing-footnote">{t("Timeouts and failures use the Router's fallback policy. Sends up to 4,000 characters of user text and candidate summaries to this Provider; usage may incur charges.")}</p>
+    <p className="router-routing-footnote">{t("Decision input adapts to model capacity. Long tasks retain requirements and excerpts across the document; the final model receives the full request. Timeouts and failures use the Router fallback policy. Usage may incur charges.")}</p>
   </fieldset>;
+}
+
+export function RoutingObjectiveField({ value, onChange }: { value: "cost" | "performance"; onChange: (value: "cost" | "performance") => void }) {
+  useLocale();
+  return <Field label={t("Routing objective")} hint={t("Cost first prefers lower configured prices among capable models. Performance first prioritizes answer quality. Unknown prices are not treated as free.")}>
+      <select className="select" aria-label={t("Routing objective")} value={value} onChange={event => onChange(event.target.value as "cost" | "performance")}>
+        <option value="cost">{t("Cost first")}</option>
+        <option value="performance">{t("Performance first")}</option>
+      </select>
+    </Field>;
 }

@@ -87,8 +87,24 @@ def resolve_provider(*, router, config, account=None, runtime=None):
 
 
 def select_pools(*, router, pools, payload, request=None):
+    from . import decision_harness as harness
+    from apps.gateway.request_tokens import RequestTokens
+    config = router.decision_config or {}
+    tokens = RequestTokens(payload)
+    costs = {str(pool['id']): harness.cost_estimate(pool['deployments'], payload, tokens) for pool in pools}
+    # Use configured capability preference even if incoming health sorting
+    # changed the order. Price ranks only the cost-mode fallback path.
+    pools = sorted(pools, key=lambda p: getattr(p['binding'], 'priority', 0))
+    capability_order = [str(pool['id']) for pool in pools]
+    if harness.preference(config) == 'cost':
+        import re
+        from .aggregate_auto import task_text
+        complex_task = re.search(r'prove|proof|architecture|deadlock|debug|optimi[sz]|证明|架构|死锁|调试|优化', task_text(payload), re.I)
+        if not complex_task:
+            pools = sorted(pools, key=lambda p: (costs[str(p['id'])] is None, costs[str(p['id'])] or 0))
     started = time.monotonic()
     trace = {"algorithm": "system_one", "status": "skipped", "reason": "single_eligible_pool"}
+    trace.update(routing_preference=harness.preference(config), candidate_costs={k: str(v) if v is not None else None for k,v in costs.items()})
     if not 2 <= len(pools) <= 32:
         trace["reason"] = "single_eligible_pool" if len(pools) < 2 else "candidate_limit"
         return pools, trace
@@ -117,16 +133,16 @@ def select_pools(*, router, pools, payload, request=None):
         if not key:
             raise exceptions.ValidationError("Missing decision credential.")
         order = [str(b.model_group_id) for b in router.model_group_bindings.filter(status='active').order_by('priority', 'created_at')]
-        order = list(dict.fromkeys([*order, *(str(p['id']) for p in pools)]))
+        order = list(dict.fromkeys([*order, *capability_order]))
         catalog = models_dev.snapshot()
         targets = {f"pool_{order.index(str(pool['id']))}": pool for pool in sorted(pools, key=lambda p: order.index(str(p['id'])), reverse=True)}
         choices = {route: harness.description(name=pool['group'].display_name or pool['group'].name,
                     index=order.index(str(pool['id'])), count=len(order), sources=pool['deployments'], catalog=catalog,
-                    payload=payload, hint=pool['binding'].routing_hint) for route, pool in targets.items()}
+                    payload=payload, hint=pool['binding'].routing_hint, cost=costs[str(pool['id'])]) for route, pool in targets.items()}
         from .decision_budget import input_limit
         trace['decision_input'] = {}
         choice = decide(base_url=runtime.internal_api_url, key=key, model=config["model"], state=harness.state(payload, key=key),
-                        choices=choices, timeout=min(8, max(.5, config.get("timeout_ms", 8000) / 1000)), instructions=harness.INSTRUCTIONS,
+                        choices=choices, timeout=min(60, max(1, config.get("timeout_ms", 20000) / 1000)), instructions=harness.instructions(config),
                         max_input_tokens=input_limit(runtime, config['model']), diagnostics=trace['decision_input'])
         index = pools.index(targets[choice])
         trace.update(status="selected", reason="decision_model", selected_pool_id=str(pools[index]["id"]))

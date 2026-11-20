@@ -4,6 +4,7 @@ import type { Router } from "./types";
 export type DecisionConnectionDraft = { name: string; url: string; key: string };
 export type RouterDecisionSettings = {
   provider_connection_id: string; model: string; timeout_ms: number;
+  routing_preference?: "cost" | "performance";
   model_source: "catalog" | "explicit"; model_order?: string[];
   // Form-only state. Never include credentials in Router JSON or browser storage.
   new_connection?: DecisionConnectionDraft;
@@ -31,6 +32,7 @@ export function decisionSettingsPayload(value: RouterDecisionSettings) {
   return {
     provider_connection_id: value.provider_connection_id, model: value.model.trim(),
     timeout_ms: value.timeout_ms, model_source: value.model_source,
+    routing_preference: value.routing_preference ?? "cost",
     ...(value.model_order ? { model_order: [...value.model_order] } : {}),
   };
 }

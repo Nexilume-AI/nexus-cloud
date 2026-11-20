@@ -86,14 +86,25 @@ def rank(request, router, payload, rows):
     groups = {}
     for row in rows:
         groups.setdefault(row[1].exposed_model_name, []).append(row)
-    complex_task = bool(re.search(r'prove|proof|architecture|race condition|deadlock|debug|optimi[sz]|璇佹槑|鏋舵瀯|姝婚攣|璋冭瘯|浼樺寲', task_text(payload), re.I))
+    config = getattr(router, 'decision_config', None) or {}
+    preference = harness.preference(config) if router.strategy == 'system_one' else None
+    costs = {name: harness.cost_estimate([r[0] for r in candidates], payload, tokens) for name, candidates in groups.items()} if preference else {}
+    complex_task = bool(re.search(r'prove|proof|architecture|race condition|deadlock|debug|optimi[sz]|证明|架构|死锁|调试|优化', task_text(payload), re.I))
     def score(name):
         candidates = groups[name]
         priority = preference_order.index(name) if preference_order else min(r[1].priority for r in candidates)
         latency = min(r[0].last_latency_ms or 10_000_000 for r in candidates)
-        return (priority, latency, name) if complex_task else (latency, priority, name)
+        if preference == 'performance' or complex_task:
+            return (priority, latency, name)
+        if preference == 'cost':
+            cost = costs[name]
+            return (cost is None, cost or 0, latency, priority, name)
+        return (latency, priority, name)
     names = sorted(groups, key=score)
     trace = {'algorithm': router.strategy, 'status': 'selected', 'reason': 'complex_task_priority' if complex_task else 'fastest_eligible', 'candidate_models': names}
+    if preference:
+        trace.update(routing_preference=preference, candidate_costs={name: str(cost) if cost is not None else None for name, cost in costs.items()})
+        trace['reason'] = 'quality_priority' if preference == 'performance' or complex_task else 'cost_priority'
     trace['candidate_assessments'] = assessments
     if capacity_fallback:
         trace.update(status='fallback', reason='capacity_estimate_fallback', capacity_fallback=capacity_fallback)
@@ -121,15 +132,15 @@ def rank(request, router, payload, rows):
             targets = {f'model_{i}': name for i, name in reversed(list(enumerate(preference_order))) if name in groups}
             choices = {route: harness.description(name=name, index=preference_order.index(name),
                 count=len(preference_order), sources=[r[0] for r in groups[name]], catalog=catalog,
-                payload=payload) for route, name in targets.items()}
+                payload=payload, cost=costs.get(name)) for route, name in targets.items()}
             key = decrypt_secret(account.encrypted_key)
             if not key:
                 raise ValueError('Missing decision credential')
             from .decision_budget import input_limit
             trace['decision_input'] = {}
             selected = decide(base_url=runtime.internal_api_url, key=key, model=config['model'],
-                state=harness.state(payload, key=key), choices=choices, timeout=min(8, max(.5, config.get('timeout_ms',8000)/1000)),
-                instructions=harness.INSTRUCTIONS,
+                state=harness.state(payload, key=key), choices=choices, timeout=min(60, max(1, config.get('timeout_ms',20000)/1000)),
+                instructions=harness.instructions(config),
                 max_input_tokens=input_limit(runtime, config['model']),
                 diagnostics=trace['decision_input'])
             chosen = targets[selected]
